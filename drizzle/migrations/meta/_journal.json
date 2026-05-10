@@ -15,6 +15,20 @@
       "when": 1778298334410,
       "tag": "0001_rls_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1747526400000,
+      "tag": "0002_patients",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1747612800000,
+      "tag": "0003_files",
+      "breakpoints": true
     }
   ]
 }

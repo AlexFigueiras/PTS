@@ -125,6 +125,93 @@ Cada ambiente tem **seu próprio** projeto Supabase, banco, Upstash, R2, Sentry,
 
 ---
 
+## 9. Convenção de Schemas Zod
+
+Schemas Zod vivem **próximos do domínio**, nunca em pasta global genérica.
+
+| Contexto                        | Onde colocar                         |
+| ------------------------------- | ------------------------------------ |
+| Schema de input de um módulo    | `modules/<dominio>/<dominio>.dto.ts` |
+| Schema de input de uma API      | junto ao route handler               |
+| Tipo de paginação/filtro compartilhado | `lib/pagination/index.ts`     |
+
+A pasta `validations/` existe mas **não deve crescer** — manter schemas perto do módulo que os usa. Se um schema for reutilizado por >2 módulos, promova para `lib/`.
+
+---
+
+## 10. Soft Delete — Decisão Futura
+
+**Não implementado.** Quando necessário (ex.: pacientes, profissionais), seguir o padrão:
+
+```typescript
+// Na migration:
+deleted_at timestamp with time zone  // nullable, default null
+
+// No repository — excluir deletados por padrão em TODAS as queries:
+.where(buildFilters(
+  eq(table.tenantId, this.tenantId),
+  isNull(table.deletedAt),        // ← sempre presente
+  ...filtrosAdicionais,
+))
+
+// Soft delete:
+await db.update(table)
+  .set({ deletedAt: new Date() })
+  .where(and(eq(table.id, id), eq(table.tenantId, tenantId)));
+```
+
+Nunca deletar registros clínicos — usar soft delete + auditoria.
+
+---
+
+## 11. Fronteiras Server / Client
+
+| Onde                          | Tipo       | Regra                                         |
+| ----------------------------- | ---------- | --------------------------------------------- |
+| `app/**/layout.tsx`           | Server     | Busca dados, não importa hooks                |
+| `app/**/page.tsx`             | Server     | Busca dados, passa props para Client islands  |
+| `app/**/loading.tsx`          | Server     | Skeleton simples, sem busca de dados          |
+| `components/layout/app-*.tsx` | Client     | Navegação, estado ativo, menus interativos    |
+| `components/ui/*`             | Sem diretiva | RSC-safe; `'use client'` só se usar hooks  |
+| Server Actions (`actions.ts`) | Server     | Mutações, revalidação, nunca retornam JSX     |
+
+**Regras críticas:**
+- Nunca importar `cookies()`, `headers()` em Client Components.
+- Nunca passar `TenantContext` completo como prop para Client — passe só os campos necessários (ex.: `tenantId: string`).
+- `getAuthUser()` e `getTenantContext()` são Server-only (usam `React.cache` + cookies).
+
+---
+
+## 12. Camadas: Service / Repository
+
+```
+Server Action / Route Handler
+    └── Service (regras de negócio, auditoria)
+            └── Repository (Drizzle, filtra por tenantId)
+                    └── DB (postgres-js)
+```
+
+**Regras:**
+- Repository só faz SQL. Sem lógica de negócio, sem chamadas externas.
+- Service nunca faz SQL direto. Usa repositories.
+- Server Action / Route Handler instanciam service com `TenantContext` validado.
+- Nunca instanciar repository fora de um service.
+
+---
+
+## 13. Helpers de Infraestrutura
+
+| Helper                                  | Arquivo              | Uso                                    |
+| --------------------------------------- | -------------------- | -------------------------------------- |
+| `buildFilters(...conditions)`           | `lib/db/filters.ts`  | Compor WHERE sem repetir `and()`       |
+| `getPaginationOffset(params)`           | `lib/pagination/`    | Offset para listagens paginadas        |
+| `toPaginatedResult(data, total, params)`| `lib/pagination/`    | Montar resposta paginada padrão        |
+| `getTenantTag(tenantId, resource)`      | `lib/cache.ts`       | Tag de cache tenant-aware              |
+| `revalidateTenantResource(...)`         | `lib/cache.ts`       | Invalidar cache após mutação           |
+| `useZodForm(schema, props?)`            | `lib/form.ts`        | RHF + Zod integrado (Client only)      |
+
+---
+
 ## 8. Padrão de Provedores Externos
 
 Toda integração externa segue:
