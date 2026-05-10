@@ -1,35 +1,20 @@
-import { Button } from '@/components/ui/button';
+import { LoginForm } from './login-form';
 
 export const metadata = { title: 'Login' };
 
-export default function LoginPage() {
+export default async function LoginPage(props: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const redirectTo = searchParams.redirect ?? '/dashboard';
+
   return (
     <main className="mx-auto flex min-h-svh max-w-sm flex-col justify-center gap-6 p-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Entrar</h1>
-        <p className="text-muted-foreground text-sm">
-          Placeholder — formulário e Server Action de login chegam na Fase 5.
-        </p>
+        <p className="text-muted-foreground text-sm">Acesse sua conta para continuar.</p>
       </div>
-      <form className="space-y-3">
-        <input
-          name="email"
-          type="email"
-          placeholder="email@clinica.com"
-          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-          disabled
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="••••••••"
-          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-          disabled
-        />
-        <Button type="submit" disabled className="w-full">
-          Entrar
-        </Button>
-      </form>
+      <LoginForm redirectTo={redirectTo} />
     </main>
   );
 }
