@@ -1,4 +1,5 @@
 import { withAudit } from '@/lib/audit/with-audit';
+import { requireRole } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';
 import type { TenantContext } from '@/lib/tenant-context';
 import { PatientRepository } from './patient.repository';
@@ -13,6 +14,7 @@ const updatePatientAudited = withAudit<UpdatePatientInput, PatientDto>(
     metadata: (input) => ({ id: input.id, fullName: input.fullName }),
   },
   async (ctx: TenantContext, input: UpdatePatientInput): Promise<PatientDto> => {
+    requireRole(ctx, 'professional');
     const { id, ...data } = input;
     const repo = new PatientRepository(ctx);
     const patient = await repo.update(id, data);

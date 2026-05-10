@@ -8,7 +8,7 @@
 export type TenantContext = {
   tenantId: string;
   userId: string;
-  role: 'owner' | 'admin' | 'professional' | 'viewer';
+  role: 'owner' | 'admin' | 'professional' | 'assistant';
 };
 
 export class TenantAccessError extends Error {

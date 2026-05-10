@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { ForbiddenError } from '@/lib/auth/authorization';
 import { revalidateTenantResource } from '@/lib/cache';
 import { createPatientSchema, updatePatientSchema } from './patient.dto';
 import { CreatePatientService } from './create-patient.service';
@@ -38,7 +39,8 @@ export async function createPatientAction(
     const patient = await service.execute(parsed.data);
     revalidateTenantResource(ctx.tenantId, 'patients');
     patientId = patient.id;
-  } catch {
+  } catch (err) {
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para criar pacientes.' };
     return { error: 'Erro ao criar paciente. Tente novamente.' };
   }
 
@@ -74,7 +76,8 @@ export async function updatePatientAction(
     await service.execute(parsed.data);
     revalidateTenantResource(ctx.tenantId, 'patients');
     return { error: null };
-  } catch {
+  } catch (err) {
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para editar pacientes.' };
     return { error: 'Erro ao atualizar paciente. Tente novamente.' };
   }
 }

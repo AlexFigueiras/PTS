@@ -1,6 +1,7 @@
 'use server';
 
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { ForbiddenError } from '@/lib/auth/authorization';
 import { revalidateTenantResource } from '@/lib/cache';
 import { createFileSchema } from './file.dto';
 import { CreateFileService } from './create-file.service';
@@ -37,8 +38,8 @@ export async function createFileAction(
     revalidateTenantResource(ctx.tenantId, 'patients');
     return { error: null, file };
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erro ao registrar arquivo.';
-    return { error: message, file: null };
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para fazer upload de arquivos.', file: null };
+    return { error: 'Erro ao registrar arquivo.', file: null };
   }
 }
 
@@ -60,7 +61,8 @@ export async function deleteFileAction(
     revalidateTenantResource(ctx.tenantId, 'files');
     revalidateTenantResource(ctx.tenantId, 'patients');
     return { error: null };
-  } catch {
+  } catch (err) {
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para remover arquivos.' };
     return { error: 'Erro ao remover arquivo. Tente novamente.' };
   }
 }
@@ -81,7 +83,8 @@ export async function deleteFileFormAction(formData: FormData): Promise<void> {
     await service.execute(fileId);
     revalidateTenantResource(ctx.tenantId, 'files');
     revalidateTenantResource(ctx.tenantId, 'patients');
-  } catch {
+  } catch (err) {
+    if (err instanceof ForbiddenError) return;
     // silencioso: a re-renderização confirmará se o arquivo ainda aparece
   }
 }

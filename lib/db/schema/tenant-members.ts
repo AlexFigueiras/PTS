@@ -2,7 +2,7 @@ import { pgTable, uuid, timestamp, primaryKey, index, pgEnum } from 'drizzle-orm
 import { tenants } from './tenants';
 import { profiles } from './profiles';
 
-export const tenantRoleEnum = pgEnum('tenant_role', ['owner', 'admin', 'professional', 'viewer']);
+export const tenantRoleEnum = pgEnum('tenant_role', ['owner', 'admin', 'professional', 'assistant']);
 
 export const tenantMembers = pgTable(
   'tenant_members',
@@ -13,7 +13,7 @@ export const tenantMembers = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
-    role: tenantRoleEnum('role').notNull().default('viewer'),
+    role: tenantRoleEnum('role').notNull().default('assistant'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

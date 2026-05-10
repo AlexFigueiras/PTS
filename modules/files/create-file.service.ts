@@ -1,4 +1,5 @@
 import { withAudit } from '@/lib/audit/with-audit';
+import { requireRole } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';
 import type { TenantContext } from '@/lib/tenant-context';
 import { FileRepository } from './file.repository';
@@ -20,6 +21,7 @@ const createFileAudited = withAudit<CreateFileInput, FileDto>(
     }),
   },
   async (ctx: TenantContext, input: CreateFileInput): Promise<FileDto> => {
+    requireRole(ctx, 'professional');
     if (!input.storageKey.startsWith(`uploads/${ctx.tenantId}/`)) {
       throw new Error('Acesso negado: arquivo não pertence a este tenant');
     }

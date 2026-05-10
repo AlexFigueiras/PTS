@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { requireAuthUser, UnauthorizedError } from '@/lib/auth/get-user';
 import { getTenantContext } from '@/lib/auth/get-tenant-context';
+import { requireRole, ForbiddenError } from '@/lib/auth/authorization';
 import { enforceRateLimit, RateLimitError } from '@/lib/rate-limit/enforce';
 import { getRequestLogger } from '@/lib/request-logger';
 import { TenantAccessError } from '@/lib/tenant-context';
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { tenantId, ...uploadInput } = parsed.data;
     const ctx = await getTenantContext(tenantId);
+    requireRole(ctx, 'professional');
     const service = new StorageService(ctx);
     const result = await service.requestUpload(uploadInput);
 
@@ -61,6 +63,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     if (err instanceof TenantAccessError) {
       return NextResponse.json({ error: 'Acesso negado ao tenant' }, { status: 403 });
+    }
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ error: 'Sem permissão para fazer upload' }, { status: 403 });
     }
 
     log.error({ err }, 'erro ao gerar presigned URL');
