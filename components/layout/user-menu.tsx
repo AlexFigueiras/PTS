@@ -1,5 +1,6 @@
 'use client';
 
+import { useTransition } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,29 +13,24 @@ import { logoutAction } from '@/lib/auth/logout.action';
 import { ChevronDown, LogOut } from 'lucide-react';
 
 export function UserMenu({ email }: { email: string }) {
+  const [pending, startTransition] = useTransition();
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors">
-          {email}
-          <ChevronDown className="size-3.5 opacity-50" />
-        </button>
+      <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors">
+        {email}
+        <ChevronDown className="size-3.5 opacity-50" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel className="font-normal">
-          <p className="truncate text-sm">{email}</p>
-        </DropdownMenuLabel>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={logoutAction} className="w-full">
-            <button
-              type="submit"
-              className="flex w-full cursor-default items-center gap-2 text-sm"
-            >
-              <LogOut className="size-4" />
-              Sair
-            </button>
-          </form>
+        <DropdownMenuItem
+          disabled={pending}
+          onClick={() => startTransition(() => logoutAction())}
+          className="gap-2"
+        >
+          <LogOut className="size-4" />
+          {pending ? 'Saindo…' : 'Sair'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
