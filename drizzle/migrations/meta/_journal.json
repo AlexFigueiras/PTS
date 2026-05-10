@@ -38,20 +38,6 @@
       "breakpoints": true
     },
     {
-      "idx": 5,
-      "version": "7",
-      "when": 1778440000000,
-      "tag": "0005_clinical_records",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1778441000000,
-      "tag": "0006_tenant_invites",
-      "breakpoints": true
-    },
-    {
       "idx": 7,
       "version": "7",
       "when": 1778456705314,
