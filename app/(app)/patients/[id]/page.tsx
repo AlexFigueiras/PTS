@@ -49,11 +49,19 @@ export default async function PatientPage({ params }: Props) {
         >
           ← Voltar para pacientes
         </Link>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {patient.preferredName ?? patient.fullName}
-          </h1>
-          <PatientStatusBadge status={patient.status} />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {patient.preferredName ?? patient.fullName}
+            </h1>
+            <PatientStatusBadge status={patient.status} />
+          </div>
+          <Link
+            href={`/patients/${id}/records`}
+            className="border-input hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+          >
+            Prontuário →
+          </Link>
         </div>
         {patient.preferredName && (
           <p className="text-muted-foreground mt-0.5 text-sm">{patient.fullName}</p>

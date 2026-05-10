@@ -4,3 +4,4 @@ export * from './tenant-members';
 export * from './audit-logs';
 export * from './patients';
 export * from './files';
+export * from './clinical-records';

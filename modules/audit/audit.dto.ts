@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const auditActionSchema = z.enum([
   'create',
   'update',
+  'finalize',
   'delete',
   'view',
   'login',
