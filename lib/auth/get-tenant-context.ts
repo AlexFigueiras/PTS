@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import { and, eq } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
+import { getDb } from '@/lib/db/client';
 import { tenantMembers } from '@/lib/db/schema';
 import { TenantAccessError, type TenantContext } from '@/lib/tenant-context';
 import { requireAuthUser } from './get-user';
@@ -15,7 +15,7 @@ import { requireAuthUser } from './get-user';
 export const getTenantContext = cache(async (tenantId: string): Promise<TenantContext> => {
   const user = await requireAuthUser();
 
-  const [member] = await db
+  const [member] = await getDb()
     .select({ role: tenantMembers.role })
     .from(tenantMembers)
     .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, user.id)))

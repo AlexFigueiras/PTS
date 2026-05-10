@@ -10,23 +10,36 @@ declare global {
 
 function createClient() {
   const env = getServerEnv();
-  const sql = postgres(env.DATABASE_URL, {
+  const pg = postgres(env.DATABASE_URL, {
     max: 10,
     idle_timeout: 20,
     prepare: false,
   });
-  return { sql, db: drizzle(sql, { schema }) };
+  return { sql: pg, db: drizzle(pg, { schema }) };
 }
 
-const cached = globalThis.__drizzleClient
-  ? { sql: globalThis.__postgresClient!, db: globalThis.__drizzleClient }
-  : createClient();
+let _cache: ReturnType<typeof createClient> | undefined;
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__drizzleClient = cached.db;
-  globalThis.__postgresClient = cached.sql;
+function getClient() {
+  if (globalThis.__drizzleClient && globalThis.__postgresClient) {
+    return { sql: globalThis.__postgresClient, db: globalThis.__drizzleClient };
+  }
+  if (!_cache) {
+    _cache = createClient();
+    if (process.env.NODE_ENV !== 'production') {
+      globalThis.__drizzleClient = _cache.db;
+      globalThis.__postgresClient = _cache.sql;
+    }
+  }
+  return _cache;
 }
 
-export const db = cached.db;
-export const sql = cached.sql;
-export type Database = typeof db;
+export function getDb() {
+  return getClient().db;
+}
+
+export function getSql() {
+  return getClient().sql;
+}
+
+export type Database = ReturnType<typeof getDb>;
