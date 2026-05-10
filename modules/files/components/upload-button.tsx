@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadFile } from '@/lib/storage/upload-file';
-import { ALLOWED_MIME_TYPES } from '@/modules/storage';
+import { ALLOWED_MIME_TYPES } from '@/modules/storage/storage.dto';
 import { createFileAction } from '../file.actions';
 
 type Props = {
