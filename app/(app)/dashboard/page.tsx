@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { and, count, desc, eq, gte, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNull, isNotNull } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { ForbiddenError } from '@/lib/auth/authorization';
 import { getDb } from '@/lib/db/client';
 import { patients, clinicalRecords, tenantMembers } from '@/lib/db/schema';
 import { RECORD_TYPE_LABELS } from '@/modules/records/record.dto';
+import { PatientMap } from '@/components/maps/patient-map';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -25,28 +26,13 @@ export default async function DashboardPage() {
   const db = getDb();
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-  let stats, recentRecords;
+  let stats, recentRecords, geoPatients;
   try {
-    [stats, recentRecords] = await Promise.all([
+    [stats, recentRecords, geoPatients] = await Promise.all([
       Promise.all([
-        db
-          .select({ n: count() })
-          .from(patients)
-          .where(and(eq(patients.tenantId, ctx.tenantId), eq(patients.status, 'active'))),
-        db
-          .select({ n: count() })
-          .from(clinicalRecords)
-          .where(
-            and(
-              eq(clinicalRecords.tenantId, ctx.tenantId),
-              gte(clinicalRecords.createdAt, startOfMonth),
-              isNull(clinicalRecords.deletedAt),
-            ),
-          ),
-        db
-          .select({ n: count() })
-          .from(tenantMembers)
-          .where(eq(tenantMembers.tenantId, ctx.tenantId)),
+        db.select({ n: count() }).from(patients).where(and(eq(patients.tenantId, ctx.tenantId), eq(patients.status, 'active'))),
+        db.select({ n: count() }).from(clinicalRecords).where(and(eq(clinicalRecords.tenantId, ctx.tenantId), gte(clinicalRecords.createdAt, startOfMonth), isNull(clinicalRecords.deletedAt))),
+        db.select({ n: count() }).from(tenantMembers).where(eq(tenantMembers.tenantId, ctx.tenantId)),
       ]),
       db
         .select({
@@ -61,11 +47,19 @@ export default async function DashboardPage() {
         })
         .from(clinicalRecords)
         .innerJoin(patients, eq(clinicalRecords.patientId, patients.id))
-        .where(
-          and(eq(clinicalRecords.tenantId, ctx.tenantId), isNull(clinicalRecords.deletedAt)),
-        )
+        .where(and(eq(clinicalRecords.tenantId, ctx.tenantId), isNull(clinicalRecords.deletedAt)))
         .orderBy(desc(clinicalRecords.sessionDate), desc(clinicalRecords.createdAt))
         .limit(5),
+      db
+        .select({
+          id: patients.id,
+          fullName: patients.fullName,
+          lat: patients.lat,
+          lon: patients.lon,
+          status: patients.status,
+        })
+        .from(patients)
+        .where(and(eq(patients.tenantId, ctx.tenantId), isNotNull(patients.lat), isNotNull(patients.lon))),
     ]);
   } catch (err) {
     if (err instanceof ForbiddenError) redirect('/unauthorized');
@@ -74,14 +68,35 @@ export default async function DashboardPage() {
 
   const [totalPatients, recordsThisMonth, teamCount] = stats;
 
+  const mapPatients = geoPatients.map((p) => ({
+    id: p.id,
+    fullName: p.fullName,
+    lat: p.lat!,
+    lon: p.lon!,
+    status: p.status,
+  }));
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+    <div className="mx-auto max-w-4xl space-y-8 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <Link
+          href="/patients/new"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          + Novo Paciente / PTS
+        </Link>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Pacientes ativos" value={Number(totalPatients[0]?.n ?? 0)} />
         <StatCard label="Registros este mês" value={Number(recordsThisMonth[0]?.n ?? 0)} />
         <StatCard label="Membros da equipe" value={Number(teamCount[0]?.n ?? 0)} />
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-medium">Geolocalização de Saúde</h2>
+        <PatientMap patients={mapPatients} />
       </div>
 
       <div>
@@ -105,13 +120,7 @@ export default async function DashboardPage() {
                       {RECORD_TYPE_LABELS[r.type]} · {date}
                     </p>
                   </div>
-                  <span
-                    className={
-                      r.status === 'finalized'
-                        ? 'text-muted-foreground text-xs'
-                        : 'text-yellow-600 text-xs'
-                    }
-                  >
+                  <span className={r.status === 'finalized' ? 'text-muted-foreground text-xs' : 'text-yellow-600 text-xs'}>
                     {r.status === 'finalized' ? 'Finalizado' : 'Rascunho'}
                   </span>
                 </Link>

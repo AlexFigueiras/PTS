@@ -6,3 +6,4 @@ export * from './patients';
 export * from './files';
 export * from './clinical-records';
 export * from './tenant-invites';
+export * from './pts-documents';

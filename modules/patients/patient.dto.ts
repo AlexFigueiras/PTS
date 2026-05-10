@@ -42,11 +42,15 @@ export type PatientDto = {
   id: string;
   fullName: string;
   preferredName: string | null;
+  socialName: string | null;
   birthDate: string | null;
   gender: string | null;
   cpf: string | null;
   phone: string | null;
   email: string | null;
+  fullAddress: string | null;
+  lat: number | null;
+  lon: number | null;
   notes: string | null;
   status: string;
   createdAt: string;

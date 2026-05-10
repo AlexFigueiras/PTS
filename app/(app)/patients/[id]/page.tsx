@@ -56,12 +56,20 @@ export default async function PatientPage({ params }: Props) {
             </h1>
             <PatientStatusBadge status={patient.status} />
           </div>
-          <Link
-            href={`/patients/${id}/records`}
-            className="border-input hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Prontuário →
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/patients/${id}/pts`}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              PTS →
+            </Link>
+            <Link
+              href={`/patients/${id}/records`}
+              className="border-input hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+            >
+              Prontuário →
+            </Link>
+          </div>
         </div>
         {patient.preferredName && (
           <p className="text-muted-foreground mt-0.5 text-sm">{patient.fullName}</p>
