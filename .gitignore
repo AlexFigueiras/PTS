@@ -44,3 +44,5 @@ next-env.d.ts
 # sentry
 .sentryclirc
 .env.sentry-build-plugin
+
+.vercel
