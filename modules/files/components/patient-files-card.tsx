@@ -1,3 +1,4 @@
+import { hasRole } from '@/lib/auth/authorization';
 import { ListFilesService } from '../list-files.service';
 import { FileList } from './file-list';
 import { UploadButton } from './upload-button';
@@ -12,20 +13,21 @@ export async function PatientFilesCard({ ctx, patientId }: Props) {
   const service = new ListFilesService(ctx);
   const files = await service.execute('patient', patientId);
 
+  const canUpload = hasRole(ctx.role, 'professional');
+  const canDelete = hasRole(ctx.role, 'admin');
+
   return (
     <section className="rounded-lg border p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium">
           Arquivos{files.length > 0 ? ` (${files.length})` : ''}
         </h2>
-        <UploadButton
-          tenantId={ctx.tenantId}
-          entityType="patient"
-          entityId={patientId}
-        />
+        {canUpload && (
+          <UploadButton tenantId={ctx.tenantId} entityType="patient" entityId={patientId} />
+        )}
       </div>
 
-      <FileList files={files} />
+      <FileList files={files} canDelete={canDelete} />
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { ForbiddenError } from '@/lib/auth/authorization';
 import { GetPatientService } from '@/modules/patients';
 import { PatientForm } from '@/modules/patients/components/patient-form';
 import { PatientStatusBadge } from '@/modules/patients/components/patient-status-badge';
@@ -24,8 +25,14 @@ export default async function PatientPage({ params }: Props) {
   const ctx = await getActiveTenantContext();
   if (!ctx) redirect('/login');
 
-  const service = new GetPatientService(ctx);
-  const patient = await service.execute(id);
+  let patient;
+  try {
+    const service = new GetPatientService(ctx);
+    patient = await service.execute(id);
+  } catch (err) {
+    if (err instanceof ForbiddenError) redirect('/unauthorized');
+    throw err;
+  }
 
   if (!patient) notFound();
 

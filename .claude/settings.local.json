@@ -15,7 +15,8 @@
       "Bash(Get-ChildItem *)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(find modules/patients app/\"\\(app\\)\"/patients -type f)",
-      "Bash(dir /s /b modules\\\\patients app\\\\\\(app\\\\\\)\\\\patients)"
+      "Bash(dir /s /b modules\\\\patients app\\\\\\(app\\\\\\)\\\\patients)",
+      "Bash(Select-Object Name)"
     ]
   }
 }

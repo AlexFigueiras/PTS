@@ -1,7 +1,7 @@
 import { deleteFileFormAction } from '../file.actions';
 import type { FileDto } from '../file.dto';
 
-type Props = { files: FileDto[] };
+type Props = { files: FileDto[]; canDelete?: boolean };
 
 const MIME_LABEL: Record<string, string> = {
   'image/jpeg': 'JPEG',
@@ -31,7 +31,7 @@ function DeleteButton({ fileId }: { fileId: string }) {
   );
 }
 
-export function FileList({ files }: Props) {
+export function FileList({ files, canDelete = false }: Props) {
   if (files.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">Nenhum arquivo anexado ainda.</p>
@@ -60,7 +60,7 @@ export function FileList({ files }: Props) {
               {new Date(file.createdAt).toLocaleDateString('pt-BR')}
             </p>
           </div>
-          <DeleteButton fileId={file.id} />
+          {canDelete && <DeleteButton fileId={file.id} />}
         </li>
       ))}
     </ul>

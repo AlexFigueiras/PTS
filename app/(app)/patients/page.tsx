@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { ForbiddenError, hasRole } from '@/lib/auth/authorization';
 import { ListPatientsService } from '@/modules/patients';
 import { patientFiltersSchema } from '@/modules/patients/patient.dto';
 import { PatientsTable } from '@/modules/patients/components/patients-table';
@@ -25,19 +26,29 @@ export default async function PatientsPage({ searchParams }: Props) {
     pageSize: params.pageSize,
   });
 
-  const service = new ListPatientsService(ctx);
-  const result = await service.execute(filters);
+  let result;
+  try {
+    const service = new ListPatientsService(ctx);
+    result = await service.execute(filters);
+  } catch (err) {
+    if (err instanceof ForbiddenError) redirect('/unauthorized');
+    throw err;
+  }
+
+  const canCreate = hasRole(ctx.role, 'professional');
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Pacientes</h1>
-        <Link
-          href="/patients/new"
-          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-        >
-          Novo paciente
-        </Link>
+        {canCreate && (
+          <Link
+            href="/patients/new"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+          >
+            Novo paciente
+          </Link>
+        )}
       </div>
 
       <form method="GET" className="flex gap-2">
