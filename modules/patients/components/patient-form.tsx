@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -64,6 +65,14 @@ export function PatientForm(props: Props) {
     initialState,
   );
 
+  const submittedRef = useRef(false);
+  useEffect(() => {
+    if (submittedRef.current && !pending) {
+      if (state.error === null) toast.success('Alterações salvas com sucesso');
+      submittedRef.current = false;
+    }
+  }, [pending, state.error]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<any>({
     resolver: zodResolver(isEdit ? updatePatientSchema : createPatientSchema),
@@ -87,6 +96,7 @@ export function PatientForm(props: Props) {
     Object.entries(data).forEach(([key, value]) => {
       if (value != null && value !== '') formData.set(key, String(value));
     });
+    submittedRef.current = true;
     action(formData);
   }
 
