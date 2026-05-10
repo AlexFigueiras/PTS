@@ -16,6 +16,7 @@ import { getEmailProvider } from '@/lib/providers/email';
 import { passwordResetEmailTemplate } from './templates/password-reset';
 import { notificationEmailTemplate } from './templates/notification';
 import { welcomeEmailTemplate } from './templates/welcome';
+import { inviteEmailTemplate, type InviteEmailInput } from './templates/invite';
 
 export type WelcomeEmailInput = {
   to: string;
@@ -64,6 +65,12 @@ export class EmailService {
 
     const { id } = await this.provider.sendEmail({ to: input.to, subject, html, text });
     this.log.info({ emailId: id, to: input.to, template: 'password-reset' }, 'e-mail de reset de senha enviado');
+  }
+
+  async sendInviteEmail(input: InviteEmailInput): Promise<void> {
+    const { subject, html, text } = inviteEmailTemplate(input);
+    const { id } = await this.provider.sendEmail({ to: input.to, subject, html, text });
+    this.log.info({ emailId: id, to: input.to, template: 'invite' }, 'e-mail de convite enviado');
   }
 
   async sendNotificationEmail(input: NotificationEmailInput): Promise<void> {
