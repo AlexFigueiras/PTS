@@ -3,7 +3,13 @@ import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
-  const { response } = await updateSession(request, requestHeaders);
+  const isRsc = request.headers.has('rsc') || request.nextUrl.searchParams.has('_rsc');
+  const { response, user } = await updateSession(request, requestHeaders);
+
+  console.log(
+    `[middleware] ${request.method} ${request.nextUrl.pathname}${isRsc ? ' (RSC)' : ''} | user=${user?.id ?? 'anon'} | active_tenant_id=${request.cookies.get('active_tenant_id')?.value ?? 'NOT_SET'}`,
+  );
+
   return response;
 }
 

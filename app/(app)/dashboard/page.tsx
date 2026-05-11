@@ -21,6 +21,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
 
 export default async function DashboardPage() {
   const ctx = await getActiveTenantContext();
+  console.log('[dashboard] ctx=', ctx ? `tenantId=${ctx.tenantId} role=${ctx.role}` : 'NULL → redirect /login');
   if (!ctx) redirect('/login');
 
   const db = getDb();
