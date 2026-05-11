@@ -5,24 +5,24 @@ export const patients = pgTable(
   'patients',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenantId')
+    tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     fullName: text('fullName').notNull(),
-    preferredName: text('preferredName'),
-    socialName: text('socialName'),
+    preferredName: text('preferred_name'),
+    socialName: text('social_name'),
     birthDate: date('birthDate'),
     gender: text('gender'),
     cpf: text('cpf'),
     phone: text('phone'),
     email: text('email'),
-    fullAddress: text('fullAddress'),
+    fullAddress: text('full_address'),
     lat: doublePrecision('lat'),
     lon: doublePrecision('lon'),
     notes: text('notes'),
     status: text('status').notNull().default('active'),
-    createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('patients_tenant_idx').on(t.tenantId),
