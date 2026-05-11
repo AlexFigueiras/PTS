@@ -19,7 +19,7 @@ import { updateSession } from '@/lib/supabase/middleware';
  * Rate limit, audit, autorização avançada → Server Actions / Route Handlers.
  */
 
-const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/auth/callback'];
+const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/auth/callback', '/api/init-tenant'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -35,6 +35,12 @@ export async function proxy(request: NextRequest) {
   response.headers.set('x-request-id', requestId);
 
   const { pathname } = request.nextUrl;
+  const isRsc = request.headers.has('rsc') || request.nextUrl.searchParams.has('_rsc');
+  const activeTenantId = request.cookies.get('active_tenant_id')?.value;
+
+  console.log(
+    `[proxy] ${request.method} ${pathname}${isRsc ? ' (RSC)' : ''} | user=${user?.id ?? 'anon'} | active_tenant_id=${activeTenantId ?? 'NOT_SET'}`,
+  );
 
   if (isPublicPath(pathname)) return response;
 
@@ -42,7 +48,17 @@ export async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('redirect', pathname);
+    console.log(`[proxy] unauthenticated → redirect /login`);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Usuário autenticado mas sem cookie de tenant → inicializa via route handler
+  if (!activeTenantId && !pathname.startsWith('/api/')) {
+    const initUrl = request.nextUrl.clone();
+    initUrl.pathname = '/api/init-tenant';
+    initUrl.searchParams.set('next', pathname);
+    console.log(`[proxy] no active_tenant_id → redirect /api/init-tenant`);
+    return NextResponse.redirect(initUrl);
   }
 
   return response;
