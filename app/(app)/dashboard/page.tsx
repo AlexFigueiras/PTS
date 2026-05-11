@@ -1,3 +1,12 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { and, count, desc, eq, gte, isNull, isNotNull } from 'drizzle-orm';
+import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { ForbiddenError } from '@/lib/auth/authorization';
+import { getDb } from '@/lib/db/client';
+import { patients, clinicalRecords, tenantMembers } from '@/lib/db/schema';
+import { RECORD_TYPE_LABELS } from '@/modules/records/record.dto';
+import { PatientMap } from '@/components/maps/patient-map';
 import { Users, FileText, Shield, ArrowRight, Activity, Plus } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard | CAPS' };
