@@ -21,12 +21,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : undefined;
 
   return (
-    <div className="flex h-full min-h-screen">
+    <div className="flex h-screen overflow-hidden bg-background font-sans antialiased selection:bg-primary/20 selection:text-primary">
       <AppSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AppHeader userEmail={user?.email ?? undefined} tenantName={tenantName} />
         <RoleProvider role={ctx?.role ?? null}>
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/30 dark:bg-transparent">
+            {children}
+          </main>
         </RoleProvider>
       </div>
       <Toaster />

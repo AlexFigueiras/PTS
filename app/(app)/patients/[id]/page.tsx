@@ -42,11 +42,11 @@ export default async function PatientPage({ params }: Props) {
     : null;
 
   return (
-    <div className="min-h-[100dvh] bg-slate-950 text-slate-200 selection:bg-blue-500/30">
-      <div className="mx-auto max-w-4xl space-y-8 p-12 animate-reveal">
+    <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">
+      <div className="mx-auto max-w-5xl space-y-10 p-16 animate-reveal">
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-4xl border border-white/5 bg-white/5 p-10 shadow-diffusion backdrop-blur-xl">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-600/10 blur-[100px]" />
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-12 shadow-diffusion backdrop-blur-xl">
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-[100px]" />
           
           <Link
             href="/patients"
@@ -58,7 +58,7 @@ export default async function PatientPage({ params }: Props) {
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-4xl font-black uppercase italic tracking-tight text-white">
+                <h1 className="text-4xl font-black uppercase italic tracking-tight text-foreground">
                   {patient.preferredName ?? patient.fullName}
                 </h1>
                 <div className="mt-1">
@@ -68,13 +68,13 @@ export default async function PatientPage({ params }: Props) {
               
               <div className="space-y-1">
                 {patient.preferredName && (
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 italic">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground italic">
                     {patient.fullName}
                   </p>
                 )}
                 {birthDateFormatted && (
-                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">
-                    Nascimento: <span className="text-slate-300">{birthDateFormatted}</span>
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/60">
+                    Nascimento: <span className="text-foreground/80">{birthDateFormatted}</span>
                   </p>
                 )}
               </div>
@@ -83,13 +83,13 @@ export default async function PatientPage({ params }: Props) {
             <div className="flex shrink-0 gap-4">
               <Link
                 href={`/patients/${id}/pts`}
-                className="flex items-center gap-3 rounded-2xl bg-blue-600 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all hover:bg-blue-500 hover:scale-105 active:scale-95"
+                className="flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground shadow-[0_0_30px_rgba(var(--primary),0.2)] transition-all hover:scale-105 active:scale-95"
               >
                 Abrir PTS <ChevronRight size={16} />
               </Link>
               <Link
                 href={`/patients/${id}/records`}
-                className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 transition-all hover:bg-white/10 hover:text-white active:scale-95"
+                className="flex items-center gap-3 rounded-2xl border border-border bg-secondary/30 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-secondary-foreground transition-all hover:bg-secondary active:scale-95"
               >
                 Prontuário <ArrowLeft size={16} className="rotate-180" />
               </Link>
@@ -97,11 +97,10 @@ export default async function PatientPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Content Grid */}
         <div className="grid gap-8 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <div className="overflow-hidden rounded-4xl border border-white/5 bg-white/5 p-10 shadow-diffusion backdrop-blur-sm">
-              <h2 className="mb-8 text-xs font-black uppercase tracking-[0.3em] text-slate-500 italic">
+            <div className="overflow-hidden rounded-3xl border border-border bg-card p-12 shadow-diffusion backdrop-blur-sm">
+              <h2 className="mb-10 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/50 italic">
                 Dados Cadastrais
               </h2>
               <PatientForm mode="edit" patient={patient} />
@@ -109,7 +108,7 @@ export default async function PatientPage({ params }: Props) {
           </div>
 
           <div className="lg:col-span-4">
-            <div className="h-full overflow-hidden rounded-4xl border border-white/5 bg-white/5 shadow-diffusion backdrop-blur-sm">
+            <div className="h-full overflow-hidden rounded-3xl border border-border bg-card shadow-diffusion backdrop-blur-sm">
               <PatientFilesCard ctx={ctx} patientId={patient.id} />
             </div>
           </div>

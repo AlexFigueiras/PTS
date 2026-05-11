@@ -25,25 +25,25 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4">
-        <span className="text-sm font-semibold tracking-tight">CAPS</span>
+    <aside className="flex w-64 shrink-0 flex-col border-r bg-card shadow-xl transition-all duration-300">
+      <div className="flex h-16 items-center border-b px-8">
+        <span className="text-[11px] font-black uppercase tracking-[0.4em] text-primary">CAPS</span>
       </div>
-      <nav className="flex flex-col gap-1 p-2">
+      <nav className="flex flex-col gap-2 p-6">
         <Link href="/dashboard" className={linkClass('/dashboard', true)}>
           <LayoutDashboard className="size-4 shrink-0" />
-          Dashboard
+          <span className="tracking-tight">Dashboard</span>
         </Link>
         <Link href="/patients" className={linkClass('/patients')}>
           <Users className="size-4 shrink-0" />
-          Pacientes
+          <span className="tracking-tight">Pacientes</span>
         </Link>
         {isAdmin && (
           <>
-            <div className="bg-border my-1 h-px" />
+            <div className="my-4 h-px bg-border/50 mx-2" />
             <Link href="/settings" className={linkClass('/settings')}>
               <Settings className="size-4 shrink-0" />
-              Configurações
+              <span className="tracking-tight">Configurações</span>
             </Link>
           </>
         )}
