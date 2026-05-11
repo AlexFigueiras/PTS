@@ -37,16 +37,22 @@ export async function getActiveTenantContext(): Promise<TenantContext | null> {
   const cookieStore = await cookies();
   const tenantId = cookieStore.get('active_tenant_id')?.value;
 
+  console.log('[getActiveTenantContext] active_tenant_id cookie:', tenantId ?? 'NOT SET');
+
   if (tenantId) {
     try {
-      return await getTenantContext(tenantId);
-    } catch {
-      // Cookie exists but user lost access — fall through to auto-select
+      const ctx = await getTenantContext(tenantId);
+      console.log('[getActiveTenantContext] resolved from cookie, role:', ctx.role);
+      return ctx;
+    } catch (err) {
+      console.error('[getActiveTenantContext] cookie tenantId rejected:', err);
+      // fall through to auto-select
     }
   }
 
   // Fallback: auto-select first tenant membership (handles sessions without cookie)
   const user = await getAuthUser();
+  console.log('[getActiveTenantContext] auth user:', user?.id ?? 'NOT AUTHENTICATED');
   if (!user) return null;
 
   const [membership] = await getDb()
@@ -54,6 +60,8 @@ export async function getActiveTenantContext(): Promise<TenantContext | null> {
     .from(tenantMembers)
     .where(eq(tenantMembers.userId, user.id))
     .limit(1);
+
+  console.log('[getActiveTenantContext] fallback membership:', membership ?? 'NONE');
 
   if (!membership) return null;
 

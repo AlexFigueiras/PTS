@@ -29,15 +29,19 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !authData.user) {
-      console.error('Login error:', error?.message);
+      console.error('[login] auth error:', error?.message);
       return { error: 'E-mail ou senha incorretos.' };
     }
+
+    console.log('[login] auth ok, userId:', authData.user.id);
 
     const [membership] = await getDb()
       .select({ tenantId: tenantMembers.tenantId })
       .from(tenantMembers)
       .where(eq(tenantMembers.userId, authData.user.id))
       .limit(1);
+
+    console.log('[login] membership found:', membership ?? 'NONE');
 
     if (membership) {
       const cookieStore = await cookies();
@@ -48,10 +52,14 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
         path: '/',
         maxAge: 60 * 60 * 24 * 30,
       });
+      console.log('[login] cookie active_tenant_id set:', membership.tenantId);
+    } else {
+      console.error('[login] FATAL: user has no tenant membership, cannot set cookie');
     }
 
     const rawRedirect = formData.get('redirectTo') as string | null;
     to = rawRedirect?.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
+    console.log('[login] redirecting to:', to);
   } catch (err) {
     console.error('Unexpected error in loginAction:', err);
     return { error: 'Ocorreu um erro inesperado. Tente novamente mais tarde.' };
