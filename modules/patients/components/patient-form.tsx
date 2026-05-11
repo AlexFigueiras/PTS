@@ -185,7 +185,7 @@ export function PatientForm(props: Props) {
 
       {state.error && (
         <p role="alert" className="text-destructive text-sm">
-          {state.error}
+          {String(state.error)}
         </p>
       )}
 
