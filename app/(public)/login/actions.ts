@@ -2,10 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { eq } from 'drizzle-orm';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getDb } from '@/lib/db/client';
-import { tenantMembers } from '@/lib/db/schema';
 
 export type LoginState = { error: string | null };
 
@@ -35,11 +32,12 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
     console.log('[login] auth ok, userId:', authData.user.id);
 
-    const [membership] = await getDb()
-      .select({ tenantId: tenantMembers.tenantId })
-      .from(tenantMembers)
-      .where(eq(tenantMembers.userId, authData.user.id))
+    const { data: memberships } = await supabase
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('user_id', authData.user.id)
       .limit(1);
+    const membership = memberships?.[0] ? { tenantId: memberships[0].tenant_id as string } : undefined;
 
     console.log('[login] membership found:', membership ?? 'NONE');
 
