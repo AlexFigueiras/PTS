@@ -41,11 +41,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium">{label}</label>
+    <div className="space-y-2.5">
+      <label className="ml-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">{label}</label>
       {children}
       {error && (
-        <p role="alert" className="text-destructive text-xs">
+        <p role="alert" className="ml-1 text-[9px] font-bold uppercase tracking-wide text-red-500 animate-in fade-in slide-in-from-left-2">
           {error}
         </p>
       )}
@@ -54,7 +54,7 @@ function Field({
 }
 
 const inputClass =
-  'border-input bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2 disabled:opacity-50';
+  'w-full rounded-2xl border border-white/5 bg-white/5 px-5 py-4 text-sm font-medium text-white placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all duration-300 disabled:opacity-40';
 
 export function PatientForm(props: Props) {
   const isEdit = props.mode === 'edit';
@@ -189,8 +189,12 @@ export function PatientForm(props: Props) {
         </p>
       )}
 
-      <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={pending}>
+      <div className="flex justify-end border-t border-white/5 pt-8">
+        <Button 
+          type="submit" 
+          disabled={pending}
+          className="rounded-2xl bg-blue-600 px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_0_30px_rgba(37,99,235,0.2)] transition-all hover:bg-blue-500 hover:scale-105 active:scale-95"
+        >
           {pending
             ? isEdit
               ? 'Salvando…'
