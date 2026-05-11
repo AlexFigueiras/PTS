@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LoginForm } from './login-form';
 
 export const metadata = { title: 'Login' };
@@ -15,6 +16,15 @@ export default async function LoginPage(props: {
         <p className="text-muted-foreground text-sm">Acesse sua conta para continuar.</p>
       </div>
       <LoginForm redirectTo={redirectTo} />
+      <p className="text-muted-foreground text-center text-sm">
+        Ainda não tem conta?{' '}
+        <Link
+          href="/signup"
+          className="text-foreground font-medium underline-offset-4 hover:underline"
+        >
+          Criar conta
+        </Link>
+      </p>
     </main>
   );
 }
