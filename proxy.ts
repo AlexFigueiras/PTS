@@ -58,7 +58,7 @@ export async function proxy(request: NextRequest) {
     initUrl.pathname = '/api/init-tenant';
     initUrl.searchParams.set('next', pathname);
     console.log(`[proxy] no active_tenant_id → redirect /api/init-tenant`);
-    return NextResponse.redirect(initUrl);
+    return NextResponse.redirect(initUrl, { status: 302 });
   }
 
   return response;
