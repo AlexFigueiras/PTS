@@ -28,7 +28,8 @@ import { PUBLIC_SERVICES, calculateDistance } from '@/lib/health-services';
 import { savePtsDocument } from '@/app/(app)/patients/[id]/pts/actions';
 import { useForm, FormProvider, useFormContext, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ptsSchema, type PtsSchema as PtsFormData } from '@/validations/pts-schema';
+import { ptsSchema, type PtsSchema } from '@/validations/pts-schema';
+export type PtsFormData = PtsSchema;
 import { toast } from 'sonner';
 
 const EMPTY: PtsFormData = {
@@ -245,14 +246,25 @@ export function PtsForm({
   const [active, setActive] = useState('demographics');
   const [saving, setSaving] = useState(false);
 
-  const methods = useForm<PtsFormData>({
+  const methods: any = useForm({
     resolver: zodResolver(ptsSchema),
-    defaultValues: { ...EMPTY, ...(initialData ?? {}), fullName: patientName } as PtsFormData,
+    defaultValues: ({
+      ...EMPTY,
+      ...(initialData || {}),
+      fullName: patientName,
+      interventions: initialData?.interventions ?? [],
+      q2Substances: initialData?.q2Substances ?? [],
+      q5StopMethods: initialData?.q5StopMethods ?? [],
+      q7AggravatingFactors: initialData?.q7AggravatingFactors ?? [],
+      q8RecoveryFactors: initialData?.q8RecoveryFactors ?? [],
+      q9DailyDifficulties: initialData?.q9DailyDifficulties ?? [],
+      q10SkillsInterests: initialData?.q10SkillsInterests ?? [],
+    } as any),
     mode: 'onBlur',
   });
 
   const { handleSubmit, setValue, watch, formState: { errors } } = methods;
-  const formData = watch();
+  const formData: PtsFormData = watch();
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -290,16 +302,15 @@ export function PtsForm({
   const handleSave = (status: 'draft' | 'completed') => {
     if (status === 'completed') {
       handleSubmit(
-        (data) => onSave('completed', data),
-        (err) => {
+        (data: PtsFormData) => onSave('completed', data),
+        (err: any) => {
           console.error('Validation errors:', err);
           toast.error('Campos pendentes', {
-            description: 'Por favor, revise o formulário e preencha todos os campos obrigatórios.',
+            description: 'Verifique os campos obrigatórios em vermelho.',
           });
         }
       )();
     } else {
-      // For draft, we save whatever we have without strict validation
       const currentData = watch();
       onSave('draft', currentData);
     }
@@ -583,29 +594,31 @@ export function PtsForm({
                   </div>
 
                   {(!formData.interventions || formData.interventions.length === 0) ? (
-                    <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-slate-100 py-12 text-slate-300">
-                      <ClipboardList size={40} />
-                      <p className="text-xs font-bold uppercase tracking-widest">Nenhuma ação registrada</p>
+                    <div className="flex flex-col items-center justify-center gap-6 rounded-4xl border border-white/5 bg-white/5 py-16 text-slate-700 shadow-diffusion">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-white/5 text-slate-500">
+                        <ClipboardList size={32} />
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em]">Nenhuma ação registrada</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {formData.interventions.map((item, idx) => (
-                        <div key={item.id} className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-6 md:flex-row">
+                      {(formData.interventions || []).map((item: any, idx: number) => (
+                        <div key={item.id} className="flex flex-col gap-5 rounded-3xl border border-white/5 bg-white/5 p-8 md:flex-row">
                           <div className="flex-1 space-y-4">
                             <textarea placeholder="Descrição da ação…"
-                              className="min-h-[70px] w-full resize-none rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-700 focus:border-blue-600 focus:outline-none"
+                              className="min-h-[80px] w-full resize-none rounded-2xl border border-white/5 bg-white/5 p-5 text-sm font-medium text-white placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all duration-300"
                               value={item.description}
                               onChange={(e) => {
-                                const l = [...formData.interventions];
+                                const l = [...(formData.interventions || [])] as any;
                                 l[idx].description = e.target.value;
                                 setValue('interventions', l);
                               }}
                             />
-                            <div className="flex flex-col gap-3 md:flex-row">
-                              <select className="flex-1 appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 focus:border-blue-600 focus:outline-none"
+                            <div className="flex flex-col gap-4 md:flex-row">
+                              <select className="flex-1 appearance-none rounded-2xl border border-white/5 bg-white/5 px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 focus:border-blue-500 focus:outline-none transition-all duration-300"
                                 value={item.service}
                                 onChange={(e) => {
-                                  const l = [...formData.interventions];
+                                  const l = [...(formData.interventions || [])] as any;
                                   l[idx].service = e.target.value;
                                   setValue('interventions', l);
                                 }}>
@@ -616,11 +629,11 @@ export function PtsForm({
                                 })}
                               </select>
                               <button type="button" onClick={() => {
-                                const l = [...formData.interventions];
+                                const l = [...(formData.interventions || [])] as any;
                                 l[idx].status = l[idx].status === 'completed' ? 'pending' : 'completed';
                                 setValue('interventions', l);
                               }}
-                                className={`flex min-w-[130px] items-center justify-center gap-2 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                                className={`flex min-w-[140px] items-center justify-center gap-2 rounded-2xl px-5 py-4 text-[9px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${item.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-500'}`}>
                                 {item.status === 'completed' ? <CheckCircle size={14} /> : <Clock size={14} />}
                                 {item.status === 'completed' ? 'Concluído' : 'Pendente'}
                               </button>

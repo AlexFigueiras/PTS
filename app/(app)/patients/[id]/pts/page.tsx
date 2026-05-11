@@ -42,6 +42,13 @@ export default async function PtsPage({ params }: Props) {
     lat: patient.lat ?? null,
     lon: patient.lon ?? null,
     ...savedData,
+    interventions: savedData?.interventions ?? [],
+    q2Substances: savedData?.q2Substances ?? [],
+    q5StopMethods: savedData?.q5StopMethods ?? [],
+    q7AggravatingFactors: savedData?.q7AggravatingFactors ?? [],
+    q8RecoveryFactors: savedData?.q8RecoveryFactors ?? [],
+    q9DailyDifficulties: savedData?.q9DailyDifficulties ?? [],
+    q10SkillsInterests: savedData?.q10SkillsInterests ?? [],
   };
 
   return (
