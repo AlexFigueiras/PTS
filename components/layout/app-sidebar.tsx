@@ -2,51 +2,41 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings } from 'lucide-react';
+import { LayoutGrid, Stethoscope, ClipboardCheck, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRole } from '@/lib/auth/role-provider';
-import { hasRole } from '@/lib/auth/authorization';
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const role = useRole();
-  const isAdmin = role ? hasRole(role, 'admin') : false;
 
-  function linkClass(href: string, exact = false) {
-    const active = exact
-      ? pathname === href
-      : pathname === href || pathname.startsWith(href + '/');
-    return cn(
-      'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-      active
-        ? 'bg-accent text-accent-foreground'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+  function SidebarLink({ href, icon: Icon, active = false }: { href: string; icon: any; active?: boolean }) {
+    const isActive = active || (href !== '/' && pathname.startsWith(href));
+    
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300",
+          isActive 
+            ? "bg-[#00D094] text-white shadow-[0_0_20px_rgba(0,208,148,0.4)]" 
+            : "text-white/60 hover:bg-white/10 hover:text-white"
+        )}
+      >
+        <Icon size={24} />
+      </Link>
     );
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r bg-card shadow-xl transition-all duration-300">
-      <div className="flex h-16 items-center border-b px-8">
-        <span className="text-[11px] font-black uppercase tracking-[0.4em] text-primary">CAPS</span>
+    <aside className="flex w-[100px] shrink-0 flex-col items-center bg-[#004AAD] py-8 transition-all duration-300">
+      <div className="mb-12 flex flex-col items-center">
+        <span className="text-xl font-bold italic text-white">MyDoc</span>
       </div>
-      <nav className="flex flex-col gap-2 p-6">
-        <Link href="/dashboard" className={linkClass('/dashboard', true)}>
-          <LayoutDashboard className="size-4 shrink-0" />
-          <span className="tracking-tight">Dashboard</span>
-        </Link>
-        <Link href="/patients" className={linkClass('/patients')}>
-          <Users className="size-4 shrink-0" />
-          <span className="tracking-tight">Pacientes</span>
-        </Link>
-        {isAdmin && (
-          <>
-            <div className="my-4 h-px bg-border/50 mx-2" />
-            <Link href="/settings" className={linkClass('/settings')}>
-              <Settings className="size-4 shrink-0" />
-              <span className="tracking-tight">Configurações</span>
-            </Link>
-          </>
-        )}
+      
+      <nav className="flex flex-col gap-8">
+        <SidebarLink href="/dashboard" icon={LayoutGrid} active={pathname === '/dashboard'} />
+        <SidebarLink href="/patients" icon={Stethoscope} />
+        <SidebarLink href="/records" icon={ClipboardCheck} />
+        <SidebarLink href="/settings" icon={Settings} />
       </nav>
     </aside>
   );
