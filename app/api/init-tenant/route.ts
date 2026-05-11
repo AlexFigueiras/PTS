@@ -1,7 +1,4 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { getDb } from '@/lib/db/client';
-import { tenantMembers } from '@/lib/db/schema';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -21,23 +18,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    const [membership] = await getDb()
-      .select({ tenantId: tenantMembers.tenantId })
-      .from(tenantMembers)
-      .where(eq(tenantMembers.userId, user.id))
+    // Usa o cliente Supabase (REST via HTTPS) em vez de Drizzle/TCP direto
+    const { data: memberships, error } = await supabase
+      .from('tenant_members')
+      .select('tenant_id')
+      .eq('user_id', user.id)
       .limit(1);
 
-    console.log('[init-tenant] membership=', membership ?? 'NONE');
+    console.log('[init-tenant] memberships=', memberships, 'error=', error);
 
-    if (!membership) {
-      console.error('[init-tenant] user has no tenant membership');
+    const tenantId = memberships?.[0]?.tenant_id;
+
+    if (!tenantId) {
+      console.error('[init-tenant] no membership found for user', user.id, error);
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    console.log('[init-tenant] setting cookie, redirecting to', next);
+    console.log('[init-tenant] setting cookie tenant_id=', tenantId, 'redirecting to', next);
 
     const response = NextResponse.redirect(new URL(next, request.url));
-    response.cookies.set('active_tenant_id', membership.tenantId, {
+    response.cookies.set('active_tenant_id', tenantId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
