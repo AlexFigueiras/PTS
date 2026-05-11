@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { tenantMembers } from '@/lib/db/schema';
 import { TenantAccessError, type TenantContext } from '@/lib/tenant-context';
-import { requireAuthUser } from './get-user';
+import { getAuthUser, requireAuthUser } from './get-user';
 
 /**
  * Resolve o `TenantContext` a partir do usuário autenticado + um tenantId.
@@ -36,10 +36,26 @@ export async function getActiveTenantContext(): Promise<TenantContext | null> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const tenantId = cookieStore.get('active_tenant_id')?.value;
-  if (!tenantId) return null;
-  try {
-    return await getTenantContext(tenantId);
-  } catch {
-    return null;
+
+  if (tenantId) {
+    try {
+      return await getTenantContext(tenantId);
+    } catch {
+      // Cookie exists but user lost access — fall through to auto-select
+    }
   }
+
+  // Fallback: auto-select first tenant membership (handles sessions without cookie)
+  const user = await getAuthUser();
+  if (!user) return null;
+
+  const [membership] = await getDb()
+    .select({ tenantId: tenantMembers.tenantId, role: tenantMembers.role })
+    .from(tenantMembers)
+    .where(eq(tenantMembers.userId, user.id))
+    .limit(1);
+
+  if (!membership) return null;
+
+  return { tenantId: membership.tenantId, userId: user.id, role: membership.role };
 }
