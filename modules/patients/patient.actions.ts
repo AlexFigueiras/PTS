@@ -14,8 +14,13 @@ export async function createPatientAction(
   _prev: PatientActionState,
   formData: FormData,
 ): Promise<PatientActionState> {
+  console.log('[createPatientAction] Starting', { fullName: formData.get('fullName') });
+
   const ctx = await getActiveTenantContext();
-  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.' };
+  if (!ctx) {
+    console.log('[createPatientAction] No context');
+    return { error: 'Sessão expirada. Faça login novamente.' };
+  }
 
   const parsed = createPatientSchema.safeParse({
     fullName: formData.get('fullName'),
@@ -30,20 +35,25 @@ export async function createPatientAction(
   });
 
   if (!parsed.success) {
+    console.log('[createPatientAction] Validation failed', parsed.error.format());
     return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' };
   }
 
   let patientId: string;
   try {
+    console.log('[createPatientAction] Executing service');
     const service = new CreatePatientService(ctx);
     const patient = await service.execute(parsed.data);
+    console.log('[createPatientAction] Service success', { id: patient.id });
     revalidateTenantResource(ctx.tenantId, 'patients');
     patientId = patient.id;
   } catch (err) {
+    console.error('[createPatientAction] Error caught', err);
     if (err instanceof ForbiddenError) return { error: 'Sem permissão para criar pacientes.' };
     return { error: 'Erro ao criar paciente. Tente novamente.' };
   }
 
+  console.log('[createPatientAction] Redirecting to', `/patients/${patientId}`);
   redirect(`/patients/${patientId}`);
 }
 
