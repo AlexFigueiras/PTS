@@ -6,7 +6,7 @@ import { RecordStatusBadge } from './record-status-badge';
 
 type Props = {
   result: PaginatedResult<RecordDto>;
-  patientId: string;
+  patientId?: string;
 };
 
 function formatDate(iso: string) {
@@ -32,7 +32,7 @@ export function RecordsList({ result, patientId }: Props) {
         {result.data.map((record) => (
           <li key={record.id}>
             <Link
-              href={`/patients/${patientId}/records/${record.id}`}
+              href={`/patients/${patientId ?? record.patientId}/records/${record.id}`}
               className="hover:bg-muted/50 flex items-start gap-4 px-4 py-3 transition-colors"
             >
               <div className="min-w-0 flex-1 space-y-1">
@@ -61,7 +61,7 @@ export function RecordsList({ result, patientId }: Props) {
           <div className="flex gap-2">
             {result.page > 1 && (
               <Link
-                href={`/patients/${patientId}/records?page=${result.page - 1}`}
+                href={`/patients/${patientId ?? ''}/records?page=${result.page - 1}`}
                 className="border-input hover:bg-muted rounded-md border px-3 py-1.5"
               >
                 ← Anterior
@@ -69,7 +69,7 @@ export function RecordsList({ result, patientId }: Props) {
             )}
             {result.page < result.totalPages && (
               <Link
-                href={`/patients/${patientId}/records?page=${result.page + 1}`}
+                href={`/patients/${patientId ?? ''}/records?page=${result.page + 1}`}
                 className="border-input hover:bg-muted rounded-md border px-3 py-1.5"
               >
                 Próxima →

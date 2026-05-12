@@ -5,26 +5,26 @@ import { ChevronDown } from 'lucide-react';
 
 const data = [
   { name: 'Jan', value: 400 },
-  { name: 'Feb', value: 300 },
+  { name: 'Fev', value: 300 },
   { name: 'Mar', value: 500 },
-  { name: 'Apr', value: 450 },
-  { name: 'May', value: 470 },
+  { name: 'Abr', value: 450 },
+  { name: 'Mai', value: 470 },
   { name: 'Jun', value: 600 },
   { name: 'Jul', value: 800 },
-  { name: 'Aug', value: 750 },
-  { name: 'Sep', value: 650 },
-  { name: 'Oct', value: 700 },
+  { name: 'Ago', value: 750 },
+  { name: 'Set', value: 650 },
+  { name: 'Out', value: 700 },
   { name: 'Nov', value: 680 },
-  { name: 'Dec', value: 720 },
+  { name: 'Dez', value: 720 },
 ];
 
 export function SalaryChart() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
       <div className="mb-8 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-800">Doctor Salary</h3>
+        <h3 className="text-lg font-semibold text-slate-800">Remuneração</h3>
         <button className="flex items-center gap-2 rounded-lg bg-[#00D094] px-4 py-1.5 text-xs font-medium text-white">
-          Yearly <ChevronDown size={14} />
+          Anual <ChevronDown size={14} />
         </button>
       </div>
 
@@ -63,12 +63,12 @@ export function SalaryChart() {
 
       <div className="mt-8 flex justify-around">
         <div className="text-center">
-          <p className="text-xs font-medium text-slate-400">This Week</p>
-          <p className="text-2xl font-bold text-[#004AAD]">$259</p>
+          <p className="text-xs font-medium text-slate-400">Esta Semana</p>
+          <p className="text-2xl font-bold text-[#004AAD]">R$ 259</p>
         </div>
         <div className="text-center">
-          <p className="text-xs font-medium text-slate-400">This Month</p>
-          <p className="text-2xl font-bold text-[#004AAD]">$873</p>
+          <p className="text-xs font-medium text-slate-400">Este Mês</p>
+          <p className="text-2xl font-bold text-[#004AAD]">R$ 873</p>
         </div>
       </div>
     </div>

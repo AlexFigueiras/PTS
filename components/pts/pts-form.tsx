@@ -392,7 +392,7 @@ export function PtsForm({
             </div>
 
             {/* Content Container */}
-            <div className="overflow-hidden rounded-3xl border border-border bg-card/40 p-12 shadow-diffusion backdrop-blur-sm">
+            <div className="overflow-hidden rounded-3xl border border-border bg-card p-12 shadow-diffusion backdrop-blur-sm">
               {active === 'demographics' && (
                 <div className="grid grid-cols-12 gap-8">
                   <Field field="fullName" label="Nome Completo" className="col-span-12" />
@@ -403,6 +403,9 @@ export function PtsForm({
                   <Field field="susCard" label="Cartão SUS" className="col-span-12 md:col-span-6" />
                   <Field field="cad" label="CAD" className="col-span-12 md:col-span-6" />
                   <Radio field="gender" label="Gênero" options={['Masculino', 'Feminino', 'Não-Binário', 'Outros']} />
+                  <Field field="fatherName" label="Nome do Pai" className="col-span-12 md:col-span-6" />
+                  <Field field="motherName" label="Nome da Mãe" className="col-span-12 md:col-span-6" />
+                  <Field field="responsible" label="Responsável Legal" className="col-span-12" />
                   <AddressAutocomplete
                     value={formData.fullAddress || ''}
                     onChange={(v) => setValue('fullAddress', v)}
@@ -412,8 +415,15 @@ export function PtsForm({
                       setValue('lon', parseFloat(res.lon));
                     }}
                   />
+                  <div className="col-span-12 grid grid-cols-2 gap-4">
+                    <Field field="neighborhood" label="Bairro" className="col-span-1" />
+                    <Field field="cep" label="CEP" mask="cep" className="col-span-1" />
+                  </div>
                   <Field field="phone" label="Telefone" mask="phone" className="col-span-12 md:col-span-6" />
                   <Field field="email" label="E-mail" type="email" className="col-span-12 md:col-span-6" />
+                  <Field field="profession" label="Profissão" className="col-span-12 md:col-span-4" />
+                  <Field field="education" label="Escolaridade" className="col-span-12 md:col-span-4" />
+                  <Field field="maritalStatus" label="Estado Civil" className="col-span-12 md:col-span-4" />
                 </div>
               )}
 
@@ -428,6 +438,68 @@ export function PtsForm({
                     <Radio field="q6PreviousHospitalization" label="Já teve alguma internação por dependência química?" options={['Sim', 'Não']} />
                     {formData.q6PreviousHospitalization === 'Sim' && <Field field="q6HospitalizationDetails" label="Quantas vezes e onde?" type="textarea" className="col-span-12 mt-6" />}
                   </div>
+                  <Checkbox field="q7AggravatingFactors" label="Fatores Agravantes" options={['Conflitos Familiares', 'Desemprego', 'Saúde Física', 'Saúde Mental', 'Moradia', 'Financeiro', 'Judicial']} />
+                  <Checkbox field="q8RecoveryFactors" label="Fatores de Recuperação" options={['Família', 'Religião', 'Acompanhamento', 'Trabalho', 'Grupos de Apoio', 'Esporte']} />
+                </div>
+              )}
+
+              {active === 'nursing' && (
+                <div className="space-y-10">
+                  <div className="grid grid-cols-12 gap-6">
+                    <Field field="nuWeight" label="Peso (kg)" className="col-span-6 md:col-span-3" />
+                    <Field field="nuHeight" label="Altura (m)" className="col-span-6 md:col-span-3" />
+                    <Field field="nuBloodPressure" label="Pressão Arterial" className="col-span-6 md:col-span-3" />
+                    <Field field="nuOxygenSaturation" label="Saturação O2 (%)" className="col-span-6 md:col-span-3" />
+                  </div>
+                  <Radio field="nuChronicDisease" label="Possui doença crônica?" options={['Sim', 'Não']} />
+                  {formData.nuChronicDisease === 'Sim' && <Field field="nuChronicDiseaseDetails" label="Quais doenças?" type="textarea" /> }
+                  <Radio field="nuContinuousMedication" label="Usa medicação contínua?" options={['Sim', 'Não']} />
+                  {formData.nuContinuousMedication === 'Sim' && <Field field="nuContinuousMedicationDetails" label="Quais medicações?" type="textarea" /> }
+                  <Radio field="nuVaccinationStatus" label="Carteira de vacinação em dia?" options={['Sim', 'Não', 'Não sabe']} />
+                </div>
+              )}
+
+              {active === 'ps' && (
+                <div className="space-y-10">
+                  <Radio field="psPreviousPsychAccount" label="Já teve acompanhamento psicológico/psiquiátrico?" options={['Sim', 'Não']} />
+                  {formData.psPreviousPsychAccount === 'Sim' && <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" /> }
+                  <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-10">
+                    <Radio field="psSelfHarmThoughts" label="Já teve pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
+                    {formData.psSelfHarmThoughts !== 'Não' && formData.psSelfHarmThoughts !== '' && <Field field="psSelfHarmDetails" label="Frequência e histórico" type="textarea" className="mt-6" /> }
+                  </div>
+                </div>
+              )}
+
+              {active === 'to' && (
+                <div className="space-y-10">
+                  <Radio field="toDailyIndependence" label="Realiza atividades diárias de forma independente?" options={['Sim', 'Não', 'Parcialmente']} />
+                  <Radio field="toLaborActivity" label="Participa de atividade laboral?" options={['Sim', 'Não']} />
+                  {formData.toLaborActivity === 'Sim' && <Field field="toLaborActivityDetails" label="Qual atividade?" type="textarea" /> }
+                  <Radio field="toLeisureActivity" label="Participa de atividades de lazer?" options={['Sim', 'Não']} />
+                </div>
+              )}
+
+              {active === 'ss' && (
+                <div className="space-y-10">
+                  <Radio field="ssLivesWithOthers" label="Mora com familiares ou outras pessoas?" options={['Sim', 'Não']} />
+                  {formData.ssLivesWithOthers === 'Sim' && <Field field="ssLivesWithDetails" label="Com quem reside?" type="textarea" /> }
+                  <Radio field="ssSocialBenefits" label="Recebe algum benefício social?" options={['Sim', 'Não']} />
+                  {formData.ssSocialBenefits === 'Sim' && <Field field="ssSocialBenefitsDetails" label="Quais benefícios?" type="textarea" /> }
+                </div>
+              )}
+
+              {active === 'ef' && (
+                <div className="space-y-10">
+                  <Radio field="efRegularPractice" label="Pratica atividades físicas regularmente?" options={['Sim', 'Não']} />
+                  <Radio field="efPhysicalLimitation" label="Possui limitação física para exercícios?" options={['Sim', 'Não']} />
+                  {formData.efPhysicalLimitation === 'Sim' && <Field field="efPhysicalLimitationDetails" label="Descreva a limitação" type="textarea" /> }
+                </div>
+              )}
+
+              {active === 'nt' && (
+                <div className="grid grid-cols-12 gap-8">
+                  <Field field="ntDietType" label="Tipo de Alimentação Preponderante" className="col-span-12" />
+                  <Field field="ntWaterIntake" label="Média de Ingestão Hídrica (Copo/L)" className="col-span-12" />
                 </div>
               )}
 

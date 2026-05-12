@@ -56,7 +56,7 @@ export class RecordRepository extends BaseTenantRepository {
   async listByPatient(filters: RecordFilters): Promise<PaginatedResult<ClinicalRecord>> {
     const where = buildFilters(
       eq(clinicalRecords.tenantId, this.tenantId),
-      eq(clinicalRecords.patientId, filters.patientId),
+      filters.patientId ? eq(clinicalRecords.patientId, filters.patientId) : undefined,
       isNull(clinicalRecords.deletedAt),
       filters.type ? eq(clinicalRecords.type, filters.type) : undefined,
       filters.status ? eq(clinicalRecords.status, filters.status) : undefined,

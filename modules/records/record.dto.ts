@@ -37,7 +37,7 @@ export const updateRecordSchema = z.object({
 });
 
 export const recordFiltersSchema = z.object({
-  patientId: z.string().uuid(),
+  patientId: z.string().uuid().optional(),
   type: z.enum(RECORD_TYPES).optional(),
   status: z.enum(RECORD_STATUSES).optional(),
   page: z.coerce.number().int().positive().default(1),

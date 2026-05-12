@@ -4,22 +4,22 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const days = [
-  { day: 'Sat', date: 9 },
-  { day: 'Sun', date: 7 },
-  { day: 'Mon', date: 4, active: true },
-  { day: 'Tue', date: 8 },
-  { day: 'Wed', date: 5 },
-  { day: 'Thu', date: 9 },
-  { day: 'Fri', date: 7 },
+  { day: 'Sáb', date: 9 },
+  { day: 'Dom', date: 7 },
+  { day: 'Seg', date: 4, active: true },
+  { day: 'Ter', date: 8 },
+  { day: 'Qua', date: 5 },
+  { day: 'Qui', date: 9 },
+  { day: 'Sex', date: 7 },
 ];
 
 export function DutyHourChart() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
       <div className="mb-8 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-800">Duty Hour</h3>
+        <h3 className="text-lg font-semibold text-slate-800">Carga Horária</h3>
         <button className="flex items-center gap-2 rounded-lg bg-[#00D094] px-4 py-1.5 text-xs font-medium text-white">
-          Weekly <ChevronDown size={14} />
+          Semanal <ChevronDown size={14} />
         </button>
       </div>
 
@@ -43,8 +43,8 @@ export function DutyHourChart() {
 
       <div className="flex justify-center">
         <div className="flex items-center gap-2 rounded-full bg-[#004AAD] px-6 py-2.5 text-white">
-          <span className="text-lg font-bold">49 hours</span>
-          <span className="text-sm font-medium text-white/70">Avg Duty Hour</span>
+          <span className="text-lg font-bold">49 horas</span>
+          <span className="text-sm font-medium text-white/70">Média de Horas</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, startTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -97,7 +97,9 @@ export function PatientForm(props: Props) {
       if (value != null && value !== '') formData.set(key, String(value));
     });
     submittedRef.current = true;
-    action(formData);
+    startTransition(() => {
+      action(formData);
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

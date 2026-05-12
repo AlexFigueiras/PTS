@@ -13,9 +13,9 @@ export function PatientFiles() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
       <div className="mb-8 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-800">Patient File</h3>
+        <h3 className="text-lg font-semibold text-slate-800">Arquivos de Pacientes</h3>
         <button className="rounded-lg bg-[#00D094] px-4 py-1.5 text-xs font-medium text-white">
-          View All
+          Ver Tudo
         </button>
       </div>
 

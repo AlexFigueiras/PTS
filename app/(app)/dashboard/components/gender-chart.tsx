@@ -3,8 +3,8 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const data = [
-  { name: 'Male', value: 4000 },
-  { name: 'Female', value: 1000 },
+  { name: 'Masculino', value: 4000 },
+  { name: 'Feminino', value: 1000 },
 ];
 
 const COLORS = ['#004AAD', '#CBD5E1'];
@@ -13,9 +13,9 @@ export function GenderChart() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-800">Patient Gender</h3>
+        <h3 className="text-lg font-semibold text-slate-800">Gênero dos Pacientes</h3>
         <button className="rounded-lg bg-[#00D094] px-4 py-1.5 text-xs font-medium text-white">
-          View All
+          Ver Tudo
         </button>
       </div>
 
@@ -25,14 +25,14 @@ export function GenderChart() {
             <div className="h-2.5 w-2.5 rounded-full bg-[#004AAD]" />
             <div>
               <p className="text-sm font-bold text-slate-800">4000</p>
-              <p className="text-xs text-slate-400">Male</p>
+              <p className="text-xs text-slate-400">Masculino</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="h-2.5 w-2.5 rounded-full bg-slate-300" />
             <div>
               <p className="text-sm font-bold text-slate-800">1000</p>
-              <p className="text-xs text-slate-400">Female</p>
+              <p className="text-xs text-slate-400">Feminino</p>
             </div>
           </div>
         </div>

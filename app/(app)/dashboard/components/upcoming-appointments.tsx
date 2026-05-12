@@ -4,17 +4,17 @@ import { Check, Clock, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const appointments = [
-  { name: 'Linda Brown', type: 'First visit', time: '08:00 AM', status: 'checked' },
-  { name: 'Nelly Dean', type: 'First visit', time: '09:00 AM', status: 'checked' },
-  { name: 'John Doe', type: 'First visit', time: '10:00 AM', status: 'checked' },
-  { name: 'James Vane', type: 'First visit', time: '10:45 AM', status: 'checked' },
-  { name: 'Mary Smith', type: 'Consultation', time: '11:00 AM', status: 'cancelled' },
+  { name: 'Linda Brown', type: 'Primeira visita', time: '08:00', status: 'checked' },
+  { name: 'Nelly Dean', type: 'Primeira visita', time: '09:00', status: 'checked' },
+  { name: 'John Doe', type: 'Primeira visita', time: '10:00', status: 'checked' },
+  { name: 'James Vane', type: 'Primeira visita', time: '10:45', status: 'checked' },
+  { name: 'Mary Smith', type: 'Consulta', time: '11:00', status: 'cancelled' },
 ];
 
 export function UpcomingAppointments() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
-      <h3 className="mb-8 text-lg font-semibold text-slate-800">Upcoming Appointment</h3>
+      <h3 className="mb-8 text-lg font-semibold text-slate-800">Próximas Consultas</h3>
 
       <div className="space-y-6">
         {appointments.map((apt, i) => (
