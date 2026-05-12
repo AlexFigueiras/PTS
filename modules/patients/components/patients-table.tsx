@@ -36,8 +36,8 @@ export function PatientsTable({ result, search }: Props) {
 
   return (
     <div className="space-y-6 p-8">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">
+      <div className="flex items-center justify-between border-b border-border/80 pb-6">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
           Total de <span className="text-foreground">{total}</span> paciente{total !== 1 ? 's' : ''}
         </p>
       </div>
@@ -45,11 +45,11 @@ export function PatientsTable({ result, search }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-border/50">
-              <th className="pb-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Nome</th>
-              <th className="hidden pb-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 md:table-cell">CPF</th>
-              <th className="hidden pb-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 sm:table-cell">Telefone</th>
-              <th className="pb-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Status</th>
+            <tr className="border-b border-border/80">
+              <th className="pb-6 text-left text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Nome</th>
+              <th className="hidden pb-6 text-left text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 md:table-cell">CPF</th>
+              <th className="hidden pb-6 text-left text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 sm:table-cell">Telefone</th>
+              <th className="pb-6 text-left text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
@@ -67,10 +67,10 @@ export function PatientsTable({ result, search }: Props) {
                   )}
                 </td>
                 <td className="hidden py-6 pr-4 md:table-cell">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{patient.cpf ?? '—'}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">{patient.cpf ?? '—'}</span>
                 </td>
                 <td className="hidden py-6 pr-4 sm:table-cell">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{patient.phone ?? '—'}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">{patient.phone ?? '—'}</span>
                 </td>
                 <td className="py-6">
                   <PatientStatusBadge status={patient.status} />

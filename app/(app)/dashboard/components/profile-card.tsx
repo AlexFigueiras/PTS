@@ -4,41 +4,41 @@ import { Star, Users } from 'lucide-react';
 
 export function ProfileCard() {
   return (
-    <div className="rounded-[2rem] bg-white p-8 shadow-sm text-center">
-      <h3 className="mb-6 text-left text-lg font-semibold text-slate-800">Profile</h3>
+    <div className="rounded-[2.5rem] bg-card p-10 shadow-diffusion premium-bevel text-center">
+      <h3 className="mb-8 text-left text-xl font-semibold text-foreground">Profile</h3>
       
-      <div className="mx-auto mb-4 h-24 w-24 rounded-full bg-slate-200" />
-      <h4 className="text-lg font-bold text-slate-800">Dr James Smith</h4>
-      <p className="mb-8 text-sm text-slate-400">Cardiologists doctors</p>
+      <div className="mx-auto mb-6 h-32 w-32 rounded-full bg-secondary/60 ring-8 ring-primary/5" />
+      <h4 className="text-2xl font-semibold tracking-tight text-foreground">Dr James Smith</h4>
+      <p className="mb-10 text-sm font-bold uppercase tracking-widest text-muted-foreground/60">Cardiologists doctors</p>
 
-      <div className="flex justify-between border-b border-slate-100 pb-8">
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-1 text-[#004AAD]">
-            <Star size={16} fill="currentColor" />
-            <span className="font-bold">4.5</span>
+      <div className="flex justify-between border-b border-border/80 pb-10">
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-1.5 text-primary">
+            <Star size={18} fill="currentColor" />
+            <span className="text-lg font-bold">4.5</span>
           </div>
-          <span className="text-xs text-slate-400">Rating</span>
+          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Rating</span>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-1 text-[#004AAD]">
-            <Users size={16} />
-            <span className="font-bold">115</span>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-1.5 text-primary">
+            <Users size={18} />
+            <span className="text-lg font-bold">115</span>
           </div>
-          <span className="text-xs text-slate-400">Patient</span>
+          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Patients</span>
         </div>
       </div>
 
-      <div className="mt-8 space-y-6 text-left">
+      <div className="mt-10 space-y-8 text-left">
         {[
           { name: 'Linda Brown', msg: 'Dr. James is a great doctor!' },
           { name: 'John Doe', msg: 'Dr. James is my favourite' },
           { name: 'James Vane', msg: 'Thanks Doc!' },
         ].map((rev, i) => (
-          <div key={i} className="flex gap-4">
-            <div className="h-8 w-8 shrink-0 rounded-full bg-slate-200" />
-            <div>
-              <p className="text-sm font-bold text-slate-800">{rev.name}</p>
-              <p className="text-xs text-slate-400 line-clamp-1">{rev.msg}</p>
+          <div key={i} className="flex gap-5 group">
+            <div className="h-10 w-10 shrink-0 rounded-full bg-secondary transition-all group-hover:ring-4 group-hover:ring-primary/10" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-foreground/90">{rev.name}</p>
+              <p className="text-xs font-medium text-muted-foreground/80 line-clamp-1">{rev.msg}</p>
             </div>
           </div>
         ))}
