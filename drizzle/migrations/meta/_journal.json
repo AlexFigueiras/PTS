@@ -50,6 +50,13 @@
       "when": 1778596032698,
       "tag": "0008_fantastic_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778713718862,
+      "tag": "0009_short_skin",
+      "breakpoints": true
     }
   ]
 }

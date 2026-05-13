@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   X,
+  AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -35,6 +37,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ptsSchema, type PtsSchema } from '@/validations/pts-schema';
 export type PtsFormData = PtsSchema;
 import { toast } from 'sonner';
+import { ScoreSelector } from './score-selector';
+import { RiskSwitch } from './risk-switch';
+import { analyzePtsState, type PtsAnalysis } from '@/lib/pts/intelligence-engine';
 
 const EMPTY: PtsFormData = {
   fullName: '', socialName: '', phone: '', rg: '', cpf: '',
@@ -64,6 +69,7 @@ const EMPTY: PtsFormData = {
   efRegularPractice: '', efPhysicalLimitation: '', efPhysicalLimitationDetails: '',
   efPleasurableActivity: '', efPleasurableActivityDetails: '',
   ntDietType: '', ntWaterIntake: '',
+  scores: {}, risks: {}, suggestedActions: [],
 };
 
 const masks = {
@@ -81,7 +87,8 @@ const SECTIONS = [
   { id: 'ss', title: 'Serviço Social', icon: <ClipboardList size={18} /> },
   { id: 'ef', title: 'Educação Física', icon: <Dumbbell size={18} /> },
   { id: 'nt', title: 'Nutrição', icon: <Utensils size={18} /> },
-  { id: 'intervention', title: 'Plano Terapêutico', icon: <Target size={18} /> },
+  { id: 'intervention', title: 'Intervenções', icon: <Target size={18} /> },
+  { id: 'dashboard', title: 'Plano Terapêutico', icon: <CheckCircle size={18} /> },
 ];
 
 function Field({ label, field, placeholder, className = 'col-span-12 md:col-span-6', type = 'text', mask }: {
@@ -345,6 +352,15 @@ export function PtsForm({
       setCompletedSteps(prev => Array.from(new Set([...prev, active])));
     }
     
+    if (id === 'dashboard') {
+      const currentData = watch();
+      const currentActions = currentData.suggestedActions || [];
+      if (currentActions.length === 0) {
+        const analysis = analyzePtsState(currentData);
+        setValue('suggestedActions', analysis.suggestedActions);
+      }
+    }
+    
     setActive(id);
     const scrollContainer = document.querySelector('.overflow-y-auto');
     if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
@@ -490,6 +506,7 @@ export function PtsForm({
               {active === 'triagem' && (
                 <div className="space-y-12">
                   <Field field="q1MainComplaint" label="Queixa Principal / Motivo da Busca" type="textarea" className="col-span-12" />
+                  <RiskSwitch field="q1MainComplaint" className="col-span-12 -mt-4 mb-4" />
                   <Checkbox field="q2Substances" label="Substâncias utilizadas" options={['Álcool', 'Tabaco', 'Maconha', 'Cocaína', 'Crack', 'Inalantes', 'Opioides', 'Outros']} />
                   <Field field="q3UsageTime" label="Há quanto tempo utiliza?" className="col-span-12" />
                   <Radio field="q4TriedToStop" label="Já tentou parar de usar?" options={['Sim', 'Não']} />
@@ -500,6 +517,7 @@ export function PtsForm({
                   </div>
                   <Checkbox field="q7AggravatingFactors" label="Fatores Agravantes" options={['Conflitos Familiares', 'Desemprego', 'Saúde Física', 'Saúde Mental', 'Moradia', 'Financeiro', 'Judicial']} />
                   <Checkbox field="q8RecoveryFactors" label="Fatores de Recuperação" options={['Família', 'Religião', 'Acompanhamento', 'Trabalho', 'Grupos de Apoio', 'Esporte']} />
+                  <ScoreSelector field="q15MotivationRating" label="Grau de Motivação para o Tratamento (0-4)" className="col-span-12 mt-8" />
                 </div>
               )}
 
@@ -525,6 +543,7 @@ export function PtsForm({
                   {formData.psPreviousPsychAccount === 'Sim' && <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" /> }
                   <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-10">
                     <Radio field="psSelfHarmThoughts" label="Já teve pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
+                    <RiskSwitch field="psSelfHarmThoughts" className="mt-2" />
                     {formData.psSelfHarmThoughts !== 'Não' && formData.psSelfHarmThoughts !== '' && <Field field="psSelfHarmDetails" label="Frequência e histórico" type="textarea" className="mt-6" /> }
                   </div>
                 </div>
@@ -533,6 +552,7 @@ export function PtsForm({
               {active === 'to' && (
                 <div className="space-y-10">
                   <Radio field="toDailyIndependence" label="Realiza atividades diárias de forma independente?" options={['Sim', 'Não', 'Parcialmente']} />
+                  <ScoreSelector field="toDailyIndependence" className="col-span-12" />
                   <Radio field="toLaborActivity" label="Participa de atividade laboral?" options={['Sim', 'Não']} />
                   {formData.toLaborActivity === 'Sim' && <Field field="toLaborActivityDetails" label="Qual atividade?" type="textarea" /> }
                   <Radio field="toLeisureActivity" label="Participa de atividades de lazer?" options={['Sim', 'Não']} />
@@ -644,6 +664,133 @@ export function PtsForm({
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+              {active === 'dashboard' && (
+                <div className="space-y-12">
+                  {(() => {
+                    const analysis = analyzePtsState(formData);
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {/* Potentialities */}
+                          <div className="rounded-[2rem] border border-emerald-500/10 bg-emerald-500/5 p-8">
+                            <div className="mb-6 flex items-center gap-3 text-emerald-600">
+                              <ShieldCheck size={20} />
+                              <h3 className="text-sm font-black uppercase tracking-widest">Potencialidades</h3>
+                            </div>
+                            {analysis.potentialities.length === 0 ? (
+                              <p className="text-xs text-muted-foreground/60 italic">Nenhuma potencialidade identificada nos escores.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.potentialities.map((p, i) => (
+                                  <div key={i} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 border border-emerald-500/20 text-emerald-700 shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{p.label}</span>
+                                    <span className="text-[10px] font-black opacity-40">({p.score})</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Improvement Suggestions */}
+                          <div className="rounded-[2rem] border border-destructive/10 bg-destructive/5 p-8">
+                            <div className="mb-6 flex items-center gap-3 text-destructive">
+                              <AlertCircle size={20} />
+                              <h3 className="text-sm font-black uppercase tracking-widest">Fragilidades / Riscos</h3>
+                            </div>
+                            {analysis.improvementSuggestions.length === 0 ? (
+                              <p className="text-xs text-muted-foreground/60 italic">Nenhum risco crítico identificado nos escores.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.improvementSuggestions.map((s, i) => (
+                                  <div key={i} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 border border-destructive/20 text-destructive shadow-sm">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{s.label}</span>
+                                    {s.risk ? <AlertTriangle size={10} className="ml-1" /> : <span className="text-[10px] font-black opacity-40 ml-1">({s.score})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Suggested Actions */}
+                        <div className="space-y-8">
+                          <div className="flex items-center justify-between">
+                            <h3 className="flex items-center gap-3 text-lg font-black uppercase italic text-foreground/80">
+                              <Target className="text-primary" size={22} /> Ações Propostas pelo Motor de Inteligência
+                            </h3>
+                          </div>
+
+                          <div className="space-y-4">
+                            {(formData.suggestedActions || []).map((action: any, idx: number) => (
+                              <div key={action.id} className="group relative rounded-3xl border border-border bg-card/40 p-6 transition-all hover:border-primary/20 hover:bg-white shadow-sm">
+                                <textarea
+                                  className="w-full min-h-[80px] resize-none border-none bg-transparent p-0 text-sm font-medium text-foreground focus:ring-0"
+                                  value={action.description}
+                                  onChange={(e) => {
+                                    const next = [...(formData.suggestedActions || [])] as any;
+                                    next[idx].description = e.target.value;
+                                    setValue('suggestedActions', next);
+                                  }}
+                                />
+                                <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const next = [...(formData.suggestedActions || [])] as any;
+                                        next[idx].status = next[idx].status === 'completed' ? 'pending' : 'completed';
+                                        setValue('suggestedActions', next);
+                                      }}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-xl px-4 py-2 text-[8px] font-black uppercase tracking-widest transition-all",
+                                        action.status === 'completed' ? "bg-emerald-500 text-white" : "bg-secondary text-muted-foreground"
+                                      )}
+                                    >
+                                      {action.status === 'completed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                                      {action.status === 'completed' ? 'Concluído' : 'Pendente'}
+                                    </button>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = (formData.suggestedActions || []).filter((a: any) => a.id !== action.id);
+                                      setValue('suggestedActions', next);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground/30 hover:text-destructive"
+                                  >
+                                    <Trash size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...(formData.suggestedActions || []), { id: Date.now().toString(), description: '', status: 'pending' }];
+                                setValue('suggestedActions', next);
+                              }}
+                              className="flex w-full items-center justify-center gap-3 rounded-2xl border border-dashed border-border py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 hover:border-primary/40 hover:text-primary transition-all"
+                            >
+                              <Plus size={16} /> Adicionar Ação Manual
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Legend/Info */}
+                        <div className="flex items-center gap-4 rounded-2xl bg-slate-50 p-6 border border-slate-100">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm text-primary">
+                             <Brain size={20} />
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                            Este plano foi gerado automaticamente baseando-se nos escores críticos e flags de risco sinalizados durante a anamnese. Revise e edite as ações antes de finalizar.
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 

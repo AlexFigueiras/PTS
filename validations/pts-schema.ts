@@ -117,6 +117,19 @@ export const ptsSchema = z.object({
   // Nutrição
   ntDietType: z.string().optional(),
   ntWaterIntake: z.string().optional(),
+
+  // Intelligence Engine Fields (Scores and Risks)
+  // Mapping of field name to score (0-4)
+  scores: z.record(z.string(), z.number().min(0).max(4)).optional().default({}),
+  // Mapping of field name to risk flag (boolean)
+  risks: z.record(z.string(), z.boolean()).optional().default({}),
+  
+  // Final Dashboard Suggested Goals
+  suggestedActions: z.array(z.object({
+    id: z.string(),
+    description: z.string(),
+    status: z.enum(['pending', 'completed']),
+  })).optional().default([]),
 });
 
 export type PtsSchema = z.infer<typeof ptsSchema>;

@@ -5,13 +5,13 @@ import { redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { getDb } from '@/lib/db/client';
-import { ptsDocuments, patients } from '@/lib/db/schema';
+import { ptsResponses, patients } from '@/lib/db/schema';
 
 export type PtsStatus = 'draft' | 'completed';
 
 export async function savePtsDocument(
   patientId: string,
-  data: Record<string, unknown>,
+  data: any, // Use any for simplicity in this transition
   status: PtsStatus,
 ) {
   const ctx = await getActiveTenantContext();
@@ -19,32 +19,46 @@ export async function savePtsDocument(
 
   const db = getDb();
 
+  const scores = data.scores || {};
+  const suggestedGoals = data.suggestedActions || [];
+  
+  // Clean up data before saving to 'data' field
+  const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
+
   const existing = await db
-    .select({ id: ptsDocuments.id })
-    .from(ptsDocuments)
-    .where(and(eq(ptsDocuments.patientId, patientId), eq(ptsDocuments.tenantId, ctx.tenantId)))
+    .select({ id: ptsResponses.id })
+    .from(ptsResponses)
+    .where(and(eq(ptsResponses.patientId, patientId), eq(ptsResponses.tenantId, ctx.tenantId)))
     .limit(1);
 
   if (existing.length > 0) {
     await db
-      .update(ptsDocuments)
-      .set({ data, status, updatedAt: new Date() })
-      .where(eq(ptsDocuments.id, existing[0].id));
+      .update(ptsResponses)
+      .set({ 
+        data: formData, 
+        scores,
+        suggestedGoals,
+        status, 
+        updatedAt: new Date() 
+      })
+      .where(eq(ptsResponses.id, existing[0].id));
   } else {
-    await db.insert(ptsDocuments).values({
+    await db.insert(ptsResponses).values({
       tenantId: ctx.tenantId,
       patientId,
       status,
       createdBy: ctx.userId,
-      data,
+      data: formData,
+      scores,
+      suggestedGoals,
     });
   }
 
-  // Sync lat/lon/fullAddress/socialName back to the patients table for the map
-  const addr = data.fullAddress as string | undefined;
-  const lat = data.lat as number | null | undefined;
-  const lon = data.lon as number | null | undefined;
-  const socialName = data.socialName as string | undefined;
+  // Sync lat/lon/fullAddress/socialName back to the patients table
+  const addr = formData.fullAddress as string | undefined;
+  const lat = formData.lat as number | null | undefined;
+  const lon = formData.lon as number | null | undefined;
+  const socialName = formData.socialName as string | undefined;
 
   if (addr !== undefined || lat !== undefined || socialName !== undefined) {
     await db
@@ -71,9 +85,19 @@ export async function loadPtsDocument(patientId: string) {
 
   const [doc] = await db
     .select()
-    .from(ptsDocuments)
-    .where(and(eq(ptsDocuments.patientId, patientId), eq(ptsDocuments.tenantId, ctx.tenantId)))
+    .from(ptsResponses)
+    .where(and(eq(ptsResponses.patientId, patientId), eq(ptsResponses.tenantId, ctx.tenantId)))
     .limit(1);
 
-  return doc ?? null;
+  if (!doc) return null;
+
+  // Reconstruct the form data object
+  return {
+    ...doc,
+    data: {
+      ...(doc.data as Record<string, unknown>),
+      scores: doc.scores,
+      suggestedActions: doc.suggestedGoals,
+    }
+  };
 }
