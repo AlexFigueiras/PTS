@@ -22,7 +22,10 @@ import {
   Save,
   CheckCircle2,
   ShieldCheck,
+  X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import { searchAddress, geocodeAddress } from '@/lib/geocoding';
 import type { GeocodeResult } from '@/lib/geocoding';
 import { PUBLIC_SERVICES, calculateDistance } from '@/lib/health-services';
@@ -243,6 +246,7 @@ export function PtsForm({
   const router = useRouter();
   const [active, setActive] = useState('demographics');
   const [saving, setSaving] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
   const methods: any = useForm({
     resolver: zodResolver(ptsSchema),
@@ -314,85 +318,141 @@ export function PtsForm({
     }
   };
 
+  const activeIdx = SECTIONS.findIndex((s) => s.id === active);
+
+  const SECTION_FIELDS: Record<string, (keyof PtsFormData)[]> = {
+    demographics: ['fullName', 'phone', 'cpf', 'birthDate', 'gender', 'fullAddress'],
+    triagem: ['q1MainComplaint'],
+    intervention: ['interventions'],
+  };
+
+  // Update completed steps when moving forward
+  const goToStep = async (id: string) => {
+    const targetIdx = SECTIONS.findIndex(s => s.id === id);
+    
+    // If moving forward, validate current section
+    if (targetIdx > activeIdx) {
+      const fieldsToValidate = SECTION_FIELDS[active] || [];
+      const isValid = await methods.trigger(fieldsToValidate);
+      
+      if (!isValid) {
+        toast.error('Verifique os campos obrigatórios', {
+          description: 'Alguns campos desta etapa precisam ser preenchidos corretamente.'
+        });
+        return;
+      }
+      
+      setCompletedSteps(prev => Array.from(new Set([...prev, active])));
+    }
+    
+    setActive(id);
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <FormProvider {...methods}>
-      <div className="flex min-h-[100dvh] overflow-hidden bg-background font-sans text-foreground selection:bg-primary/20">
-        {/* Sidebar */}
-        <aside className="fixed left-0 top-0 z-50 flex h-[100dvh] w-72 -translate-x-full flex-col overflow-hidden border-r border-border bg-card/40 backdrop-blur-2xl transition-transform lg:translate-x-0">
-          <div className="flex flex-col items-center border-b border-border p-8 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[1.5rem] bg-primary text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)]">
-              <Activity size={28} />
+      <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50/50 font-sans text-foreground selection:bg-primary/20 animate-in fade-in duration-500">
+        {/* Header - Modern Stepper */}
+        <header className="shrink-0 border-b border-border bg-white/80 px-8 py-6 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-12">
+            <div className="flex shrink-0 items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <Activity size={24} />
+              </div>
+              <div>
+                <h1 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">PTS / Anamnese</h1>
+                <p className="text-lg font-black tracking-tight text-slate-900">{patientName}</p>
+              </div>
             </div>
-            <h1 className="text-[11px] font-black uppercase italic tracking-[0.4em] text-primary">CAPS AD III</h1>
-            <p className="mt-2 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40 italic">Presidente Prudente</p>
-          </div>
 
-          <nav className="flex-1 space-y-2 overflow-y-auto p-6">
-            {SECTIONS.map((s) => (
-              <button key={s.id} onClick={() => setActive(s.id)}
-                className={`flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-[10px] font-black uppercase italic tracking-widest transition-all duration-300 active:scale-[0.98] ${active === s.id ? 'bg-primary text-primary-foreground shadow-premium' : 'text-muted-foreground/60 hover:bg-secondary/30 hover:text-foreground'}`}>
-                <span className="shrink-0">{s.icon}</span> {s.title}
+            {/* Stepper Content */}
+            <nav className="hidden flex-1 items-center justify-center xl:flex">
+              <div className="flex w-full max-w-4xl items-center justify-between">
+                {SECTIONS.map((section, idx) => {
+                  const isActive = section.id === active;
+                  const isDone = completedSteps.includes(section.id) || SECTIONS.findIndex(s => s.id === active) > idx;
+
+                  return (
+                    <React.Fragment key={section.id}>
+                      <button
+                        type="button"
+                        onClick={() => goToStep(section.id)}
+                        className={cn(
+                          "group relative flex flex-col items-center gap-2 transition-all duration-300",
+                          isActive ? "scale-105" : "hover:opacity-100",
+                          !isActive && !isDone && "opacity-40"
+                        )}
+                      >
+                        <div className={cn(
+                          "flex size-10 items-center justify-center rounded-full border-2 transition-all duration-500",
+                          isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/30" :
+                          isDone ? "bg-emerald-500 border-emerald-500 text-white" :
+                          "bg-white border-slate-200 text-slate-400"
+                        )}>
+                          {isDone && !isActive ? <CheckCircle size={18} /> : section.icon}
+                        </div>
+                        <span className={cn(
+                          "absolute top-full mt-2 whitespace-nowrap text-[8px] font-black uppercase tracking-widest transition-colors",
+                          isActive ? "text-primary" : "text-slate-400 group-hover:text-slate-600"
+                        )}>
+                          {section.title}
+                        </span>
+                      </button>
+                      {idx < SECTIONS.length - 1 && (
+                        <div className="h-0.5 flex-1 mx-4 bg-slate-100 relative overflow-hidden">
+                          <motion.div 
+                            className="absolute inset-0 bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                            initial={{ width: "0%" }}
+                            animate={{ width: isDone ? "100%" : "0%" }}
+                            transition={{ duration: 0.5 }}
+                          />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </nav>
+
+            <div className="flex items-center gap-3">
+              <button onClick={() => handleSave('draft')} disabled={saving}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-60">
+                <Save size={14} /> {saving ? 'Salvando…' : 'Salvar Rascunho'}
               </button>
-            ))}
-          </nav>
-
-          <div className="border-t border-border p-8">
-            <button onClick={() => handleSave('completed')} disabled={saving}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 py-5 text-[10px] font-black uppercase italic tracking-widest text-white shadow-[0_10px_30px_rgba(16,185,129,0.2)] transition-all hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 disabled:opacity-60">
-              FINALIZAR <ChevronRight size={16} />
-            </button>
-            <button onClick={() => router.push(`/patients/${patientId}`)}
-              className="mt-6 flex w-full items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40 transition-colors hover:text-foreground">
-              <ArrowLeft size={12} /> Voltar ao paciente
-            </button>
-          </div>
-        </aside>
-
-        {/* Main */}
-        <main className="flex min-h-[100dvh] flex-1 flex-col overflow-y-auto bg-background text-foreground lg:ml-72">
-          <div className="sticky top-0 z-40 border-b border-border bg-card/60 shadow-sm backdrop-blur-xl">
-            <div className="flex items-center justify-between px-12 py-6">
-              <div>
-                <h2 className="text-xl font-black uppercase italic tracking-tight text-foreground animate-reveal">
-                  {SECTIONS.find((s) => s.id === active)?.title}
-                </h2>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Paciente: <span className="text-primary">{formData.fullName || 'Novo Registro'}</span>
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <button onClick={() => handleSave('draft')} disabled={saving}
-                  className="flex items-center gap-2 rounded-2xl border border-border bg-secondary/30 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-foreground shadow-sm transition-all hover:bg-secondary active:scale-95 disabled:opacity-60">
-                  <Save size={16} /> {saving ? 'Salvando…' : 'Salvar Rascunho'}
-                </button>
-              </div>
-            </div>
-
-            <div className="px-12 pb-6">
-              <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/20">
-                <div
-                  className="absolute left-0 top-0 h-full bg-primary shadow-[0_0_15px_rgba(var(--primary),0.5)] transition-all duration-700 ease-out"
-                  style={{ width: `${((SECTIONS.findIndex((s) => s.id === active) + 1) / SECTIONS.length) * 100}%` }}
-                />
-              </div>
+              <button onClick={() => router.push(`/patients/${patientId}`)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600">
+                <X size={18} />
+              </button>
             </div>
           </div>
+        </header>
 
-          <div className="mx-auto w-full max-w-5xl p-12 pb-32 animate-reveal">
-            {/* Header Card */}
-            <div className="relative mb-12 flex flex-col justify-between gap-8 rounded-3xl border border-border bg-card p-12 shadow-diffusion backdrop-blur-xl md:flex-row md:items-center">
-              <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/5 blur-[100px]" />
-              <div>
-                <h1 className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/40 italic">Projeto Terapêutico Singular</h1>
-                <h2 className="mt-3 text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">{patientName}</h2>
-              </div>
-              <div className="flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary/10 text-primary shadow-inner">
-                <ShieldCheck size={40} />
-              </div>
-            </div>
-
-            {/* Content Container */}
-            <div className="overflow-hidden rounded-3xl border border-border bg-card p-12 shadow-diffusion backdrop-blur-sm">
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto pt-8 pb-24">
+          <div className="mx-auto w-full max-w-4xl px-8 md:max-w-5xl">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={active}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: "circOut" }}
+                className="rounded-[2.5rem] border border-slate-200/60 bg-white p-8 shadow-diffusion md:p-16"
+              >
+                <div className="mb-12 flex items-center gap-6">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/5 text-primary">
+                    {SECTIONS.find(s => s.id === active)?.icon}
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">
+                      {SECTIONS.find((s) => s.id === active)?.title}
+                    </h2>
+                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      Etapa {activeIdx + 1} de {SECTIONS.length}
+                    </p>
+                  </div>
+                </div>
               {active === 'demographics' && (
                 <div className="grid grid-cols-12 gap-8">
                   <Field field="fullName" label="Nome Completo" className="col-span-12" />
@@ -586,35 +646,30 @@ export function PtsForm({
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Navigation Buttons */}
-            <div className="mt-16 flex items-center justify-between border-t border-border pt-12">
-              {active !== SECTIONS[0].id ? (
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Footer - Navigation */}
+        <footer className="shrink-0 border-t border-border bg-white/80 p-6 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between">
+            <button
+              type="button"
+              disabled={activeIdx === 0}
+              onClick={() => goToStep(SECTIONS[activeIdx - 1].id)}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 px-8 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-0"
+            >
+              <ArrowLeft size={18} /> Anterior
+            </button>
+
+            <div className="flex items-center gap-4">
+              {activeIdx < SECTIONS.length - 1 ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === active);
-                    setActive(SECTIONS[idx - 1].id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-secondary/30 px-10 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-all hover:bg-secondary active:scale-95"
-                >
-                  <ArrowLeft size={18} /> Anterior
-                </button>
-              ) : (
-                <div />
-              )}
-
-              {active !== SECTIONS[SECTIONS.length - 1].id ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === active);
-                    setActive(SECTIONS[idx + 1].id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="flex items-center gap-3 rounded-2xl bg-primary px-12 py-5 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+                  onClick={() => goToStep(SECTIONS[activeIdx + 1].id)}
+                  className="flex items-center gap-3 rounded-2xl bg-primary px-12 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
                 >
                   Próximo <ChevronRight size={18} />
                 </button>
@@ -623,14 +678,14 @@ export function PtsForm({
                   type="button"
                   onClick={() => handleSave('completed')}
                   disabled={saving}
-                  className="flex items-center gap-3 rounded-2xl bg-emerald-500 px-12 py-5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+                  className="flex items-center gap-3 rounded-2xl bg-emerald-500 px-12 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 disabled:opacity-60"
                 >
                   FINALIZAR <CheckCircle size={20} />
                 </button>
               )}
             </div>
           </div>
-        </main>
+        </footer>
       </div>
     </FormProvider>
   );

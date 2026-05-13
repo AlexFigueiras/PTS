@@ -40,3 +40,15 @@ export async function recordSessionAction(groupId: string, sessionDate: string, 
   revalidatePath(`/groups/${groupId}`);
   redirect(`/groups/${groupId}`);
 }
+
+export async function updateGroupMembersAction(groupId: string, memberIds: string[]) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) throw new Error('Unauthorized');
+
+  const repo = new GroupRepository(ctx.tenantId);
+  
+  await repo.update(groupId, {}, undefined, memberIds);
+
+  revalidatePath(`/groups/${groupId}`);
+}
+

@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { hasRole } from '@/lib/auth/authorization';
 import { MemberRepository } from '@/modules/members/member.repository';
-import { removeMemberFormAction } from '@/modules/members/member.actions';
 import { ROLE_LABELS } from '@/modules/members/member.dto';
+import { RemoveMemberButton } from '@/modules/members/components/remove-member-button';
 import { MemberRoleForm } from './member-role-form';
 import { InviteForm } from './invite-form';
 
@@ -39,19 +39,10 @@ export default async function TeamPage() {
                   <span className="text-muted-foreground text-sm">{ROLE_LABELS[m.role]}</span>
                 )}
                 {canEdit && (
-                  <form action={removeMemberFormAction}>
-                    <input type="hidden" name="userId" value={m.userId} />
-                    <button
-                      type="submit"
-                      className="text-destructive hover:text-destructive/80 rounded px-2 py-1 text-xs transition-colors"
-                      onClick={(e) => {
-                        if (!confirm(`Remover ${m.fullName ?? m.email} da equipe?`))
-                          e.preventDefault();
-                      }}
-                    >
-                      Remover
-                    </button>
-                  </form>
+                  <RemoveMemberButton 
+                    userId={m.userId} 
+                    userName={m.fullName ?? m.email ?? 'membro'} 
+                  />
                 )}
               </div>
             );

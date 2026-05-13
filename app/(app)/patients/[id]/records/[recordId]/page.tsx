@@ -7,7 +7,8 @@ import { GetRecordService } from '@/modules/records';
 import { RecordForm } from '@/modules/records/components/record-form';
 import { RecordTypeBadge } from '@/modules/records/components/record-type-badge';
 import { RecordStatusBadge } from '@/modules/records/components/record-status-badge';
-import { finalizeRecordFormAction, deleteRecordFormAction } from '@/modules/records/record.actions';
+import { finalizeRecordFormAction } from '@/modules/records/record.actions';
+import { DeleteRecordButton } from '@/modules/records/components/delete-record-button';
 
 type Props = { params: Promise<{ id: string; recordId: string }> };
 
@@ -89,19 +90,7 @@ export default async function RecordPage({ params }: Props) {
             </form>
           )}
           {canDelete && (
-            <form action={deleteRecordFormAction}>
-              <input type="hidden" name="id" value={record.id} />
-              <input type="hidden" name="patientId" value={id} />
-              <button
-                type="submit"
-                className="text-destructive hover:text-destructive/80 rounded-md px-3 py-2 text-sm font-medium transition-colors"
-                onClick={(e) => {
-                  if (!confirm('Tem certeza que deseja excluir este registro?')) e.preventDefault();
-                }}
-              >
-                Excluir
-              </button>
-            </form>
+            <DeleteRecordButton recordId={record.id} patientId={id} />
           )}
         </div>
       )}

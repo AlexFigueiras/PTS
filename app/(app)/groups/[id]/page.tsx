@@ -8,6 +8,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, Users, Plus, ClipboardCheck } from 'lucide-react';
 import { dayOfWeekOptions } from '@/modules/groups/group.dto';
+import { getDb } from '@/lib/db/client';
+import { patients } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { AddMemberDialog } from '@/modules/groups/components/add-member-dialog';
 
 export default async function GroupDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +25,20 @@ export default async function GroupDetailsPage({ params }: { params: Promise<{ i
   if (!group) notFound();
 
   const sessions = await sessionRepo.listByGroup(id);
+
+  // Buscar todos os pacientes ativos para o diálogo de adição
+  const allPatients = await getDb()
+    .select({
+      id: patients.id,
+      fullName: patients.fullName,
+    })
+    .from(patients)
+    .where(and(eq(patients.tenantId, ctx.tenantId), eq(patients.status, 'active')));
+
+  const patientOptions = allPatients.map(p => ({
+    label: p.fullName,
+    value: p.id
+  }));
 
   const daysLabels = group.daysOfWeek?.map(
     d => dayOfWeekOptions.find(opt => opt.value === d)?.label
@@ -96,7 +114,14 @@ export default async function GroupDetailsPage({ params }: { params: Promise<{ i
 
             <Card className="rounded-[2.5rem] border-zinc-200/50 shadow-diffusion bg-white">
               <CardContent className="p-10 space-y-6">
-                <h3 className="text-xl font-bold text-slate-800">Lista de Membros</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-slate-800">Lista de Membros</h3>
+                  <AddMemberDialog 
+                    groupId={id} 
+                    currentMembers={group.members} 
+                    allPatientOptions={patientOptions} 
+                  />
+                </div>
                 <div className="space-y-4">
                   {group.members.map(m => (
                     <div key={m.id} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-colors">
