@@ -10,3 +10,4 @@ export * from './pts-documents';
 export * from './pts-responses';
 export * from './groups';
 export * from './predefined-actions';
+export * from './pts-evolutions';

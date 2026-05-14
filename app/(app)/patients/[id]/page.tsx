@@ -6,7 +6,8 @@ import { GetPatientService } from '@/modules/patients';
 import { PatientForm } from '@/modules/patients/components/patient-form';
 import { PatientStatusBadge } from '@/modules/patients/components/patient-status-badge';
 import { PatientFilesCard } from '@/modules/files/components/patient-files-card';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { loadPtsDocument } from './pts/actions';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -40,6 +41,11 @@ export default async function PatientPage({ params }: Props) {
   const birthDateFormatted = patient.birthDate
     ? new Date(patient.birthDate + 'T00:00:00').toLocaleDateString('pt-BR')
     : null;
+
+  const doc = await loadPtsDocument(id);
+  const isPastDue = doc?.nextReviewAt && new Date(doc.nextReviewAt) < new Date();
+  const ptsLink = doc?.isLocked ? `/patients/${id}/pts/evolution` : `/patients/${id}/pts`;
+  const ptsLabel = doc?.isLocked ? 'Evolução PTS' : 'Abrir PTS';
 
   return (
     <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">
@@ -77,15 +83,21 @@ export default async function PatientPage({ params }: Props) {
                     Nascimento: <span className="text-foreground/80">{birthDateFormatted}</span>
                   </p>
                 )}
+                {isPastDue && (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-rose-500">
+                    <AlertTriangle size={12} />
+                    Revisão do PTS Vencida
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex shrink-0 gap-4">
               <Link
-                href={`/patients/${id}/pts`}
+                href={ptsLink}
                 className="flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground shadow-[0_0_30px_rgba(var(--primary),0.2)] transition-all hover:scale-105 active:scale-95"
               >
-                Abrir PTS <ChevronRight size={16} />
+                {ptsLabel} <ChevronRight size={16} />
               </Link>
               <Link
                 href={`/patients/${id}/records`}

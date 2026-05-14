@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { getDb } from '@/lib/db/client';
-import { ptsResponses, patients, predefinedActions } from '@/lib/db/schema';
+import { desc } from 'drizzle-orm';
+import { ptsResponses, ptsEvolutions, patients, predefinedActions } from '@/lib/db/schema';
 import { getClinicalAiSuggestions } from '@/lib/pts/ai-recommender';
 import { PtsSchema } from '@/validations/pts-schema';
 
@@ -34,6 +35,7 @@ export async function savePtsDocument(
     .limit(1);
 
   if (existing.length > 0) {
+    const isCompleted = status === 'completed';
     await db
       .update(ptsResponses)
       .set({ 
@@ -41,14 +43,23 @@ export async function savePtsDocument(
         scores,
         suggestedGoals,
         status, 
+        isLocked: isCompleted,
+        ...(isCompleted && { 
+          nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
+        }),
         updatedAt: new Date() 
       })
       .where(eq(ptsResponses.id, existing[0].id));
   } else {
+    const isCompleted = status === 'completed';
     await db.insert(ptsResponses).values({
       tenantId: ctx.tenantId,
       patientId,
       status,
+      isLocked: isCompleted,
+      ...(isCompleted && { 
+        nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
+      }),
       createdBy: ctx.userId,
       data: formData,
       scores,
@@ -128,4 +139,59 @@ export async function getPredefinedActions() {
   
   const db = getDb();
   return await db.select().from(predefinedActions);
+}
+
+export async function createPtsEvolution(
+  ptsId: string,
+  patientId: string,
+  data: any,
+  status: PtsStatus,
+) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) redirect('/login');
+
+  const db = getDb();
+  const scores = data.scores || {};
+  const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
+
+  const evolutions = await db
+    .select({ version: ptsEvolutions.version })
+    .from(ptsEvolutions)
+    .where(eq(ptsEvolutions.ptsId, ptsId))
+    .orderBy(desc(ptsEvolutions.version))
+    .limit(1);
+    
+  const nextVersion = evolutions.length > 0 ? evolutions[0].version + 1 : 2;
+
+  await db.insert(ptsEvolutions).values({
+    ptsId,
+    tenantId: ctx.tenantId,
+    patientId,
+    version: nextVersion,
+    status,
+    createdBy: ctx.userId,
+    data: formData,
+    scores,
+  });
+
+  if (status === 'completed') {
+    await db.update(ptsResponses).set({
+      nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      updatedAt: new Date()
+    }).where(eq(ptsResponses.id, ptsId));
+  }
+
+  revalidatePath(`/patients/${patientId}/pts/evolution`);
+  revalidatePath(`/patients/${patientId}`);
+}
+
+export async function getPtsEvolutions(ptsId: string) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return [];
+  const db = getDb();
+  
+  return await db.select()
+    .from(ptsEvolutions)
+    .where(and(eq(ptsEvolutions.ptsId, ptsId), eq(ptsEvolutions.tenantId, ctx.tenantId)))
+    .orderBy(desc(ptsEvolutions.createdAt));
 }
