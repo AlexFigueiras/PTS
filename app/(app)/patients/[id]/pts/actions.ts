@@ -5,7 +5,9 @@ import { redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { getDb } from '@/lib/db/client';
-import { ptsResponses, patients } from '@/lib/db/schema';
+import { ptsResponses, patients, predefinedActions } from '@/lib/db/schema';
+import { getClinicalAiSuggestions } from '@/lib/pts/ai-recommender';
+import { PtsSchema } from '@/validations/pts-schema';
 
 export type PtsStatus = 'draft' | 'completed';
 
@@ -100,4 +102,30 @@ export async function loadPtsDocument(patientId: string) {
       suggestedActions: doc.suggestedGoals,
     }
   };
+}
+
+export async function generateAiSuggestions(formData: PtsSchema) {
+  console.log('[Server Action] generateAiSuggestions triggered');
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    console.error('[Server Action] Unauthorized access attempt to AI suggestions');
+    throw new Error('Unauthorized');
+  }
+  
+  try {
+    const result = await getClinicalAiSuggestions(formData);
+    console.log('[Server Action] AI Suggestions generated successfully');
+    return result;
+  } catch (error) {
+    console.error('[Server Action] AI Suggestion generation failed:', error);
+    throw error;
+  }
+}
+
+export async function getPredefinedActions() {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return [];
+  
+  const db = getDb();
+  return await db.select().from(predefinedActions);
 }

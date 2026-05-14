@@ -9,3 +9,4 @@ export * from './tenant-invites';
 export * from './pts-documents';
 export * from './pts-responses';
 export * from './groups';
+export * from './predefined-actions';

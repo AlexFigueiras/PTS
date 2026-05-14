@@ -12,6 +12,8 @@ const serverSchema = z.object({
   CLOUDFLARE_R2_BUCKET_NAME: z.string().min(1).optional(),
   // Resend (e-mail transacional) — server-only
   RESEND_API_KEY: z.string().min(1).optional(),
+  // AI Keys
+  GEMINI_API_KEY: z.string().min(1).optional(),
 });
 
 const publicSchema = z.object({

@@ -1,7 +1,7 @@
 import type { PtsSchema } from '@/validations/pts-schema';
 
 export interface PtsAnalysis {
-  improvementSuggestions: { field: string; label: string; score?: number; risk?: boolean }[];
+  improvementSuggestions: { field: string; label: string; score?: number }[];
   potentialities: { field: string; label: string; score: number }[];
   suggestedActions: { id: string; description: string; status: 'pending' | 'completed' }[];
 }
@@ -28,7 +28,6 @@ export function analyzePtsState(data: PtsSchema): PtsAnalysis {
   };
 
   const scores = data.scores || {};
-  const risks = data.risks || {};
 
   // Analyze scores
   Object.entries(scores).forEach(([field, score]) => {
@@ -40,23 +39,12 @@ export function analyzePtsState(data: PtsSchema): PtsAnalysis {
     }
   });
 
-  // Analyze risks
-  Object.entries(risks).forEach(([field, isRisk]) => {
-    if (isRisk) {
-      const label = FIELD_LABELS[field] || field;
-      // Avoid duplicates if it's already in suggestions due to low score
-      if (!analysis.improvementSuggestions.find(s => s.field === field)) {
-        analysis.improvementSuggestions.push({ field, label, risk: true });
-      }
-    }
-  });
-
   // Generate suggested actions (Simple heuristics for now)
   analysis.improvementSuggestions.forEach((suggestion) => {
     let action = '';
     if (suggestion.field === 'q15MotivationRating') {
       action = 'Implementar estratégias de entrevista motivacional e fortalecer vínculo terapêutico.';
-    } else if (suggestion.field === 'psSelfHarmThoughts' || suggestion.risk) {
+    } else if (suggestion.field === 'psSelfHarmThoughts') {
       action = `Acompanhamento intensivo para ${suggestion.label} e articulação com rede de apoio.`;
     } else {
       action = `Intervenção focada em ${suggestion.label} para redução de danos e promoção de saúde.`;

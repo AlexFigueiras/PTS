@@ -57,6 +57,13 @@
       "when": 1778713718862,
       "tag": "0009_short_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778765208620,
+      "tag": "0010_rainy_sabra",
+      "breakpoints": true
     }
   ]
 }

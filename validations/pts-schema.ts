@@ -40,6 +40,8 @@ export const ptsSchema = z.object({
     description: z.string().min(1, 'Descrição é obrigatória'),
     service: z.string().min(1, 'Serviço é obrigatório'),
     status: z.enum(['pending', 'completed']),
+    deadline: z.string().optional(),
+    responsible: z.string().optional(),
   })).default([]),
 
   // Triagem (Anamnese)
@@ -118,11 +120,9 @@ export const ptsSchema = z.object({
   ntDietType: z.string().optional(),
   ntWaterIntake: z.string().optional(),
 
-  // Intelligence Engine Fields (Scores and Risks)
+  // Intelligence Engine Fields (Scores)
   // Mapping of field name to score (0-4)
   scores: z.record(z.string(), z.number().min(0).max(4)).optional().default({}),
-  // Mapping of field name to risk flag (boolean)
-  risks: z.record(z.string(), z.boolean()).optional().default({}),
   
   // Final Dashboard Suggested Goals
   suggestedActions: z.array(z.object({
@@ -130,6 +130,21 @@ export const ptsSchema = z.object({
     description: z.string(),
     status: z.enum(['pending', 'completed']),
   })).optional().default([]),
+
+  // AI Decision Support Fields
+  vulnerabilityIndex: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
+  aiSuggestions: z.array(z.object({
+    actionId: z.string(),
+    clinicalJustification: z.string(),
+    approved: z.boolean().default(false),
+  })).optional().default([]),
+  aiPotentialities: z.array(z.string()).optional().default([]),
+  aiFragilities: z.array(z.string()).optional().default([]),
+  aiStrategicGoals: z.object({
+    shortTerm: z.string().optional(),
+    mediumTerm: z.string().optional(),
+    longTerm: z.string().optional(),
+  }).optional(),
 });
 
 export type PtsSchema = z.infer<typeof ptsSchema>;
