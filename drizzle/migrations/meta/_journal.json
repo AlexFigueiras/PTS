@@ -71,6 +71,20 @@
       "when": 1778785263367,
       "tag": "0011_conscious_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779476803660,
+      "tag": "0012_intersectoral_pivot",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779480925704,
+      "tag": "0013_governance_rbac",
+      "breakpoints": true
     }
   ]
 }

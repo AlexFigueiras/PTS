@@ -14,9 +14,9 @@ export default withSentryConfig(nextConfig, {
 
   // Otimização de bundle:
   // - widenClientFileUpload: cobre mais chunks com source maps no Sentry.
-  // - disableLogger: remove o logger interno do Sentry do bundle do client.
+  // (disableLogger removido: opção descontinuada; o substituto
+  //  webpack.treeshake.removeDebugLogging não é suportado com Turbopack.)
   widenClientFileUpload: true,
-  disableLogger: true,
 
   // Org/Project/AuthToken vêm de SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN.
   // Sem auth token o build segue (só não sobe source maps).

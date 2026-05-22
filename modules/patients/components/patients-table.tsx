@@ -60,9 +60,9 @@ export function PatientsTable({ result, search }: Props) {
                     href={`/patients/${patient.id}`}
                     className="text-sm font-bold tracking-tight text-foreground/90 transition-colors group-hover:text-primary"
                   >
-                    {patient.preferredName ?? patient.fullName}
+                    {patient.socialName ?? patient.fullName}
                   </Link>
-                  {patient.preferredName && (
+                  {patient.socialName && (
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">{patient.fullName}</p>
                   )}
                 </td>

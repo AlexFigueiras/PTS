@@ -37,7 +37,7 @@ export default async function PatientsPage({ searchParams }: Props) {
     throw err;
   }
 
-  const canCreate = hasRole(ctx.role, 'professional');
+  const canCreate = hasRole(ctx.role, 'PROFESSIONAL');
 
   return (
     <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">

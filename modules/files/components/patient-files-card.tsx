@@ -13,8 +13,8 @@ export async function PatientFilesCard({ ctx, patientId }: Props) {
   const service = new ListFilesService(ctx);
   const files = await service.execute('patient', patientId);
 
-  const canUpload = hasRole(ctx.role, 'professional');
-  const canDelete = hasRole(ctx.role, 'admin');
+  const canUpload = hasRole(ctx.role, 'PROFESSIONAL');
+  const canDelete = hasRole(ctx.role, 'MANAGER');
 
   return (
     <section className="rounded-lg border p-6">

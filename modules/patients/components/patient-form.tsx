@@ -78,13 +78,16 @@ export function PatientForm(props: Props) {
     resolver: zodResolver(isEdit ? updatePatientSchema : createPatientSchema),
     defaultValues: {
       fullName: patient?.fullName ?? '',
-      preferredName: patient?.preferredName ?? '',
+      socialName: patient?.socialName ?? '',
+      motherName: patient?.motherName ?? '',
       birthDate: patient?.birthDate ?? '',
-      gender: patient?.gender ?? '',
       cpf: patient?.cpf ?? '',
+      nis: patient?.nis ?? '',
+      cns: patient?.cns ?? '',
+      gender: patient?.gender ?? '',
       phone: patient?.phone ?? '',
       email: patient?.email ?? '',
-      notes: patient?.notes ?? '',
+      fullAddress: patient?.fullAddress ?? '',
       status: patient?.status ?? 'active',
     },
   });
@@ -108,19 +111,29 @@ export function PatientForm(props: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nome completo *" error={errors.fullName?.message}>
+        <div className="sm:col-span-2">
+          <Field label="Nome completo *" error={errors.fullName?.message}>
+            <input
+              {...form.register('fullName')}
+              className={cn(inputClass, errors.fullName && 'border-destructive')}
+              placeholder="Nome completo do cidadão"
+            />
+          </Field>
+        </div>
+
+        <Field label="Nome social" error={errors.socialName?.message}>
           <input
-            {...form.register('fullName')}
-            className={cn(inputClass, errors.fullName && 'border-destructive')}
-            placeholder="Nome completo do paciente"
+            {...form.register('socialName')}
+            className={inputClass}
+            placeholder="Como prefere ser chamado(a)"
           />
         </Field>
 
-        <Field label="Nome preferido" error={errors.preferredName?.message}>
+        <Field label="Nome da mãe" error={errors.motherName?.message}>
           <input
-            {...form.register('preferredName')}
+            {...form.register('motherName')}
             className={inputClass}
-            placeholder="Como prefere ser chamado"
+            placeholder="Nome completo da mãe"
           />
         </Field>
 
@@ -147,6 +160,22 @@ export function PatientForm(props: Props) {
           />
         </Field>
 
+        <Field label="NIS / CadÚnico" error={errors.nis?.message}>
+          <input
+            {...form.register('nis')}
+            className={inputClass}
+            placeholder="11 dígitos"
+          />
+        </Field>
+
+        <Field label="CNS — Cartão Nacional de Saúde" error={errors.cns?.message}>
+          <input
+            {...form.register('cns')}
+            className={inputClass}
+            placeholder="15 dígitos"
+          />
+        </Field>
+
         <Field label="Telefone" error={errors.phone?.message}>
           <input
             {...form.register('phone')}
@@ -166,6 +195,16 @@ export function PatientForm(props: Props) {
           </Field>
         </div>
 
+        <div className="sm:col-span-2">
+          <Field label="Endereço completo" error={errors.fullAddress?.message}>
+            <input
+              {...form.register('fullAddress')}
+              className={inputClass}
+              placeholder="Rua, número, bairro, cidade"
+            />
+          </Field>
+        </div>
+
         {isEdit && (
           <Field label="Status" error={errors.status?.message}>
             <select {...form.register('status')} className={inputClass}>
@@ -176,15 +215,6 @@ export function PatientForm(props: Props) {
         )}
       </div>
 
-      <Field label="Observações" error={errors.notes?.message}>
-        <textarea
-          {...form.register('notes')}
-          rows={4}
-          className={inputClass}
-          placeholder="Informações adicionais relevantes..."
-        />
-      </Field>
-
       {state.error && (
         <p role="alert" className="text-destructive text-sm">
           {String(state.error)}
@@ -192,8 +222,8 @@ export function PatientForm(props: Props) {
       )}
 
       <div className="flex justify-end border-t border-border pt-8">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={pending}
           className="rounded-2xl bg-primary px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground shadow-[0_0_30px_rgba(var(--primary),0.2)] transition-all hover:scale-105 active:scale-95"
         >
@@ -203,7 +233,7 @@ export function PatientForm(props: Props) {
               : 'Criando…'
             : isEdit
               ? 'Salvar alterações'
-              : 'Criar paciente'}
+              : 'Criar cadastro'}
         </Button>
       </div>
     </form>

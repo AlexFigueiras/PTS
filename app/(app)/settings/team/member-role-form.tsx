@@ -7,7 +7,7 @@ import { updateMemberRoleAction, type MemberActionState } from '@/modules/member
 
 const initialState: MemberActionState = { error: null };
 
-const EDITABLE_ROLES: Array<MemberDto['role']> = ['admin', 'professional', 'assistant'];
+const EDITABLE_ROLES: Array<MemberDto['role']> = ['ADMIN', 'MANAGER', 'PROFESSIONAL'];
 
 const inputClass =
   'border-input bg-background focus-visible:ring-ring rounded-md border px-2 py-1 text-sm outline-none focus-visible:ring-2';

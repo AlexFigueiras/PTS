@@ -11,7 +11,7 @@ type Input = { name: string };
 const updateTenantAudited = withAudit<Input, void>(
   { action: 'update', entityType: 'tenant' },
   async (ctx: TenantContext, input: Input) => {
-    requireRole(ctx, 'admin');
+    requireRole(ctx, 'ADMIN');
     await getDb()
       .update(tenants)
       .set({ name: input.name.trim(), updatedAt: new Date() })

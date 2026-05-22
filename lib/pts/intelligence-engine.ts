@@ -6,57 +6,75 @@ export interface PtsAnalysis {
   suggestedActions: { id: string; description: string; status: 'pending' | 'completed' }[];
 }
 
+/**
+ * Domínios de avaliação do PTS Intersetorial. Qualquer profissional logado
+ * (Saúde, Assistência Social, Jurídico, Educação) pontua qualquer domínio.
+ */
+export type PtsDomain = 'Psíquico' | 'Saúde' | 'Social' | 'Jurídico' | 'Educação' | 'Autonomia';
+
+export const PTS_DOMAINS: PtsDomain[] = [
+  'Psíquico',
+  'Saúde',
+  'Social',
+  'Jurídico',
+  'Educação',
+  'Autonomia',
+];
+
+/** Rótulos legíveis para as chaves de escore conhecidas. */
 export const FIELD_LABELS: Record<string, string> = {
-  q1MainComplaint: 'Queixa Principal',
-  q15MotivationRating: 'Motivação',
-  nuWeight: 'Peso',
-  nuHeight: 'Altura',
-  nuPainLevel: 'Nível de Dor',
-  psSelfHarmThoughts: 'Pensamentos de Auto-extermínio',
-  psSleepDifficulty: 'Dificuldade de Sono',
-  toDailyIndependence: 'Independência Diária',
-  ssSocialBenefits: 'Benefícios Sociais',
-  efRegularPractice: 'Atividade Física',
+  psiquico: 'Domínio Psíquico',
+  saude: 'Domínio Saúde',
+  social: 'Domínio Social / Renda',
+  juridico: 'Domínio Jurídico / Direitos',
+  educacao: 'Domínio Educação / Trabalho',
+  autonomia: 'Domínio Autonomia / Cotidiano',
+  q15MotivationRating: 'Motivação para o Plano',
+  psSelfHarmThoughts: 'Sofrimento Psíquico',
+  psSleepDifficulty: 'Qualidade do Sono',
+  ssSocialBenefits: 'Acesso a Benefícios Sociais',
+  ssHealthAccess: 'Acesso à Saúde',
+  lgRightsViolation: 'Violação de Direitos',
+  edSchoolEnrollment: 'Vínculo Escolar',
+  toDailyIndependence: 'Independência no Cotidiano',
 };
 
-export type PtsDomain = 'Clínico' | 'Psíquico' | 'Social' | 'Autonomia' | 'Familiar';
-
+/** Mapa explícito chave-de-escore → domínio. */
 export const FIELD_DOMAINS: Record<string, PtsDomain> = {
-  q1MainComplaint: 'Clínico',
-  nuWeight: 'Clínico',
-  nuHeight: 'Clínico',
-  nuPainLevel: 'Clínico',
-  efRegularPractice: 'Clínico',
-  
+  psiquico: 'Psíquico',
+  saude: 'Saúde',
+  social: 'Social',
+  juridico: 'Jurídico',
+  educacao: 'Educação',
+  autonomia: 'Autonomia',
   q15MotivationRating: 'Psíquico',
   psSelfHarmThoughts: 'Psíquico',
   psSleepDifficulty: 'Psíquico',
-  
   ssSocialBenefits: 'Social',
-  ssHealthAccess: 'Social',
-  
+  ssHealthAccess: 'Saúde',
+  lgRightsViolation: 'Jurídico',
+  edSchoolEnrollment: 'Educação',
   toDailyIndependence: 'Autonomia',
-  toCognitiveDifficulty: 'Autonomia',
-  toLaborActivity: 'Autonomia',
-  toLeisureActivity: 'Autonomia',
-  
-  ssLivesWithOthers: 'Familiar',
-  q12FamilySupport: 'Familiar',
 };
 
 export function getFieldDomain(field: string): PtsDomain {
   if (FIELD_DOMAINS[field]) return FIELD_DOMAINS[field];
-  if (field.startsWith('nu') || field.startsWith('nt') || field.startsWith('ef')) return 'Clínico';
   if (field.startsWith('ps')) return 'Psíquico';
   if (field.startsWith('ss')) return 'Social';
+  if (field.startsWith('lg')) return 'Jurídico';
+  if (field.startsWith('ed')) return 'Educação';
   if (field.startsWith('to')) return 'Autonomia';
-  if (field.toLowerCase().includes('family')) return 'Familiar';
-  return 'Clínico';
+  if (field.startsWith('ef') || field.startsWith('nt')) return 'Saúde';
+  return 'Saúde';
+}
+
+function emptyDomainRecord(): Record<PtsDomain, number> {
+  return { 'Psíquico': 0, 'Saúde': 0, 'Social': 0, 'Jurídico': 0, 'Educação': 0, 'Autonomia': 0 };
 }
 
 export function calculateDomainAverages(scores: Record<string, number>): Record<PtsDomain, number> {
-  const sums: Record<PtsDomain, number> = { 'Clínico': 0, 'Psíquico': 0, 'Social': 0, 'Autonomia': 0, 'Familiar': 0 };
-  const counts: Record<PtsDomain, number> = { 'Clínico': 0, 'Psíquico': 0, 'Social': 0, 'Autonomia': 0, 'Familiar': 0 };
+  const sums = emptyDomainRecord();
+  const counts = emptyDomainRecord();
 
   Object.entries(scores).forEach(([field, score]) => {
     const domain = getFieldDomain(field);
@@ -64,14 +82,11 @@ export function calculateDomainAverages(scores: Record<string, number>): Record<
     counts[domain] += 1;
   });
 
-  const avgs: Record<PtsDomain, number> = { 'Clínico': 0, 'Psíquico': 0, 'Social': 0, 'Autonomia': 0, 'Familiar': 0 };
-  (Object.keys(sums) as PtsDomain[]).forEach(d => {
-    // If there are no scores, we default to full score (4) or 0? 
-    // Usually missing means fine, let's keep it 0 if not assessed, or maybe 4 (healthy).
-    // Let's use 0 so the radar chart only shows evaluated things.
+  const avgs = emptyDomainRecord();
+  PTS_DOMAINS.forEach((d) => {
     avgs[d] = counts[d] > 0 ? Number((sums[d] / counts[d]).toFixed(1)) : 0;
   });
-  
+
   return avgs;
 }
 
@@ -84,7 +99,6 @@ export function analyzePtsState(data: PtsSchema): PtsAnalysis {
 
   const scores = data.scores || {};
 
-  // Analyze scores
   Object.entries(scores).forEach(([field, score]) => {
     const label = FIELD_LABELS[field] || field;
     if (score <= 1) {
@@ -94,15 +108,14 @@ export function analyzePtsState(data: PtsSchema): PtsAnalysis {
     }
   });
 
-  // Generate suggested actions (Simple heuristics for now)
   analysis.improvementSuggestions.forEach((suggestion) => {
     let action = '';
     if (suggestion.field === 'q15MotivationRating') {
-      action = 'Implementar estratégias de entrevista motivacional e fortalecer vínculo terapêutico.';
+      action = 'Fortalecer vínculo e usar estratégias de entrevista motivacional.';
     } else if (suggestion.field === 'psSelfHarmThoughts') {
-      action = `Acompanhamento intensivo para ${suggestion.label} e articulação com rede de apoio.`;
+      action = `Acompanhamento intensivo para ${suggestion.label} e articulação com a rede de apoio.`;
     } else {
-      action = `Intervenção focada em ${suggestion.label} para redução de danos e promoção de saúde.`;
+      action = `Intervenção intersetorial focada em ${suggestion.label} para garantia de direitos e cuidado.`;
     }
 
     analysis.suggestedActions.push({
@@ -147,12 +160,12 @@ export function analyzeEvolutionDelta(previousData: Partial<PtsSchema>, currentD
   const checkSemantic = (field: keyof PtsSchema, label: string) => {
     const prev = String(previousData[field] || '').toLowerCase();
     const curr = String(currentData[field] || '').toLowerCase();
-    
+
     const crisisTerms = ['crise', 'surto', 'desespero', 'agressiv', 'recaída', 'auto-extermínio', 'morte', 'suicídio'];
-    
-    const prevCrisisCount = crisisTerms.filter(t => prev.includes(t)).length;
-    const currCrisisCount = crisisTerms.filter(t => curr.includes(t)).length;
-    
+
+    const prevCrisisCount = crisisTerms.filter((t) => prev.includes(t)).length;
+    const currCrisisCount = crisisTerms.filter((t) => curr.includes(t)).length;
+
     if (currCrisisCount < prevCrisisCount) {
       delta.semanticChanges.push(`Redução de termos de crise no relato de: ${label}`);
     } else if (currCrisisCount > prevCrisisCount) {
@@ -160,8 +173,8 @@ export function analyzeEvolutionDelta(previousData: Partial<PtsSchema>, currentD
     }
   };
 
-  checkSemantic('q1MainComplaint', 'Queixa Principal');
-  checkSemantic('psSelfHarmDetails', 'Pensamentos de Auto-extermínio (Detalhes)');
+  checkSemantic('q1MainComplaint', 'Demanda Principal');
+  checkSemantic('psSelfHarmDetails', 'Sofrimento Psíquico (Detalhes)');
 
   return delta;
 }

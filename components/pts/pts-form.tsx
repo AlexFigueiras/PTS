@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import {
   User,
   Activity,
-  Stethoscope,
-  Briefcase,
   Brain,
+  HeartPulse,
+  HandHeart,
+  Scale,
+  GraduationCap,
   ChevronRight,
   ClipboardList,
   ArrowLeft,
-  Utensils,
-  Dumbbell,
   Target,
   Plus,
   Trash,
@@ -24,7 +24,6 @@ import {
   ShieldCheck,
   X,
   AlertCircle,
-  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -45,34 +44,41 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
 const EMPTY: PtsFormData = {
+  // Cadastro
   fullName: '', socialName: '', phone: '', rg: '', cpf: '',
   fatherName: '', motherName: '', responsible: '', birthDate: '', gender: '',
   cad: '', susCard: '', fullAddress: '', lat: null, lon: null,
   neighborhood: '', cep: '', streetSituation: '', nearestUbs: '',
   selfIdentification: '', profession: '', education: '', maritalStatus: '',
-  mainCid: '', associatedCid: '', email: '', origin: '', destination: '',
+  email: '', origin: '', destination: '',
+  // Objetivos e intervenções
   shortTermGoals: '', mediumTermGoals: '', longTermGoals: '', interventions: [],
+  // Escuta inicial (anamnese)
   q1MainComplaint: '', q2Substances: [], q3UsageTime: '', q4TriedToStop: '',
   q5StopMethods: [], q6PreviousHospitalization: '', q6HospitalizationDetails: '',
   cCompulsion: false, cTolerance: false, cAbstinence: false, cRelief: false, cRelevance: false,
   q7AggravatingFactors: [], q8RecoveryFactors: [], q9DailyDifficulties: [], q10SkillsInterests: [],
   q11FixedHousing: '', q12FamilySupport: '', q13JusticeInvolvement: '',
   q14MentalHealthHistory: '', q15MotivationRating: '',
-  nuWeight: '', nuHeight: '', nuBloodPressure: '', nuOxygenSaturation: '',
-  nuChronicDisease: '', nuChronicDiseaseDetails: '', nuContinuousMedication: '',
-  nuContinuousMedicationDetails: '', nuAllergy: '', nuAllergyDetails: '',
-  nuVaccinationStatus: '', nuPainLevel: '', nuPainDetails: '',
+  // Domínio Psíquico
   psPreviousPsychAccount: '', psPreviousPsychDetails: '', psCurrentTreatment: '',
   psSelfHarmThoughts: '', psSelfHarmDetails: '', psSleepDifficulty: '', psAnxietySadness: '',
   psDistressingMemories: '', psDistressingMemoriesDetails: '',
-  toDailyIndependence: '', toCognitiveDifficulty: '', toLaborActivity: '',
-  toLaborActivityDetails: '', toLeisureActivity: '', toLeisureActivityDetails: '',
+  // Domínio Social / Renda
   ssLivesWithOthers: '', ssLivesWithDetails: '', ssSocialBenefits: '',
   ssSocialBenefitsDetails: '', ssHealthAccess: '', ssHealthAccessDetails: '',
+  // Domínio Jurídico / Direitos
+  lgRightsViolation: '', lgRightsViolationDetails: '', lgLegalFollowUp: '', lgLegalFollowUpDetails: '',
+  // Domínio Educação / Trabalho
+  edSchoolEnrollment: '', edSchoolEnrollmentDetails: '', edLaborActivity: '', edLaborActivityDetails: '',
+  // Domínio Autonomia / Cotidiano
+  toDailyIndependence: '', toCognitiveDifficulty: '', toLeisureActivity: '', toLeisureActivityDetails: '',
+  // Domínio Saúde
   efRegularPractice: '', efPhysicalLimitation: '', efPhysicalLimitationDetails: '',
-  efPleasurableActivity: '', efPleasurableActivityDetails: '',
-  ntDietType: '', ntWaterIntake: '',
-  scores: {}, risks: {}, suggestedActions: [],
+  efPleasurableActivity: '', ntDietType: '', ntWaterIntake: '',
+  // Motor de inteligência
+  scores: {}, suggestedActions: [],
+  aiSuggestions: [], aiPotentialities: [], aiFragilities: [],
 };
 
 const masks = {
@@ -81,15 +87,18 @@ const masks = {
   cep: (v: string) => v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9),
 };
 
+/**
+ * Etapas do PTS Intersetorial. As etapas de avaliação são DOMÍNIOS (não
+ * profissões) — qualquer profissional logado pode pontuar qualquer domínio.
+ */
 const SECTIONS = [
-  { id: 'demographics', title: 'Admissão', icon: <User size={18} /> },
-  { id: 'triagem', title: 'PTS (Anamnese)', icon: <Activity size={18} /> },
-  { id: 'nursing', title: 'Enfermagem', icon: <Stethoscope size={18} /> },
-  { id: 'ps', title: 'Psicologia', icon: <Brain size={18} /> },
-  { id: 'to', title: 'Terapia Ocupacional', icon: <Briefcase size={18} /> },
-  { id: 'ss', title: 'Serviço Social', icon: <ClipboardList size={18} /> },
-  { id: 'ef', title: 'Educação Física', icon: <Dumbbell size={18} /> },
-  { id: 'nt', title: 'Nutrição', icon: <Utensils size={18} /> },
+  { id: 'demographics', title: 'Cadastro', icon: <User size={18} /> },
+  { id: 'triagem', title: 'Escuta Inicial', icon: <Activity size={18} /> },
+  { id: 'psiquico', title: 'Domínio Psíquico', icon: <Brain size={18} /> },
+  { id: 'saude', title: 'Domínio Saúde', icon: <HeartPulse size={18} /> },
+  { id: 'social', title: 'Domínio Social / Renda', icon: <HandHeart size={18} /> },
+  { id: 'juridico', title: 'Domínio Jurídico / Direitos', icon: <Scale size={18} /> },
+  { id: 'educacao', title: 'Domínio Educação / Trabalho', icon: <GraduationCap size={18} /> },
   { id: 'dashboard', title: 'Plano Terapêutico', icon: <CheckCircle size={18} /> },
 ];
 
@@ -189,6 +198,32 @@ function Checkbox({ label, field, options, className = 'col-span-12' }: {
         ))}
       </div>
       {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Cabeçalho de um domínio de avaliação. Deixa explícito que QUALQUER
+ * profissional logado pode pontuar o domínio e expõe o seletor de escore.
+ */
+function DomainIntro({ domainKey, label, description }: {
+  domainKey: string; label: string; description: string;
+}) {
+  return (
+    <div className="space-y-6 rounded-3xl border border-primary/10 bg-primary/[0.03] p-8">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Target size={18} />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-black uppercase tracking-tight text-foreground">{label}</h3>
+          <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">
+            {description} Qualquer profissional da rede — Saúde, Assistência Social,
+            Jurídico ou Educação — pode pontuar este domínio.
+          </p>
+        </div>
+      </div>
+      <ScoreSelector field={domainKey} label="Pontuação do domínio · 0 = crítico · 4 = pleno" />
     </div>
   );
 }
@@ -440,7 +475,7 @@ export function PtsForm({
                           isDone ? "bg-emerald-500 border-emerald-500 text-white" :
                           "bg-white border-slate-200 text-slate-400"
                         )}>
-                          {isDone && !isActive ? <CheckCircle size={12} /> : React.cloneElement(section.icon as React.ReactElement, { size: 12 })}
+                          {isDone && !isActive ? <CheckCircle size={12} /> : React.cloneElement(section.icon as React.ReactElement<{ size?: number }>, { size: 12 })}
                         </div>
                         {isActive && (
                           <span className="absolute -bottom-4 whitespace-nowrap text-[6px] font-black uppercase tracking-[0.2em] text-primary animate-in fade-in slide-in-from-top-1">
@@ -552,151 +587,93 @@ export function PtsForm({
                 </div>
               )}
 
-              {active === 'nursing' && (
+              {active === 'psiquico' && (
                 <div className="space-y-10">
-                  <div className="grid grid-cols-12 gap-6">
-                    <Field field="nuWeight" label="Peso (kg)" className="col-span-6 md:col-span-3" />
-                    <Field field="nuHeight" label="Altura (m)" className="col-span-6 md:col-span-3" />
-                    <Field field="nuBloodPressure" label="Pressão Arterial" className="col-span-6 md:col-span-3" />
-                    <Field field="nuOxygenSaturation" label="Saturação O2 (%)" className="col-span-6 md:col-span-3" />
-                  </div>
-                  <Radio field="nuChronicDisease" label="Possui doença crônica?" options={['Sim', 'Não']} />
-                  {formData.nuChronicDisease === 'Sim' && <Field field="nuChronicDiseaseDetails" label="Quais doenças?" type="textarea" /> }
-                  <Radio field="nuContinuousMedication" label="Usa medicação contínua?" options={['Sim', 'Não']} />
-                  {formData.nuContinuousMedication === 'Sim' && <Field field="nuContinuousMedicationDetails" label="Quais medicações?" type="textarea" /> }
-                  <Radio field="nuVaccinationStatus" label="Carteira de vacinação em dia?" options={['Sim', 'Não', 'Não sabe']} />
-                </div>
-              )}
-
-              {active === 'ps' && (
-                <div className="space-y-10">
-                  <Radio field="psPreviousPsychAccount" label="Já teve acompanhamento psicológico/psiquiátrico?" options={['Sim', 'Não']} />
-                  {formData.psPreviousPsychAccount === 'Sim' && <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" /> }
+                  <DomainIntro
+                    domainKey="psiquico"
+                    label="Domínio Psíquico"
+                    description="Saúde mental, sofrimento psíquico e vínculos de cuidado."
+                  />
+                  <Radio field="psPreviousPsychAccount" label="Já teve acompanhamento em saúde mental?" options={['Sim', 'Não']} />
+                  {formData.psPreviousPsychAccount === 'Sim' && <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" />}
+                  <Radio field="psCurrentTreatment" label="Está em algum acompanhamento atualmente?" options={['Sim', 'Não']} />
+                  <Radio field="psSleepDifficulty" label="Apresenta dificuldades de sono?" options={['Sim', 'Não', 'Às vezes']} />
+                  <Radio field="psAnxietySadness" label="Relata ansiedade ou tristeza frequentes?" options={['Sim', 'Não', 'Às vezes']} />
                   <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-10">
-                    <Radio field="psSelfHarmThoughts" label="Já teve pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
+                    <Radio field="psSelfHarmThoughts" label="Pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
                     {formData.psSelfHarmThoughts !== 'Não' && formData.psSelfHarmThoughts !== '' && <Field field="psSelfHarmDetails" label="Frequência e histórico" type="textarea" className="mt-6" />}
                   </div>
                 </div>
               )}
 
-              {active === 'to' && (
+              {active === 'saude' && (
                 <div className="space-y-10">
-                  <Radio field="toDailyIndependence" label="Realiza atividades diárias de forma independente?" options={['Sim', 'Não', 'Parcialmente']} />
-                  <ScoreSelector field="toDailyIndependence" className="col-span-12" />
-                  <Radio field="toLaborActivity" label="Participa de atividade laboral?" options={['Sim', 'Não']} />
-                  {formData.toLaborActivity === 'Sim' && <Field field="toLaborActivityDetails" label="Qual atividade?" type="textarea" /> }
-                  <Radio field="toLeisureActivity" label="Participa de atividades de lazer?" options={['Sim', 'Não']} />
-                </div>
-              )}
-
-              {active === 'ss' && (
-                <div className="space-y-10">
-                  <Radio field="ssLivesWithOthers" label="Mora com familiares ou outras pessoas?" options={['Sim', 'Não']} />
-                  {formData.ssLivesWithOthers === 'Sim' && <Field field="ssLivesWithDetails" label="Com quem reside?" type="textarea" /> }
-                  <Radio field="ssSocialBenefits" label="Recebe algum benefício social?" options={['Sim', 'Não']} />
-                  {formData.ssSocialBenefits === 'Sim' && <Field field="ssSocialBenefitsDetails" label="Quais benefícios?" type="textarea" /> }
-                </div>
-              )}
-
-              {active === 'ef' && (
-                <div className="space-y-10">
+                  <DomainIntro
+                    domainKey="saude"
+                    label="Domínio Saúde"
+                    description="Acesso à saúde, hábitos e autonomia no cotidiano — sem prontuário clínico."
+                  />
+                  <Radio field="ssHealthAccess" label="Possui acesso aos serviços de saúde do território?" options={['Sim', 'Não', 'Parcialmente']} />
+                  {formData.ssHealthAccess === 'Não' && <Field field="ssHealthAccessDetails" label="Quais barreiras de acesso?" type="textarea" />}
                   <Radio field="efRegularPractice" label="Pratica atividades físicas regularmente?" options={['Sim', 'Não']} />
-                  <Radio field="efPhysicalLimitation" label="Possui limitação física para exercícios?" options={['Sim', 'Não']} />
-                  {formData.efPhysicalLimitation === 'Sim' && <Field field="efPhysicalLimitationDetails" label="Descreva a limitação" type="textarea" /> }
-                </div>
-              )}
-
-              {active === 'nt' && (
-                <div className="grid grid-cols-12 gap-8">
-                  <Field field="ntDietType" label="Tipo de Alimentação Preponderante" className="col-span-12" />
-                  <Field field="ntWaterIntake" label="Média de Ingestão Hídrica (Copo/L)" className="col-span-12" />
-                </div>
-              )}
-
-              {active === 'intervention' && (
-                <div className="space-y-16">
-                  <div className="space-y-8">
-                    <h3 className="flex items-center gap-3 text-lg font-black uppercase italic text-foreground/80">
-                      <Target className="text-primary" size={22} /> Objetivos do Cuidado
-                    </h3>
-                    <div className="grid grid-cols-12 gap-8">
-                      <Field field="shortTermGoals" label="Curto Prazo (Imediato)" type="textarea" className="col-span-12" />
-                      <Field field="mediumTermGoals" label="Médio Prazo (Até 6 meses)" type="textarea" className="col-span-12" />
-                      <Field field="longTermGoals" label="Longo Prazo (Estrutural)" type="textarea" className="col-span-12" />
-                    </div>
-                  </div>
-
-                  <div className="border-t border-border pt-12">
-                    <div className="mb-10 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-black uppercase italic text-foreground/80">Ações e Encaminhamentos</h3>
-                        <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">Vincule ações a serviços públicos de Presidente Prudente</p>
-                      </div>
-                      <button type="button" onClick={() => {
-                        const current = formData.interventions || [];
-                        setValue('interventions', [...current, { id: Date.now().toString(), description: '', service: '', status: 'pending' as const }]);
-                      }}
-                        className="flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95">
-                        <Plus size={16} /> Adicionar Ação
-                      </button>
-                    </div>
-
-                    {(!formData.interventions || formData.interventions.length === 0) ? (
-                      <div className="flex flex-col items-center justify-center gap-8 rounded-3xl border border-border bg-background/20 py-20 text-muted-foreground/20">
-                        <ClipboardList size={48} className="opacity-20" />
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Nenhuma ação registrada</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {(formData.interventions || []).map((item: any, idx: number) => (
-                          <div key={item.id} className="flex flex-col gap-6 rounded-3xl border border-border bg-card/60 p-10 md:flex-row shadow-sm">
-                            <div className="flex-1 space-y-6">
-                              <textarea placeholder="Descrição da ação…"
-                                className="min-h-[100px] w-full resize-none rounded-2xl border border-border bg-background/30 p-6 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all duration-300"
-                                value={item.description}
-                                onChange={(e) => {
-                                  const l = [...(formData.interventions || [])] as any;
-                                  l[idx].description = e.target.value;
-                                  setValue('interventions', l);
-                                }}
-                              />
-                              <div className="flex flex-col gap-4 md:flex-row">
-                                <select className="flex-1 appearance-none rounded-2xl border border-border bg-background/30 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground focus:border-primary focus:outline-none transition-all duration-300"
-                                  value={item.service}
-                                  onChange={(e) => {
-                                    const l = [...(formData.interventions || [])] as any;
-                                    l[idx].service = e.target.value;
-                                    setValue('interventions', l);
-                                  }}>
-                                  <option value="">Selecione o Serviço/Unidade…</option>
-                                  {sortedServices.map((s) => {
-                                    const dist = formData.lat && formData.lon ? calculateDistance(formData.lat, formData.lon, s.lat, s.lon).toFixed(2) : null;
-                                    return <option key={s.id} value={s.name}>{s.type} — {s.name}{dist ? ` (${dist} km)` : ''}</option>;
-                                  })}
-                                </select>
-                                <button type="button" onClick={() => {
-                                  const l = [...(formData.interventions || [])] as any;
-                                  l[idx].status = l[idx].status === 'completed' ? 'pending' : 'completed';
-                                  setValue('interventions', l);
-                                }}
-                                  className={`flex min-w-[160px] items-center justify-center gap-3 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-secondary/30 text-muted-foreground/60 border border-border'}`}>
-                                  {item.status === 'completed' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
-                                  {item.status === 'completed' ? 'Concluído' : 'Pendente'}
-                                </button>
-                                <button type="button" onClick={() => setValue('interventions', (formData.interventions as any[]).filter((i: any) => i.id !== item.id))}
-                                  className="rounded-2xl border border-border p-5 text-muted-foreground/30 transition-all hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20">
-                                  <Trash size={18} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  <Radio field="efPhysicalLimitation" label="Possui limitação física?" options={['Sim', 'Não']} />
+                  {formData.efPhysicalLimitation === 'Sim' && <Field field="efPhysicalLimitationDetails" label="Descreva a limitação" type="textarea" />}
+                  <Field field="ntDietType" label="Tipo de alimentação preponderante" className="col-span-12" />
+                  <div className="rounded-3xl border border-primary/10 bg-primary/[0.02] p-8 space-y-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Autonomia no cotidiano</p>
+                    <Radio field="toDailyIndependence" label="Realiza atividades diárias de forma independente?" options={['Sim', 'Não', 'Parcialmente']} />
+                    <Radio field="toLeisureActivity" label="Participa de atividades de lazer?" options={['Sim', 'Não']} />
+                    <ScoreSelector field="autonomia" label="Pontuação de autonomia (0-4)" className="col-span-12" />
                   </div>
                 </div>
               )}
-                            {active === 'dashboard' && (
+
+              {active === 'social' && (
+                <div className="space-y-10">
+                  <DomainIntro
+                    domainKey="social"
+                    label="Domínio Social / Renda"
+                    description="Convivência, moradia, renda e acesso a benefícios e proteção social."
+                  />
+                  <Radio field="ssLivesWithOthers" label="Mora com familiares ou outras pessoas?" options={['Sim', 'Não']} />
+                  {formData.ssLivesWithOthers === 'Sim' && <Field field="ssLivesWithDetails" label="Com quem reside?" type="textarea" />}
+                  <Radio field="ssSocialBenefits" label="Recebe algum benefício social?" options={['Sim', 'Não']} />
+                  {formData.ssSocialBenefits === 'Sim' && <Field field="ssSocialBenefitsDetails" label="Quais benefícios?" type="textarea" />}
+                </div>
+              )}
+
+              {active === 'juridico' && (
+                <div className="space-y-10">
+                  <DomainIntro
+                    domainKey="juridico"
+                    label="Domínio Jurídico / Direitos"
+                    description="Garantia de direitos, situação de justiça e acompanhamento jurídico."
+                  />
+                  <Field field="q13JusticeInvolvement" label="Envolvimento com o sistema de justiça" type="textarea" className="col-span-12" />
+                  <div className="rounded-3xl border border-destructive/10 bg-destructive/5 p-10">
+                    <Radio field="lgRightsViolation" label="Há indícios de violação de direitos?" options={['Sim', 'Não', 'Em apuração']} />
+                    {formData.lgRightsViolation !== 'Não' && formData.lgRightsViolation !== '' && <Field field="lgRightsViolationDetails" label="Descreva a situação" type="textarea" className="col-span-12 mt-6" />}
+                  </div>
+                  <Radio field="lgLegalFollowUp" label="Possui acompanhamento jurídico (Defensoria, MP, Conselho)?" options={['Sim', 'Não']} />
+                  {formData.lgLegalFollowUp === 'Sim' && <Field field="lgLegalFollowUpDetails" label="Qual órgão e situação?" type="textarea" />}
+                </div>
+              )}
+
+              {active === 'educacao' && (
+                <div className="space-y-10">
+                  <DomainIntro
+                    domainKey="educacao"
+                    label="Domínio Educação / Trabalho"
+                    description="Vínculo escolar, escolaridade e inserção produtiva."
+                  />
+                  <Radio field="edSchoolEnrollment" label="Está matriculado(a) ou vinculado(a) à educação?" options={['Sim', 'Não', 'Não se aplica']} />
+                  {formData.edSchoolEnrollment === 'Sim' && <Field field="edSchoolEnrollmentDetails" label="Qual unidade de ensino?" type="textarea" />}
+                  <Radio field="edLaborActivity" label="Participa de atividade laboral ou de geração de renda?" options={['Sim', 'Não']} />
+                  {formData.edLaborActivity === 'Sim' && <Field field="edLaborActivityDetails" label="Qual atividade?" type="textarea" />}
+                </div>
+              )}
+
+              {active === 'dashboard' && (
                  <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
                    {(() => {
                      const analysis = analyzePtsState(formData);

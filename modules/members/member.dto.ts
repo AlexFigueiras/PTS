@@ -1,24 +1,28 @@
 import { z } from 'zod';
-import type { TenantRole } from '@/lib/db/schema';
+import type { UserRole, ProfileStatus } from '@/lib/db/schema';
+import { ROLE_LABELS } from '@/lib/auth/authorization';
 
-export const ROLE_LABELS: Record<TenantRole, string> = {
-  owner: 'Proprietário',
-  admin: 'Administrador',
-  professional: 'Profissional',
-  assistant: 'Assistente',
+export { ROLE_LABELS };
+
+export const STATUS_LABELS: Record<ProfileStatus, string> = {
+  PENDING: 'Pendente',
+  ACTIVE: 'Ativo',
+  INACTIVE: 'Inativo',
 };
 
 export type MemberDto = {
   userId: string;
   email: string;
   fullName: string | null;
-  role: TenantRole;
+  jobTitle: string | null;
+  role: UserRole;
+  status: ProfileStatus;
   joinedAt: string;
 };
 
 export const updateMemberRoleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['admin', 'professional', 'assistant']),
+  role: z.enum(['ADMIN', 'MANAGER', 'PROFESSIONAL']),
 });
 
 export const removeMemberSchema = z.object({

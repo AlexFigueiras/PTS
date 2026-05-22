@@ -5,119 +5,98 @@ import {
   requireAnyRole,
   ForbiddenError,
   ROLE_HIERARCHY,
-  type TenantRole,
+  type UserRole,
 } from '../authorization';
 import type { TenantContext } from '@/lib/tenant-context';
 
-function ctx(role: TenantRole): TenantContext {
-  return { tenantId: 'tenant-1', userId: 'user-1', role };
+function ctx(role: UserRole): TenantContext {
+  return { tenantId: 'tenant-1', userId: 'user-1', role, activeUnitId: null };
 }
 
 describe('ROLE_HIERARCHY', () => {
-  it('tem 4 roles em ordem crescente de privilégio', () => {
-    expect(ROLE_HIERARCHY).toEqual(['assistant', 'professional', 'admin', 'owner']);
+  it('tem 3 níveis em ordem crescente de privilégio', () => {
+    expect(ROLE_HIERARCHY).toEqual(['PROFESSIONAL', 'MANAGER', 'ADMIN']);
   });
 });
 
 describe('hasRole', () => {
-  it('owner passa em todos os níveis', () => {
+  it('ADMIN passa em todos os níveis', () => {
     for (const role of ROLE_HIERARCHY) {
-      expect(hasRole('owner', role)).toBe(true);
+      expect(hasRole('ADMIN', role)).toBe(true);
     }
   });
 
-  it('assistant só passa no próprio nível', () => {
-    expect(hasRole('assistant', 'assistant')).toBe(true);
-    expect(hasRole('assistant', 'professional')).toBe(false);
-    expect(hasRole('assistant', 'admin')).toBe(false);
-    expect(hasRole('assistant', 'owner')).toBe(false);
+  it('PROFESSIONAL só passa no próprio nível', () => {
+    expect(hasRole('PROFESSIONAL', 'PROFESSIONAL')).toBe(true);
+    expect(hasRole('PROFESSIONAL', 'MANAGER')).toBe(false);
+    expect(hasRole('PROFESSIONAL', 'ADMIN')).toBe(false);
   });
 
-  it('professional passa em professional e assistant, mas não admin ou owner', () => {
-    expect(hasRole('professional', 'assistant')).toBe(true);
-    expect(hasRole('professional', 'professional')).toBe(true);
-    expect(hasRole('professional', 'admin')).toBe(false);
-    expect(hasRole('professional', 'owner')).toBe(false);
-  });
-
-  it('admin passa em tudo exceto owner', () => {
-    expect(hasRole('admin', 'assistant')).toBe(true);
-    expect(hasRole('admin', 'professional')).toBe(true);
-    expect(hasRole('admin', 'admin')).toBe(true);
-    expect(hasRole('admin', 'owner')).toBe(false);
+  it('MANAGER passa em MANAGER e PROFESSIONAL, mas não ADMIN', () => {
+    expect(hasRole('MANAGER', 'PROFESSIONAL')).toBe(true);
+    expect(hasRole('MANAGER', 'MANAGER')).toBe(true);
+    expect(hasRole('MANAGER', 'ADMIN')).toBe(false);
   });
 });
 
 describe('requireRole', () => {
   it('não lança quando role é suficiente', () => {
-    expect(() => requireRole(ctx('professional'), 'professional')).not.toThrow();
-    expect(() => requireRole(ctx('admin'), 'professional')).not.toThrow();
-    expect(() => requireRole(ctx('owner'), 'admin')).not.toThrow();
+    expect(() => requireRole(ctx('PROFESSIONAL'), 'PROFESSIONAL')).not.toThrow();
+    expect(() => requireRole(ctx('MANAGER'), 'PROFESSIONAL')).not.toThrow();
+    expect(() => requireRole(ctx('ADMIN'), 'MANAGER')).not.toThrow();
   });
 
   it('lança ForbiddenError quando role é insuficiente', () => {
-    expect(() => requireRole(ctx('assistant'), 'professional')).toThrow(ForbiddenError);
-    expect(() => requireRole(ctx('professional'), 'admin')).toThrow(ForbiddenError);
-    expect(() => requireRole(ctx('admin'), 'owner')).toThrow(ForbiddenError);
+    expect(() => requireRole(ctx('PROFESSIONAL'), 'MANAGER')).toThrow(ForbiddenError);
+    expect(() => requireRole(ctx('MANAGER'), 'ADMIN')).toThrow(ForbiddenError);
   });
 
   it('ForbiddenError tem name correto e não vaza detalhes do role', () => {
     try {
-      requireRole(ctx('assistant'), 'admin');
+      requireRole(ctx('PROFESSIONAL'), 'ADMIN');
     } catch (err) {
       expect(err).toBeInstanceOf(ForbiddenError);
       expect((err as Error).name).toBe('ForbiddenError');
-      expect((err as Error).message).not.toContain('assistant');
-      expect((err as Error).message).not.toContain('admin');
+      expect((err as Error).message).not.toContain('PROFESSIONAL');
+      expect((err as Error).message).not.toContain('ADMIN');
     }
   });
 });
 
 describe('requireAnyRole', () => {
   it('passa quando usuário tem um dos roles via hierarquia', () => {
-    // professional+ pode fazer upload
-    expect(() => requireAnyRole(ctx('professional'), ['admin', 'professional'])).not.toThrow();
-    expect(() => requireAnyRole(ctx('admin'), ['admin', 'professional'])).not.toThrow();
-    expect(() => requireAnyRole(ctx('owner'), ['admin', 'professional'])).not.toThrow();
+    expect(() => requireAnyRole(ctx('PROFESSIONAL'), ['MANAGER', 'PROFESSIONAL'])).not.toThrow();
+    expect(() => requireAnyRole(ctx('MANAGER'), ['MANAGER', 'PROFESSIONAL'])).not.toThrow();
+    expect(() => requireAnyRole(ctx('ADMIN'), ['MANAGER', 'PROFESSIONAL'])).not.toThrow();
   });
 
   it('lança ForbiddenError quando usuário não tem nenhum dos roles', () => {
-    expect(() => requireAnyRole(ctx('assistant'), ['admin', 'professional'])).toThrow(
-      ForbiddenError,
-    );
+    expect(() => requireAnyRole(ctx('PROFESSIONAL'), ['MANAGER', 'ADMIN'])).toThrow(ForbiddenError);
   });
 
-  it('owner sempre passa em qualquer lista de roles', () => {
-    expect(() => requireAnyRole(ctx('owner'), ['admin'])).not.toThrow();
-    expect(() => requireAnyRole(ctx('owner'), ['professional'])).not.toThrow();
-    expect(() => requireAnyRole(ctx('owner'), ['assistant'])).not.toThrow();
+  it('ADMIN sempre passa em qualquer lista de roles', () => {
+    expect(() => requireAnyRole(ctx('ADMIN'), ['MANAGER'])).not.toThrow();
+    expect(() => requireAnyRole(ctx('ADMIN'), ['PROFESSIONAL'])).not.toThrow();
   });
 });
 
-describe('regras de negócio do sistema clínico', () => {
-  it('assistant não pode criar pacientes', () => {
-    expect(() => requireRole(ctx('assistant'), 'professional')).toThrow(ForbiddenError);
+describe('regras de governança intersetorial', () => {
+  it('Profissional Técnico não gerencia equipe', () => {
+    expect(() => requireRole(ctx('PROFESSIONAL'), 'MANAGER')).toThrow(ForbiddenError);
   });
 
-  it('professional pode criar e editar pacientes', () => {
-    expect(() => requireRole(ctx('professional'), 'professional')).not.toThrow();
+  it('Gerente de Unidade gerencia a equipe local', () => {
+    expect(() => requireRole(ctx('MANAGER'), 'MANAGER')).not.toThrow();
   });
 
-  it('assistant não pode deletar arquivos', () => {
-    expect(() => requireRole(ctx('assistant'), 'admin')).toThrow(ForbiddenError);
+  it('só o Administrador Geral altera configurações do tenant', () => {
+    expect(() => requireRole(ctx('MANAGER'), 'ADMIN')).toThrow(ForbiddenError);
+    expect(() => requireRole(ctx('ADMIN'), 'ADMIN')).not.toThrow();
   });
 
-  it('professional não pode deletar arquivos', () => {
-    expect(() => requireRole(ctx('professional'), 'admin')).toThrow(ForbiddenError);
-  });
-
-  it('admin pode deletar arquivos', () => {
-    expect(() => requireRole(ctx('admin'), 'admin')).not.toThrow();
-  });
-
-  it('todos os roles podem listar pacientes e arquivos', () => {
+  it('todos os níveis operam o fluxo de cidadãos e PTS', () => {
     for (const role of ROLE_HIERARCHY) {
-      expect(() => requireRole(ctx(role), 'assistant')).not.toThrow();
+      expect(() => requireRole(ctx(role), 'PROFESSIONAL')).not.toThrow();
     }
   });
 });

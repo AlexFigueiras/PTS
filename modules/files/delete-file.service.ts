@@ -12,7 +12,7 @@ const deleteFileAudited = withAudit<string, void>(
     metadata: (fileId) => ({ fileId, physicalDeletion: false }),
   },
   async (ctx: TenantContext, fileId: string): Promise<void> => {
-    requireRole(ctx, 'admin');
+    requireRole(ctx, 'MANAGER');
     const repo = new FileRepository(ctx);
     const deleted = await repo.softDelete(fileId);
     if (!deleted) throw new Error(`Arquivo ${fileId} não encontrado ou já removido`);

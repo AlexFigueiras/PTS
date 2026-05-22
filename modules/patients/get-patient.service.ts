@@ -6,7 +6,7 @@ import type { PatientDto } from './patient.dto';
 
 export class GetPatientService extends BaseService {
   async execute(id: string): Promise<PatientDto | undefined> {
-    requireRole(this.ctx, 'assistant');
+    requireRole(this.ctx, 'PROFESSIONAL');
     const repo = new PatientRepository(this.ctx);
     const patient = await repo.findById(id);
     return patient ? toPatientDto(patient) : undefined;

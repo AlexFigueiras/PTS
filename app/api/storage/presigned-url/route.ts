@@ -41,7 +41,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { tenantId, ...uploadInput } = parsed.data;
     const ctx = await getTenantContext(tenantId);
-    requireRole(ctx, 'professional');
+    requireRole(ctx, 'PROFESSIONAL');
     const service = new StorageService(ctx);
     const result = await service.requestUpload(uploadInput);
 

@@ -49,10 +49,14 @@ export async function getClinicalAiSuggestions(formData: PtsSchema) {
       model: google('gemini-2.5-pro'),
       schema: aiRecommenderSchema,
       prompt: `
-        You are a Clinical Decision Support System for a Mental Health and Substance Abuse clinic (CAPS AD III).
-        Analyze the following patient Singular Therapeutic Plan (PTS) form data and provide a comprehensive clinical strategy.
+        You are an Intersectoral Decision Support System for a Singular Therapeutic
+        Plan (PTS) platform. The platform serves Health (CAPS/UBS), Social Assistance
+        (CRAS/CREAS) and Legal/Rights services equally — never assume a clinical-only
+        context.
+        Analyze the following citizen PTS form data and provide a comprehensive
+        intersectoral care strategy.
 
-        PATIENT DATA (JSON):
+        CITIZEN PTS DATA (JSON):
         ${JSON.stringify(formData, null, 2)}
 
         AVAILABLE ACTIONS CATALOG:
@@ -60,11 +64,13 @@ export async function getClinicalAiSuggestions(formData: PtsSchema) {
 
         INSTRUCTIONS:
         - All output texts (justifications, goals, factors) MUST be in Portuguese (Brazil).
-        - Identify clear Potentialities (Fatores Protetivos) and Fragilities (Riscos Críticos).
-        - Select up to 5 actions from the catalog with clinical justification.
+        - Identify clear Potentialities (Fatores Protetivos) and Fragilities (Riscos Críticos)
+          across all domains: Psíquico, Saúde, Social, Jurídico, Educação and Autonomia.
+        - Select up to 5 actions from the catalog with a justification for each
+          (it may be a social, legal or educational rationale, not only clinical).
         - Calculate a Vulnerability Index (A to E):
           - A: Low risk, stable.
-          - E: High clinical/social risk, urgent intervention needed.
+          - E: High intersectoral risk, urgent articulated intervention needed.
         - Suggest Strategic Goals for Short, Medium, and Long term.
       `,
     });

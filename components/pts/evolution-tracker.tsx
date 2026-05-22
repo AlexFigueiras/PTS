@@ -6,7 +6,7 @@ import { Activity, AlertTriangle, CheckCircle, Clock, Target, Trash, History } f
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { createPtsEvolution } from '@/app/(app)/patients/[id]/pts/actions';
-import { calculateDomainAverages, FIELD_LABELS, type PtsDomain } from '@/lib/pts/intelligence-engine';
+import { calculateDomainAverages, FIELD_LABELS, PTS_DOMAINS } from '@/lib/pts/intelligence-engine';
 
 export function EvolutionTracker({ patientId, patientName, baseline, evolutions }: { patientId: string, patientName: string, baseline: any, evolutions: any[] }) {
   const router = useRouter();
@@ -19,7 +19,7 @@ export function EvolutionTracker({ patientId, patientName, baseline, evolutions 
   const baselineAvgs = calculateDomainAverages(baseline.scores || {});
   const currentAvgs = calculateDomainAverages(scores);
 
-  const radarData = (['Clínico', 'Psíquico', 'Social', 'Autonomia', 'Familiar'] as PtsDomain[]).map(domain => ({
+  const radarData = PTS_DOMAINS.map(domain => ({
     subject: domain,
     Baseline: baselineAvgs[domain] || 0,
     Atual: currentAvgs[domain] || 0,

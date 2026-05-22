@@ -11,7 +11,7 @@ export default async function NewPatientPage() {
   if (!ctx) redirect('/login');
 
   try {
-    requireRole(ctx, 'professional');
+    requireRole(ctx, 'PROFESSIONAL');
   } catch (err) {
     if (err instanceof ForbiddenError) redirect('/unauthorized');
     throw err;

@@ -137,7 +137,7 @@ export function GroupForm({ facilitatorOptions, patientOptions, onSubmit, isPend
                       <FormItem>
                         <FormLabel>Duração (minutos)</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} value={field.value as number} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

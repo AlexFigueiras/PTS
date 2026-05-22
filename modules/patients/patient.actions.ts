@@ -14,46 +14,41 @@ export async function createPatientAction(
   _prev: PatientActionState,
   formData: FormData,
 ): Promise<PatientActionState> {
-  console.log('[createPatientAction] Starting', { fullName: formData.get('fullName') });
-
   const ctx = await getActiveTenantContext();
   if (!ctx) {
-    console.log('[createPatientAction] No context');
     return { error: 'Sessão expirada. Faça login novamente.' };
   }
 
   const parsed = createPatientSchema.safeParse({
     fullName: formData.get('fullName'),
-    preferredName: formData.get('preferredName') || null,
+    socialName: formData.get('socialName') || null,
+    motherName: formData.get('motherName') || null,
     birthDate: formData.get('birthDate') || null,
-    gender: formData.get('gender') || null,
     cpf: formData.get('cpf') || null,
+    nis: formData.get('nis') || null,
+    cns: formData.get('cns') || null,
+    gender: formData.get('gender') || null,
     phone: formData.get('phone') || null,
     email: formData.get('email') || null,
-    notes: formData.get('notes') || null,
+    fullAddress: formData.get('fullAddress') || null,
     status: formData.get('status') || 'active',
   });
 
   if (!parsed.success) {
-    console.log('[createPatientAction] Validation failed', parsed.error.format());
     return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' };
   }
 
   let patientId: string;
   try {
-    console.log('[createPatientAction] Executing service');
     const service = new CreatePatientService(ctx);
     const patient = await service.execute(parsed.data);
-    console.log('[createPatientAction] Service success', { id: patient.id });
     revalidateTenantResource(ctx.tenantId, 'patients');
     patientId = patient.id;
   } catch (err) {
-    console.error('[createPatientAction] Error caught', err);
-    if (err instanceof ForbiddenError) return { error: 'Sem permissão para criar pacientes.' };
-    return { error: 'Erro ao criar paciente. Tente novamente.' };
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para criar cidadãos.' };
+    return { error: 'Erro ao criar cidadão. Tente novamente.' };
   }
 
-  console.log('[createPatientAction] Redirecting to', `/patients/${patientId}`);
   redirect(`/patients/${patientId}`);
 }
 
@@ -67,13 +62,16 @@ export async function updatePatientAction(
   const parsed = updatePatientSchema.safeParse({
     id: formData.get('id'),
     fullName: formData.get('fullName'),
-    preferredName: formData.get('preferredName') || null,
+    socialName: formData.get('socialName') || null,
+    motherName: formData.get('motherName') || null,
     birthDate: formData.get('birthDate') || null,
-    gender: formData.get('gender') || null,
     cpf: formData.get('cpf') || null,
+    nis: formData.get('nis') || null,
+    cns: formData.get('cns') || null,
+    gender: formData.get('gender') || null,
     phone: formData.get('phone') || null,
     email: formData.get('email') || null,
-    notes: formData.get('notes') || null,
+    fullAddress: formData.get('fullAddress') || null,
     status: formData.get('status') || 'active',
   });
 
@@ -87,7 +85,7 @@ export async function updatePatientAction(
     revalidateTenantResource(ctx.tenantId, 'patients');
     return { error: null };
   } catch (err) {
-    if (err instanceof ForbiddenError) return { error: 'Sem permissão para editar pacientes.' };
-    return { error: 'Erro ao atualizar paciente. Tente novamente.' };
+    if (err instanceof ForbiddenError) return { error: 'Sem permissão para editar cidadãos.' };
+    return { error: 'Erro ao atualizar cidadão. Tente novamente.' };
   }
 }

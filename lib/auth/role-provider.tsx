@@ -2,27 +2,27 @@
 
 import { createContext, useContext } from 'react';
 import { hasRole } from './authorization';
-import type { TenantRole } from './authorization';
+import type { UserRole } from './authorization';
 
-const RoleContext = createContext<TenantRole | null>(null);
+const RoleContext = createContext<UserRole | null>(null);
 
 export function RoleProvider({
   role,
   children,
 }: {
-  role: TenantRole | null;
+  role: UserRole | null;
   children: React.ReactNode;
 }) {
   return <RoleContext.Provider value={role}>{children}</RoleContext.Provider>;
 }
 
-/** Retorna o role do usuário no tenant ativo, ou null fora de contexto. */
-export function useRole(): TenantRole | null {
+/** Retorna o papel hierárquico do usuário, ou null fora de contexto. */
+export function useRole(): UserRole | null {
   return useContext(RoleContext);
 }
 
 type RoleGateProps = {
-  minimumRole: TenantRole;
+  minimumRole: UserRole;
   children: React.ReactNode;
   /** Renderizado quando o usuário não tem a permissão mínima. Default: null. */
   fallback?: React.ReactNode;

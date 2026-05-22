@@ -8,7 +8,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   if (!ctx) redirect('/login');
 
   try {
-    requireRole(ctx, 'admin');
+    requireRole(ctx, 'MANAGER');
   } catch (err) {
     if (err instanceof ForbiddenError) redirect('/unauthorized');
     throw err;

@@ -19,7 +19,14 @@ import { updateSession } from '@/lib/supabase/middleware';
  * Rate limit, audit, autorização avançada → Server Actions / Route Handlers.
  */
 
-const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/auth/callback', '/api/init-tenant'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/auth/callback',
+  '/api/init-tenant',
+  '/invite', // ativação de conta pré-cadastrada — acessível sem sessão
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

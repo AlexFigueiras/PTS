@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutGrid, 
-  Stethoscope, 
-  ClipboardCheck, 
+import {
+  LayoutGrid,
+  UsersRound,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -16,9 +15,8 @@ import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/patients', label: 'Pacientes', icon: Stethoscope },
+  { href: '/patients', label: 'Cidadãos', icon: UsersRound },
   { href: '/groups', label: 'Grupos', icon: Users },
-  { href: '/records', label: 'Prontuários', icon: ClipboardCheck, prefetch: false },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
@@ -72,7 +70,6 @@ export function AppSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              prefetch={item.prefetch}
               className={cn(
                 "group relative flex h-12 items-center rounded-2xl transition-all duration-300",
                 effectiveExpanded ? "w-full px-4 gap-4" : "w-12 justify-center",

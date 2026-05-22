@@ -6,7 +6,7 @@ import type { FileDto } from './file.dto';
 
 export class ListFilesService extends BaseService {
   async execute(entityType: string, entityId: string): Promise<FileDto[]> {
-    requireRole(this.ctx, 'assistant');
+    requireRole(this.ctx, 'PROFESSIONAL');
     const repo = new FileRepository(this.ctx);
     const rows = await repo.listByEntity(entityType, entityId);
     return rows.map(toFileDto);

@@ -1,6 +1,11 @@
 import { pgTable, uuid, text, date, timestamp, index, doublePrecision } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 
+/**
+ * Cidadão no território. Núcleo enxuto de identificação — sem dados clínicos.
+ * Mantém apenas o necessário para identificar e localizar a pessoa na rede
+ * intersetorial (Saúde, Assistência Social, Jurídico, Educação).
+ */
 export const patients = pgTable(
   'patients',
   {
@@ -8,18 +13,22 @@ export const patients = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
+    // Identificação universal
     fullName: text('fullName').notNull(),
-    preferredName: text('preferred_name'),
     socialName: text('social_name'),
+    motherName: text('mother_name'),
     birthDate: date('birthDate'),
-    gender: text('gender'),
     cpf: text('cpf'),
+    // Identificadores sociais opcionais
+    nis: text('nis'), // NIS / CadÚnico
+    cns: text('cns'), // Cartão Nacional de Saúde
+    // Contato e território
+    gender: text('gender'),
     phone: text('phone'),
     email: text('email'),
     fullAddress: text('full_address'),
     lat: doublePrecision('lat'),
     lon: doublePrecision('lon'),
-    notes: text('notes'),
     status: text('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -27,6 +36,7 @@ export const patients = pgTable(
   (t) => [
     index('patients_tenant_idx').on(t.tenantId),
     index('patients_tenant_name_idx').on(t.tenantId, t.fullName),
+    index('patients_tenant_cpf_idx').on(t.tenantId, t.cpf),
   ],
 );
 

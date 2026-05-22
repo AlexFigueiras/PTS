@@ -16,7 +16,7 @@ export async function updateMemberRoleAction(
   if (!ctx) return { error: 'Sessão expirada.' };
 
   try {
-    requireRole(ctx, 'admin');
+    requireRole(ctx, 'MANAGER');
   } catch {
     return { error: 'Sem permissão.' };
   }
@@ -28,6 +28,11 @@ export async function updateMemberRoleAction(
   if (!parsed.success) return { error: 'Dados inválidos.' };
 
   if (parsed.data.userId === ctx.userId) return { error: 'Não é possível alterar seu próprio papel.' };
+
+  // Só o Administrador Geral concede o papel de Administrador.
+  if (parsed.data.role === 'ADMIN' && ctx.role !== 'ADMIN') {
+    return { error: 'Apenas o Administrador Geral pode conceder o papel de Administrador.' };
+  }
 
   try {
     const repo = new MemberRepository(ctx);
@@ -45,7 +50,7 @@ export async function removeMemberFormAction(formData: FormData): Promise<void> 
   if (!ctx) return;
 
   try {
-    requireRole(ctx, 'admin');
+    requireRole(ctx, 'MANAGER');
   } catch {
     return;
   }

@@ -21,7 +21,7 @@ const createFileAudited = withAudit<CreateFileInput, FileDto>(
     }),
   },
   async (ctx: TenantContext, input: CreateFileInput): Promise<FileDto> => {
-    requireRole(ctx, 'professional');
+    requireRole(ctx, 'PROFESSIONAL');
     if (!input.storageKey.startsWith(`uploads/${ctx.tenantId}/`)) {
       throw new Error('Acesso negado: arquivo não pertence a este tenant');
     }

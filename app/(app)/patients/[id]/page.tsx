@@ -65,7 +65,7 @@ export default async function PatientPage({ params }: Props) {
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <h1 className="text-4xl font-black uppercase italic tracking-tight text-foreground">
-                  {patient.preferredName ?? patient.fullName}
+                  {patient.socialName ?? patient.fullName}
                 </h1>
                 <div className="mt-1">
                   <PatientStatusBadge status={patient.status} />
@@ -73,7 +73,7 @@ export default async function PatientPage({ params }: Props) {
               </div>
               
               <div className="space-y-1">
-                {patient.preferredName && (
+                {patient.socialName && (
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground italic">
                     {patient.fullName}
                   </p>
@@ -98,12 +98,6 @@ export default async function PatientPage({ params }: Props) {
                 className="flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground shadow-[0_0_30px_rgba(var(--primary),0.2)] transition-all hover:scale-105 active:scale-95"
               >
                 {ptsLabel} <ChevronRight size={16} />
-              </Link>
-              <Link
-                href={`/patients/${id}/records`}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-secondary/30 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-secondary-foreground transition-all hover:bg-secondary active:scale-95"
-              >
-                Prontuário <ArrowLeft size={16} className="rotate-180" />
               </Link>
             </div>
           </div>

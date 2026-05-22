@@ -2,7 +2,13 @@
 
 ## Visão Geral
 
-Este projeto está passando por uma migração massiva de um SPA Vite para uma arquitetura moderna baseada em **Next.js App Router, Supabase e Drizzle ORM**. O foco é um SaaS clínico multi-tenant, priorizando simplicidade, performance, segurança e escalabilidade.
+Este software é uma **Plataforma de Governança Intersetorial de Planos Terapêuticos Singulares (PTS)** voltada à **Articulação de Redes Públicas** — Saúde, Assistência Social, Educação e Setor Jurídico/Direitos.
+
+A plataforma atende **de igual para igual** os setores da rede: a Saúde (CAPS/UBS), a Assistência Social (CRAS/CREAS), a Educação (escolas/NAAPA) e o Setor Jurídico/Direitos (Conselhos, Defensoria, MP). **Não é um Prontuário Eletrônico (PEP)** e **não trata de rotina clínica** (prescrição, exames, triagem de enfermagem, evolução ambulatorial): o escopo é exclusivamente o **Ciclo do PTS**:
+
+> Cadastro Simplificado do Cidadão ➔ PTS Baseline Multidomínio ➔ Acompanhamento de Evolução Espacial (Radar) ➔ Despacho Intersetorial.
+
+Tecnicamente, é uma arquitetura moderna baseada em **Next.js App Router, Supabase e Drizzle ORM**, multi-tenant, priorizando simplicidade, performance, segurança e escalabilidade.
 
 ## Stack Oficial
 
@@ -42,6 +48,7 @@ Este projeto está passando por uma migração massiva de um SPA Vite para uma a
 - [x] Fase 4: Infraestrutura Externa (Parcial — Storage R2 + Email Resend concluídos. **Pendente:** PostHog analytics, antivirus scanning, background jobs.)
 - [ ] Fase 5: Frontend (Pendente)
 - [ ] Fase 6: Testes (Pendente)
+- [x] Pivotagem Intersetorial (Concluída — eliminação do escopo de Prontuário Eletrônico/PEP; sistema passa a ser plataforma exclusiva de PTS Intersetorial: `service_units`, `professionals_to_units`, `patients` enxuta, rastreabilidade no PTS, formulário multidomínio. Migração `0012_intersectoral_pivot.sql`.)
 
 ## Notas de Migração
 
@@ -54,10 +61,21 @@ Este projeto está passando por uma migração massiva de um SPA Vite para uma a
 
 ### Schemas (`lib/db/schema/`)
 
-- `tenants` — clínica/organização (id, name, slug).
+- `tenants` — organização gestora / município / rede (id, name, slug).
 - `profiles` — espelho de `auth.users` do Supabase (id = auth.uid).
 - `tenant_members` — M2M usuário↔tenant + role (`owner | admin | professional | viewer`).
 - `audit_logs` — auditoria por tenant (action, entity_type/id, metadata, IP, UA).
+
+### Schemas da Pivotagem Intersetorial (PTS)
+
+- `service_units` — unidades intersetoriais genéricas. Campo `type` (`pgEnum service_unit_type`: `HEALTH | SOCIAL | LEGAL | EDUCATION`) classifica CAPS/UBS, CRAS/CREAS, Conselhos/Defensoria e Escolas.
+- `professionals_to_units` — pivot M2M Profissionais×Unidades (`professional_id`, `unit_id`, `is_primary`). Um profissional atua em múltiplas unidades; não há vínculo estático.
+- `patients` — cidadão no território. Núcleo enxuto de identificação (nome, nome social, nome da mãe, data de nascimento, CPF, NIS/CadÚnico, CNS, contato, endereço/geo). **Sem dados clínicos.**
+- `pts_responses` — PTS Baseline multidomínio. Rastreabilidade: `professional_id`, `unit_id`, `unit_type` registram quem e de qual unidade gerou cada plano.
+- `pts_evolutions` — ciclos de reavaliação (Radar). Mesma rastreabilidade intersetorial.
+- `predefined_actions` — catálogo de ações para o Despacho Intersetorial.
+
+> **Legado removido:** a tabela `clinical_records` (Prontuário Eletrônico) e seus enums `record_type`/`record_status` foram eliminados na pivotagem — ver migração `0012_intersectoral_pivot.sql`.
 
 ### Tenant Context
 
@@ -237,4 +255,4 @@ await new EmailService().sendPasswordResetEmail({
 
 ---
 
-_Última atualização: 2026-05-09_
+_Última atualização: 2026-05-22 — Pivotagem Intersetorial (PEP → Plataforma de Governança de PTS)_

@@ -7,7 +7,7 @@ import type { PaginatedResult } from '@/lib/pagination';
 
 export class ListPatientsService extends BaseService {
   async execute(filters: PatientFilters): Promise<PaginatedResult<PatientDto>> {
-    requireRole(this.ctx, 'assistant');
+    requireRole(this.ctx, 'PROFESSIONAL');
     const repo = new PatientRepository(this.ctx);
     const result = await repo.list(filters);
     return { ...result, data: result.data.map(toPatientDto) };

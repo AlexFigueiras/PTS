@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
+/**
+ * Schema do Plano Terapêutico Singular (PTS) Intersetorial.
+ *
+ * Avaliação multidomínio preenchível por qualquer profissional logado —
+ * Saúde (CAPS/UBS), Assistência Social (CRAS/CREAS) ou Jurídico/Direitos.
+ * Os campos clínicos de prontuário (sinais vitais, CID, triagem de enfermagem)
+ * foram removidos: o foco é o ciclo do PTS, não o prontuário eletrônico.
+ */
 export const ptsSchema = z.object({
-  // Admissão / Demographics
+  // ── Cadastro / Identificação ──────────────────────────────────────────
   fullName: z.string().min(1, 'Nome completo é obrigatório'),
   socialName: z.string().optional(),
   phone: z.string().min(1, 'Telefone é obrigatório'),
@@ -12,8 +20,8 @@ export const ptsSchema = z.object({
   responsible: z.string().optional(),
   birthDate: z.string().min(1, 'Data de nascimento é obrigatória'),
   gender: z.string().min(1, 'Gênero é obrigatório'),
-  cad: z.string().optional(),
-  susCard: z.string().optional(),
+  cad: z.string().optional(), // NIS / CadÚnico
+  susCard: z.string().optional(), // CNS / Cartão SUS
   fullAddress: z.string().min(1, 'Endereço completo é obrigatório'),
   lat: z.number().nullable().optional(),
   lon: z.number().nullable().optional(),
@@ -25,13 +33,11 @@ export const ptsSchema = z.object({
   profession: z.string().optional(),
   education: z.string().optional(),
   maritalStatus: z.string().optional(),
-  mainCid: z.string().optional(),
-  associatedCid: z.string().optional(),
   email: z.string().email('E-mail inválido').or(z.literal('')),
   origin: z.string().optional(),
   destination: z.string().optional(),
 
-  // Objetivos e Intervenções
+  // ── Objetivos e Intervenções ──────────────────────────────────────────
   shortTermGoals: z.string().optional(),
   mediumTermGoals: z.string().optional(),
   longTermGoals: z.string().optional(),
@@ -44,8 +50,8 @@ export const ptsSchema = z.object({
     responsible: z.string().optional(),
   })).default([]),
 
-  // Triagem (Anamnese)
-  q1MainComplaint: z.string().min(1, 'Queixa principal é obrigatória'),
+  // ── Escuta Inicial (Anamnese) ─────────────────────────────────────────
+  q1MainComplaint: z.string().min(1, 'Demanda principal é obrigatória'),
   q2Substances: z.array(z.string()).default([]),
   q3UsageTime: z.string().optional(),
   q4TriedToStop: z.string().optional(),
@@ -67,22 +73,7 @@ export const ptsSchema = z.object({
   q14MentalHealthHistory: z.string().optional(),
   q15MotivationRating: z.string().optional(),
 
-  // Enfermagem
-  nuWeight: z.string().optional(),
-  nuHeight: z.string().optional(),
-  nuBloodPressure: z.string().optional(),
-  nuOxygenSaturation: z.string().optional(),
-  nuChronicDisease: z.string().optional(),
-  nuChronicDiseaseDetails: z.string().optional(),
-  nuContinuousMedication: z.string().optional(),
-  nuContinuousMedicationDetails: z.string().optional(),
-  nuAllergy: z.string().optional(),
-  nuAllergyDetails: z.string().optional(),
-  nuVaccinationStatus: z.string().optional(),
-  nuPainLevel: z.string().optional(),
-  nuPainDetails: z.string().optional(),
-
-  // Psicologia
+  // ── Domínio Psíquico ──────────────────────────────────────────────────
   psPreviousPsychAccount: z.string().optional(),
   psPreviousPsychDetails: z.string().optional(),
   psCurrentTreatment: z.string().optional(),
@@ -93,15 +84,7 @@ export const ptsSchema = z.object({
   psDistressingMemories: z.string().optional(),
   psDistressingMemoriesDetails: z.string().optional(),
 
-  // Terapia Ocupacional
-  toDailyIndependence: z.string().optional(),
-  toCognitiveDifficulty: z.string().optional(),
-  toLaborActivity: z.string().optional(),
-  toLaborActivityDetails: z.string().optional(),
-  toLeisureActivity: z.string().optional(),
-  toLeisureActivityDetails: z.string().optional(),
-
-  // Serviço Social
+  // ── Domínio Social / Renda ────────────────────────────────────────────
   ssLivesWithOthers: z.string().optional(),
   ssLivesWithDetails: z.string().optional(),
   ssSocialBenefits: z.string().optional(),
@@ -109,29 +92,44 @@ export const ptsSchema = z.object({
   ssHealthAccess: z.string().optional(),
   ssHealthAccessDetails: z.string().optional(),
 
-  // Educação Física
+  // ── Domínio Jurídico / Direitos ───────────────────────────────────────
+  lgRightsViolation: z.string().optional(),
+  lgRightsViolationDetails: z.string().optional(),
+  lgLegalFollowUp: z.string().optional(),
+  lgLegalFollowUpDetails: z.string().optional(),
+
+  // ── Domínio Educação / Trabalho ───────────────────────────────────────
+  edSchoolEnrollment: z.string().optional(),
+  edSchoolEnrollmentDetails: z.string().optional(),
+  edLaborActivity: z.string().optional(),
+  edLaborActivityDetails: z.string().optional(),
+
+  // ── Domínio Autonomia / Cotidiano ─────────────────────────────────────
+  toDailyIndependence: z.string().optional(),
+  toCognitiveDifficulty: z.string().optional(),
+  toLeisureActivity: z.string().optional(),
+  toLeisureActivityDetails: z.string().optional(),
+
+  // ── Domínio Saúde (acesso e cuidado, não-clínico) ─────────────────────
   efRegularPractice: z.string().optional(),
   efPhysicalLimitation: z.string().optional(),
   efPhysicalLimitationDetails: z.string().optional(),
   efPleasurableActivity: z.string().optional(),
-  efPleasurableActivityDetails: z.string().optional(),
-
-  // Nutrição
   ntDietType: z.string().optional(),
   ntWaterIntake: z.string().optional(),
 
-  // Intelligence Engine Fields (Scores)
-  // Mapping of field name to score (0-4)
+  // ── Motor de Inteligência (Escores Multidomínio) ──────────────────────
+  // Mapa nome-do-campo → escore (0-4). Qualquer profissional pontua.
   scores: z.record(z.string(), z.number().min(0).max(4)).optional().default({}),
-  
-  // Final Dashboard Suggested Goals
+
+  // Metas sugeridas no painel final
   suggestedActions: z.array(z.object({
     id: z.string(),
     description: z.string(),
     status: z.enum(['pending', 'completed']),
   })).optional().default([]),
 
-  // AI Decision Support Fields
+  // ── Apoio à Decisão (IA) ──────────────────────────────────────────────
   vulnerabilityIndex: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
   aiSuggestions: z.array(z.object({
     actionId: z.string(),

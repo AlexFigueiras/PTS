@@ -2,15 +2,61 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { getDb } from '@/lib/db/client';
-import { desc } from 'drizzle-orm';
-import { ptsResponses, ptsEvolutions, patients, predefinedActions } from '@/lib/db/schema';
+import {
+  ptsResponses,
+  ptsEvolutions,
+  patients,
+  predefinedActions,
+  professionalsToUnits,
+  serviceUnits,
+  type ServiceUnitType,
+} from '@/lib/db/schema';
 import { getClinicalAiSuggestions } from '@/lib/pts/ai-recommender';
 import { PtsSchema } from '@/validations/pts-schema';
+import type { TenantContext } from '@/lib/tenant-context';
 
 export type PtsStatus = 'draft' | 'completed';
+
+type Database = ReturnType<typeof getDb>;
+
+/**
+ * Resolve a unidade de origem do PTS para rastreabilidade.
+ * Prioriza o "Local de Atuação Ativo" do profissional (`ctx.activeUnitId`,
+ * controlado pelo seletor de contexto); cai para o vínculo primário.
+ */
+async function resolveOriginUnit(
+  db: Database,
+  ctx: TenantContext,
+): Promise<{ unitId: string; unitType: ServiceUnitType } | null> {
+  // Unidade ativa selecionada no header — fonte primária da rastreabilidade.
+  if (ctx.activeUnitId) {
+    const [active] = await db
+      .select({ unitId: serviceUnits.id, unitType: serviceUnits.type })
+      .from(serviceUnits)
+      .where(and(eq(serviceUnits.id, ctx.activeUnitId), eq(serviceUnits.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (active) return active;
+  }
+
+  // Fallback: vínculo primário do profissional.
+  const [row] = await db
+    .select({ unitId: professionalsToUnits.unitId, unitType: serviceUnits.type })
+    .from(professionalsToUnits)
+    .innerJoin(serviceUnits, eq(serviceUnits.id, professionalsToUnits.unitId))
+    .where(
+      and(
+        eq(professionalsToUnits.professionalId, ctx.userId),
+        eq(serviceUnits.tenantId, ctx.tenantId),
+      ),
+    )
+    .orderBy(desc(professionalsToUnits.isPrimary))
+    .limit(1);
+
+  return row ?? null;
+}
 
 export async function savePtsDocument(
   patientId: string,
@@ -24,9 +70,12 @@ export async function savePtsDocument(
 
   const scores = data.scores || {};
   const suggestedGoals = data.suggestedActions || [];
-  
+
   // Clean up data before saving to 'data' field
   const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
+
+  // Rastreabilidade intersetorial: quem e de qual unidade gerou o PTS.
+  const originUnit = await resolveOriginUnit(db, ctx);
 
   const existing = await db
     .select({ id: ptsResponses.id })
@@ -34,31 +83,37 @@ export async function savePtsDocument(
     .where(and(eq(ptsResponses.patientId, patientId), eq(ptsResponses.tenantId, ctx.tenantId)))
     .limit(1);
 
+  const isCompleted = status === 'completed';
+
   if (existing.length > 0) {
-    const isCompleted = status === 'completed';
     await db
       .update(ptsResponses)
-      .set({ 
-        data: formData, 
+      .set({
+        data: formData,
         scores,
         suggestedGoals,
-        status, 
+        status,
         isLocked: isCompleted,
-        ...(isCompleted && { 
-          nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
+        professionalId: ctx.userId,
+        unitId: originUnit?.unitId ?? null,
+        unitType: originUnit?.unitType ?? null,
+        ...(isCompleted && {
+          nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         }),
-        updatedAt: new Date() 
+        updatedAt: new Date(),
       })
       .where(eq(ptsResponses.id, existing[0].id));
   } else {
-    const isCompleted = status === 'completed';
     await db.insert(ptsResponses).values({
       tenantId: ctx.tenantId,
       patientId,
       status,
       isLocked: isCompleted,
-      ...(isCompleted && { 
-        nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
+      professionalId: ctx.userId,
+      unitId: originUnit?.unitId ?? null,
+      unitType: originUnit?.unitType ?? null,
+      ...(isCompleted && {
+        nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       }),
       createdBy: ctx.userId,
       data: formData,
@@ -111,21 +166,18 @@ export async function loadPtsDocument(patientId: string) {
       ...(doc.data as Record<string, unknown>),
       scores: doc.scores,
       suggestedActions: doc.suggestedGoals,
-    }
+    },
   };
 }
 
 export async function generateAiSuggestions(formData: PtsSchema) {
-  console.log('[Server Action] generateAiSuggestions triggered');
   const ctx = await getActiveTenantContext();
   if (!ctx) {
-    console.error('[Server Action] Unauthorized access attempt to AI suggestions');
     throw new Error('Unauthorized');
   }
-  
+
   try {
     const result = await getClinicalAiSuggestions(formData);
-    console.log('[Server Action] AI Suggestions generated successfully');
     return result;
   } catch (error) {
     console.error('[Server Action] AI Suggestion generation failed:', error);
@@ -136,7 +188,7 @@ export async function generateAiSuggestions(formData: PtsSchema) {
 export async function getPredefinedActions() {
   const ctx = await getActiveTenantContext();
   if (!ctx) return [];
-  
+
   const db = getDb();
   return await db.select().from(predefinedActions);
 }
@@ -154,13 +206,16 @@ export async function createPtsEvolution(
   const scores = data.scores || {};
   const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
 
+  // Rastreabilidade intersetorial da evolução.
+  const originUnit = await resolveOriginUnit(db, ctx);
+
   const evolutions = await db
     .select({ version: ptsEvolutions.version })
     .from(ptsEvolutions)
     .where(eq(ptsEvolutions.ptsId, ptsId))
     .orderBy(desc(ptsEvolutions.version))
     .limit(1);
-    
+
   const nextVersion = evolutions.length > 0 ? evolutions[0].version + 1 : 2;
 
   await db.insert(ptsEvolutions).values({
@@ -169,16 +224,22 @@ export async function createPtsEvolution(
     patientId,
     version: nextVersion,
     status,
+    professionalId: ctx.userId,
+    unitId: originUnit?.unitId ?? null,
+    unitType: originUnit?.unitType ?? null,
     createdBy: ctx.userId,
     data: formData,
     scores,
   });
 
   if (status === 'completed') {
-    await db.update(ptsResponses).set({
-      nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date()
-    }).where(eq(ptsResponses.id, ptsId));
+    await db
+      .update(ptsResponses)
+      .set({
+        nextReviewAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(),
+      })
+      .where(eq(ptsResponses.id, ptsId));
   }
 
   revalidatePath(`/patients/${patientId}/pts/evolution`);
@@ -189,8 +250,9 @@ export async function getPtsEvolutions(ptsId: string) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return [];
   const db = getDb();
-  
-  return await db.select()
+
+  return await db
+    .select()
     .from(ptsEvolutions)
     .where(and(eq(ptsEvolutions.ptsId, ptsId), eq(ptsEvolutions.tenantId, ctx.tenantId)))
     .orderBy(desc(ptsEvolutions.createdAt));

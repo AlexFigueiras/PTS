@@ -14,7 +14,7 @@ const createPatientAudited = withAudit<CreatePatientInput, PatientDto>(
     metadata: (input) => ({ fullName: input.fullName }),
   },
   async (ctx: TenantContext, input: CreatePatientInput): Promise<PatientDto> => {
-    requireRole(ctx, 'professional');
+    requireRole(ctx, 'PROFESSIONAL');
     const repo = new PatientRepository(ctx);
     const patient = await repo.create(input);
     return toPatientDto(patient);

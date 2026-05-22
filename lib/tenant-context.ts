@@ -1,14 +1,19 @@
+import type { UserRole } from '@/lib/db/schema';
+
 /**
  * Tenant context — passado explicitamente para repositories e services.
  *
  * Regra de ouro: NUNCA construir um TenantContext a partir de input do usuário.
  * Ele deve ser derivado da sessão autenticada (Supabase auth) + checagem de
- * tenant_members. Ver `services/auth-context.service.ts` (Fase 3).
+ * tenant_members. Ver `lib/auth/get-tenant-context.ts`.
  */
 export type TenantContext = {
   tenantId: string;
   userId: string;
-  role: 'owner' | 'admin' | 'professional' | 'assistant';
+  /** Papel hierárquico global do usuário (RBAC). */
+  role: UserRole;
+  /** Unidade de atuação ativa no multi-vínculo. Null se o usuário não tem unidade. */
+  activeUnitId: string | null;
 };
 
 export class TenantAccessError extends Error {
