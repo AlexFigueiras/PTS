@@ -445,8 +445,11 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 
 ## 17. Onde achar o resto
 
-- **`PROJECT_BRAIN.md`** — SSOT vivo, atualizado a cada turno (visão narrativa).
-- **`docs/ARCHITECTURE.md`** — desenhos arquiteturais.
-- **`docs/technical-debt.md`** — dívidas conhecidas.
-- **`CLAUDE.md`** — contexto enxuto para agentes IA.
+- **`docs/ARCHITECTURE.md`** — diagramas de bolso (auth, cache, auditoria, providers).
+- **`docs/DESIGN_SYSTEM.md`** — tokens visuais (paleta OKLCH, geometria, tipografia).
+- **`docs/VISUAL_GUIDE.md`** — guia de componentes (sidebar, formulários, especificações Tailwind).
+- **`docs/technical-debt.md`** — dívidas técnicas conhecidas.
+- **`CLAUDE.md`** — cheatsheet para agentes Claude.
+- **`GEMINI.md`** — cheatsheet para agentes Gemini.
+- **`PROJECT_BRAIN.md`** — aposentado, aponta para este arquivo.
 - **Skills** em `.agent/skills/` — playbooks específicos (database-architect, drizzle-orm-expert, uxui-principles, etc.).

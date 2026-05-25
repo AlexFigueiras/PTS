@@ -17,8 +17,8 @@ export async function signupAction(
     const fullName = (formData.get('fullName') as string | null)?.trim() ?? '';
     const tenantName = (formData.get('tenantName') as string | null)?.trim() ?? '';
 
-    if (!email || !password || !fullName) {
-      return { error: 'Preencha nome, e-mail e senha.', message: null };
+    if (!email || !password || !fullName || !tenantName) {
+      return { error: 'Preencha todos os campos, incluindo o município.', message: null };
     }
     if (password.length < 8) {
       return { error: 'Senha deve ter ao menos 8 caracteres.', message: null };

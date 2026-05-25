@@ -1,6 +1,6 @@
-# CLAUDE.md — contexto enxuto para agentes IA
+# GEMINI.md — contexto enxuto para agentes IA
 
-> Este arquivo é lido automaticamente por Claude Code e agentes Anthropic.
+> Este arquivo é lido automaticamente por agentes Gemini (Antigravity, Jules).
 > Mantenha-o **curto e factual** — direcione para os docs longos quando precisar.
 
 ## O que este projeto é
@@ -59,7 +59,6 @@ no header revalida o layout ao trocar.
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — tokens visuais (paleta, tipografia).
 - [docs/VISUAL_GUIDE.md](docs/VISUAL_GUIDE.md) — guia de componentes.
 - [docs/technical-debt.md](docs/technical-debt.md) — dívidas conhecidas.
-- [GEMINI.md](GEMINI.md) — equivalente deste arquivo para agentes Gemini.
 - `.agent/skills/` — playbooks específicos (database-architect, drizzle-orm-expert, etc.).
 
 ## Pastas de domínio

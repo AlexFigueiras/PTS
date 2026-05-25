@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   User,
   Activity,
@@ -11,37 +12,58 @@ import {
   Scale,
   GraduationCap,
   ChevronRight,
-  ClipboardList,
   ArrowLeft,
-  Target,
-  Plus,
-  Trash,
   CheckCircle,
-  Clock,
-  MapPin as MapIcon,
   Save,
-  CheckCircle2,
-  ShieldCheck,
   X,
-  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { searchAddress, geocodeAddress } from '@/lib/geocoding';
-import type { GeocodeResult } from '@/lib/geocoding';
 import { PUBLIC_SERVICES, calculateDistance } from '@/lib/health-services';
 import { savePtsDocument, generateAiSuggestions, getPredefinedActions } from '@/app/(app)/patients/[id]/pts/actions';
 import type { PredefinedAction } from '@/lib/db/schema/predefined-actions';
-import { useForm, FormProvider, useFormContext, Controller } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ptsSchema, type PtsSchema } from '@/validations/pts-schema';
-export type PtsFormData = PtsSchema;
 import { toast } from 'sonner';
-import { ScoreSelector } from './score-selector';
-import { analyzePtsState, type PtsAnalysis } from '@/lib/pts/intelligence-engine';
-import { Separator } from '@/components/ui/separator';
+import { analyzePtsState } from '@/lib/pts/intelligence-engine';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+
+import { DemographicsSection } from './sections/demographics-section';
+import { TriagemSection } from './sections/triagem-section';
+import { OfflineStore } from '@/lib/offline/offline-store';
+
+// Seções pesadas (domínios e dashboard) carregam sob demanda para reduzir
+// o bundle inicial. O dashboard usa framer-motion intensamente e só é
+// renderizado na última etapa do fluxo.
+const SectionSkeleton = () => (
+  <div className="space-y-6">
+    <Skeleton className="h-12 w-1/2 rounded-2xl opacity-40" />
+    <Skeleton className="h-32 w-full rounded-3xl opacity-30" />
+    <Skeleton className="h-32 w-full rounded-3xl opacity-30" />
+  </div>
+);
+
+const PsiquicoSection = dynamic(() => import('./sections/psiquico-section').then((m) => m.PsiquicoSection), {
+  loading: SectionSkeleton,
+});
+const SaudeSection = dynamic(() => import('./sections/saude-section').then((m) => m.SaudeSection), {
+  loading: SectionSkeleton,
+});
+const SocialSection = dynamic(() => import('./sections/social-section').then((m) => m.SocialSection), {
+  loading: SectionSkeleton,
+});
+const JuridicoSection = dynamic(() => import('./sections/juridico-section').then((m) => m.JuridicoSection), {
+  loading: SectionSkeleton,
+});
+const EducacaoSection = dynamic(() => import('./sections/educacao-section').then((m) => m.EducacaoSection), {
+  loading: SectionSkeleton,
+});
+const DashboardSection = dynamic(() => import('./sections/dashboard-section').then((m) => m.DashboardSection), {
+  loading: SectionSkeleton,
+});
+
+export type PtsFormData = PtsSchema;
 
 const EMPTY: PtsFormData = {
   // Cadastro
@@ -76,15 +98,15 @@ const EMPTY: PtsFormData = {
   // Domínio Saúde
   efRegularPractice: '', efPhysicalLimitation: '', efPhysicalLimitationDetails: '',
   efPleasurableActivity: '', ntDietType: '', ntWaterIntake: '',
+  // Alta fidelidade estendida
+  efChronicDiseasesCount: 0, efContinuousMedsCount: 0, efEmergencyAdmissionsCount: 0,
+  efKatzIndex: null, ssIncomePerCapita: null, ssEbiaStatus: null,
+  ssSaneamentoAcesso: true, ssHasCaregiver: true, ssCommunityVinc: 3,
+  srq20Score: null, psCrisisCount: 0, psMedicationCompliance: null,
+  lgMissingDocuments: false, lgActiveJudicialization: false,
   // Motor de inteligência
   scores: {}, suggestedActions: [],
   aiSuggestions: [], aiPotentialities: [], aiFragilities: [],
-};
-
-const masks = {
-  cpf: (v: string) => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').slice(0, 14),
-  phone: (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 15),
-  cep: (v: string) => v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9),
 };
 
 /**
@@ -102,185 +124,11 @@ const SECTIONS = [
   { id: 'dashboard', title: 'Plano Terapêutico', icon: <CheckCircle size={18} /> },
 ];
 
-function Field({ label, field, placeholder, className = 'col-span-12 md:col-span-6', type = 'text', mask }: {
-  label: string; field: keyof PtsFormData;
-  placeholder?: string; className?: string; type?: string; mask?: keyof typeof masks;
-}) {
-  const { register, formState: { errors }, setValue } = useFormContext<PtsFormData>();
-  const error = errors[field]?.message as string;
-
-  const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    let v = e.target.value;
-    if (mask && type !== 'date') v = masks[mask](v);
-    setValue(field, v as any, { shouldValidate: true, shouldDirty: true });
-  };
-
-  const fieldProps = register(field as any);
-
-  return (
-    <div className={className}>
-      <label className="mb-2.5 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
-      {type === 'textarea' ? (
-        <textarea
-          {...fieldProps}
-          className={`min-h-[120px] w-full resize-none rounded-2xl border bg-background/30 p-5 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
-          placeholder={placeholder || 'Digite aqui…'}
-        />
-      ) : (
-        <input
-          {...fieldProps}
-          type={type}
-          onChange={(e) => {
-            fieldProps.onChange(e);
-            handle(e);
-          }}
-          className={`w-full rounded-2xl border bg-background/30 px-5 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
-          placeholder={placeholder || '…'}
-        />
-      )}
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
-    </div>
-  );
-}
-
-function Radio({ label, field, options, className = 'col-span-12' }: {
-  label: string; field: keyof PtsFormData; options: string[]; className?: string;
-}) {
-  const { formState: { errors }, watch, setValue } = useFormContext<PtsFormData>();
-  const error = errors[field]?.message as string;
-  const current = watch(field);
-
-  return (
-    <div className={className}>
-      <label className="mb-4 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => setValue(field, opt as any, { shouldValidate: true, shouldDirty: true })}
-            className={`rounded-xl border px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${current === opt ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-muted-foreground hover:bg-secondary/30 hover:text-foreground'}`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
-    </div>
-  );
-}
-
-function Checkbox({ label, field, options, className = 'col-span-12' }: {
-  label: string; field: keyof PtsFormData; options: string[]; className?: string;
-}) {
-  const { formState: { errors }, watch, setValue } = useFormContext<PtsFormData>();
-  const error = errors[field]?.message as string;
-  const current = (watch(field) as string[]) || [];
-
-  const toggle = (opt: string) => {
-    const next = current.includes(opt) ? current.filter((i) => i !== opt) : [...current, opt];
-    setValue(field, next as any, { shouldValidate: true, shouldDirty: true });
-  };
-
-  return (
-    <div className={className}>
-      <label className="mb-4 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => toggle(opt)}
-            className={`rounded-xl border px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${current.includes(opt) ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-muted-foreground hover:bg-secondary/30 hover:text-foreground'}`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
-    </div>
-  );
-}
-
-/**
- * Cabeçalho de um domínio de avaliação. Deixa explícito que QUALQUER
- * profissional logado pode pontuar o domínio e expõe o seletor de escore.
- */
-function DomainIntro({ domainKey, label, description }: {
-  domainKey: string; label: string; description: string;
-}) {
-  return (
-    <div className="space-y-6 rounded-3xl border border-primary/10 bg-primary/[0.03] p-8">
-      <div className="flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Target size={18} />
-        </div>
-        <div className="space-y-1">
-          <h3 className="text-sm font-black uppercase tracking-tight text-foreground">{label}</h3>
-          <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">
-            {description} Qualquer profissional da rede — Saúde, Assistência Social,
-            Jurídico ou Educação — pode pontuar este domínio.
-          </p>
-        </div>
-      </div>
-      <ScoreSelector field={domainKey} label="Pontuação do domínio · 0 = crítico · 4 = pleno" />
-    </div>
-  );
-}
-
-function AddressAutocomplete({ value, onChange, onSelect }: {
-  value: string; onChange: (v: string) => void; onSelect: (r: GeocodeResult) => void;
-}) {
-  const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (value.length >= 3) {
-        const res = await searchAddress(value);
-        setSuggestions(res);
-        setOpen(res.length > 0);
-      } else {
-        setSuggestions([]);
-        setOpen(false);
-      }
-    }, 500);
-    return () => clearTimeout(t);
-  }, [value]);
-
-  return (
-    <div className="relative col-span-12">
-      <label className="mb-2.5 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Endereço Completo</label>
-      <div className="relative">
-        <input
-          type="text"
-          className="w-full rounded-2xl border border-border bg-background/30 px-5 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all duration-300"
-          placeholder="Comece a digitar o endereço…"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => value.length >= 3 && setOpen(true)}
-        />
-      </div>
-      {open && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-xl">
-          {suggestions.map((s, i) => (
-            <button key={i} type="button" className="flex w-full items-start gap-3 border-b border-border p-4 text-left transition-colors last:border-0 hover:bg-secondary/30"
-              onClick={() => { onSelect(s); setOpen(false); }}>
-              <MapIcon size={14} className="mt-1 shrink-0 text-muted-foreground/40" />
-              <span className="text-sm font-semibold text-foreground/80">{s.display_name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function PtsForm({
   patientId,
   patientName,
   initialData,
-  initialStatus,
+  initialStatus: _initialStatus,
 }: {
   patientId: string;
   patientName: string;
@@ -293,10 +141,84 @@ export function PtsForm({
   const [loadingAi, setLoadingAi] = useState(false);
   const [catalog, setCatalog] = useState<PredefinedAction[]>([]);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const updatePendingCount = async () => {
+    try {
+      const queue = await OfflineStore.getSyncQueue();
+      setPendingCount(queue.length);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const triggerBackgroundSync = async () => {
+    try {
+      const queue = await OfflineStore.getSyncQueue();
+      if (queue.length === 0) return;
+
+      toast.loading('Sincronizando alterações offline...', { id: 'sync-toast' });
+
+      let successCount = 0;
+      for (const item of queue) {
+        try {
+          if (item.actionType === 'save_pts') {
+            const payload = item.payload as { data: unknown; status: 'draft' | 'completed' };
+            await savePtsDocument(item.patientId, payload.data, payload.status);
+          }
+          await OfflineStore.clearSyncQueueItem(item.id!);
+          successCount++;
+        } catch (err) {
+          console.error('Falha ao sincronizar item da fila:', err);
+        }
+      }
+
+      await updatePendingCount();
+      if (successCount > 0) {
+        toast.success(`${successCount} alteração(ões) sincronizada(s) com sucesso!`, { id: 'sync-toast' });
+      } else {
+        toast.dismiss('sync-toast');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     getPredefinedActions().then(setCatalog);
-  }, []);
+
+    if (typeof window === 'undefined') return;
+
+    const updateOnline = () => {
+      setIsOnline(navigator.onLine);
+      if (navigator.onLine) {
+        triggerBackgroundSync();
+      }
+    };
+
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOnline);
+
+    // Carrega rascunho local se houver e a fila pendente
+    OfflineStore.getDraft(patientId).then((draft) => {
+      if (draft) {
+        toast.info('Rascunho local recuperado offline', {
+          description: 'Carregamos as últimas alterações salvas no seu aparelho.'
+        });
+        Object.entries(draft).forEach(([key, value]) => {
+          setValue(key, value);
+        });
+      }
+    });
+
+    updatePendingCount();
+
+    return () => {
+      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('offline', updateOnline);
+    };
+  }, [patientId]);
 
   const methods: any = useForm({
     resolver: zodResolver(ptsSchema),
@@ -318,33 +240,48 @@ export function PtsForm({
   const { handleSubmit, setValue, watch } = methods;
   const formData: PtsFormData = watch();
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (formData.fullAddress && formData.fullAddress.length > 10 && !formData.lat && !formData.lon) {
-        const coords = await geocodeAddress(formData.fullAddress);
-        if (coords) {
-          setValue('lat', coords.lat);
-          setValue('lon', coords.lon);
-        }
-      }
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [formData.fullAddress, formData.lat, formData.lon, setValue]);
-
   const sortedServices = useMemo(() => {
     if (!formData.lat || !formData.lon) return PUBLIC_SERVICES;
-    return [...PUBLIC_SERVICES].sort((a, b) => calculateDistance(formData.lat!, formData.lon!, a.lat, a.lon) - calculateDistance(formData.lat!, formData.lon!, b.lat, b.lon));
+    return [...PUBLIC_SERVICES].sort(
+      (a, b) =>
+        calculateDistance(formData.lat!, formData.lon!, a.lat, a.lon) -
+        calculateDistance(formData.lat!, formData.lon!, b.lat, b.lon),
+    );
   }, [formData.lat, formData.lon]);
 
   const onSave = async (status: 'draft' | 'completed', data: PtsFormData) => {
     setSaving(true);
+    
+    // Se estiver offline, salvar na IndexedDB local e enfileirar na fila de sync
+    if (!isOnline) {
+      try {
+        await OfflineStore.saveDraft(patientId, data);
+        await OfflineStore.enqueueSyncMutation(patientId, 'save_pts', { data, status });
+        await updatePendingCount();
+        
+        toast.warning('Alteração salva localmente!', {
+          description: 'Você está offline. Os dados serão sincronizados assim que a conexão voltar.'
+        });
+        
+        if (status === 'completed') {
+          router.push(`/patients/${patientId}`);
+        }
+      } catch {
+        toast.error('Erro ao salvar localmente');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     try {
       await savePtsDocument(patientId, data as unknown as Record<string, unknown>, status);
+      await OfflineStore.clearDraft(patientId); // Limpa rascunho de sucesso online
       toast.success(status === 'completed' ? 'PTS finalizado!' : 'Rascunho salvo!', {
         description: status === 'completed' ? 'O documento foi concluído com sucesso.' : 'Suas alterações foram salvas.',
       });
       if (status === 'completed') router.push(`/patients/${patientId}`);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao salvar', { description: 'Ocorreu um problema ao processar sua solicitação.' });
     } finally {
       setSaving(false);
@@ -355,12 +292,12 @@ export function PtsForm({
     if (status === 'completed') {
       handleSubmit(
         (data: PtsFormData) => onSave('completed', data),
-        (err: any) => {
+        (err: unknown) => {
           console.error('Validation errors:', err);
           toast.error('Campos pendentes', {
             description: 'Verifique os campos obrigatórios em vermelho.',
           });
-        }
+        },
       )();
     } else {
       const currentData = watch();
@@ -377,23 +314,23 @@ export function PtsForm({
 
   // Update completed steps when moving forward
   const goToStep = async (id: string) => {
-    const targetIdx = SECTIONS.findIndex(s => s.id === id);
-    
+    const targetIdx = SECTIONS.findIndex((s) => s.id === id);
+
     // If moving forward, validate current section
     if (targetIdx > activeIdx) {
       const fieldsToValidate = SECTION_FIELDS[active] || [];
       const isValid = await methods.trigger(fieldsToValidate);
-      
+
       if (!isValid) {
         toast.error('Verifique os campos obrigatórios', {
-          description: 'Alguns campos desta etapa precisam ser preenchidos corretamente.'
+          description: 'Alguns campos desta etapa precisam ser preenchidos corretamente.',
         });
         return;
       }
-      
-      setCompletedSteps(prev => Array.from(new Set([...prev, active])));
+
+      setCompletedSteps((prev) => Array.from(new Set([...prev, active])));
     }
-    
+
     if (id === 'dashboard') {
       const currentData = watch();
       const currentActions = currentData.suggestedActions || [];
@@ -407,17 +344,20 @@ export function PtsForm({
         console.log('[Frontend] Requesting AI Suggestions...');
         setLoadingAi(true);
         generateAiSuggestions(currentData)
-          .then(res => {
+          .then((res) => {
             console.log('[Frontend] AI Suggestions received:', res);
             setValue('vulnerabilityIndex', res.vulnerability_index);
-            setValue('aiSuggestions', res.suggested_actions.map((s: any) => ({
-              actionId: s.action_id,
-              clinicalJustification: s.clinical_justification,
-              approved: false
-            })));
+            setValue(
+              'aiSuggestions',
+              res.suggested_actions.map((s: { action_id: string; clinical_justification: string }) => ({
+                actionId: s.action_id,
+                clinicalJustification: s.clinical_justification,
+                approved: false,
+              })),
+            );
             setValue('aiPotentialities', res.potentialities);
             setValue('aiFragilities', res.fragilities);
-            
+
             // Auto-fill goals if they are empty
             if (!currentData.shortTermGoals) setValue('shortTermGoals', res.strategic_goals.short_term);
             if (!currentData.mediumTermGoals) setValue('mediumTermGoals', res.strategic_goals.medium_term);
@@ -430,7 +370,7 @@ export function PtsForm({
           .finally(() => setLoadingAi(false));
       }
     }
-    
+
     setActive(id);
     const scrollContainer = document.querySelector('.overflow-y-auto');
     if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
@@ -457,7 +397,8 @@ export function PtsForm({
               <div className="flex w-full max-w-3xl items-center">
                 {SECTIONS.map((section, idx) => {
                   const isActive = section.id === active;
-                  const isDone = completedSteps.includes(section.id) || SECTIONS.findIndex(s => s.id === active) > idx;
+                  const isDone =
+                    completedSteps.includes(section.id) || SECTIONS.findIndex((s) => s.id === active) > idx;
 
                   return (
                     <React.Fragment key={section.id}>
@@ -465,17 +406,25 @@ export function PtsForm({
                         type="button"
                         onClick={() => goToStep(section.id)}
                         className={cn(
-                          "group relative flex items-center justify-center transition-all duration-300",
-                          isActive ? "scale-105" : "opacity-30 hover:opacity-100",
+                          'group relative flex items-center justify-center transition-all duration-300',
+                          isActive ? 'scale-105' : 'opacity-30 hover:opacity-100',
                         )}
                       >
-                        <div className={cn(
-                          "flex size-7 items-center justify-center rounded-full border transition-all duration-500",
-                          isActive ? "bg-primary border-primary text-white shadow-md shadow-primary/30" :
-                          isDone ? "bg-emerald-500 border-emerald-500 text-white" :
-                          "bg-white border-slate-200 text-slate-400"
-                        )}>
-                          {isDone && !isActive ? <CheckCircle size={12} /> : React.cloneElement(section.icon as React.ReactElement<{ size?: number }>, { size: 12 })}
+                        <div
+                          className={cn(
+                            'flex size-7 items-center justify-center rounded-full border transition-all duration-500',
+                            isActive
+                              ? 'bg-primary border-primary text-white shadow-md shadow-primary/30'
+                              : isDone
+                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                : 'bg-white border-slate-200 text-slate-400',
+                          )}
+                        >
+                          {isDone && !isActive ? (
+                            <CheckCircle size={12} />
+                          ) : (
+                            React.cloneElement(section.icon as React.ReactElement<{ size?: number }>, { size: 12 })
+                          )}
                         </div>
                         {isActive && (
                           <span className="absolute -bottom-4 whitespace-nowrap text-[6px] font-black uppercase tracking-[0.2em] text-primary animate-in fade-in slide-in-from-top-1">
@@ -485,10 +434,10 @@ export function PtsForm({
                       </button>
                       {idx < SECTIONS.length - 1 && (
                         <div className="h-[1px] flex-1 mx-1.5 bg-slate-100 relative overflow-hidden">
-                          <motion.div 
+                          <motion.div
                             className="absolute inset-0 bg-primary/30"
-                            initial={{ width: "0%" }}
-                            animate={{ width: isDone ? "100%" : "0%" }}
+                            initial={{ width: '0%' }}
+                            animate={{ width: isDone ? '100%' : '0%' }}
                             transition={{ duration: 0.5 }}
                           />
                         </div>
@@ -500,12 +449,26 @@ export function PtsForm({
             </nav>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => handleSave('draft')} disabled={saving}
-                className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-60">
+              {isOnline ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-600 border border-emerald-200">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Conectado
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-amber-600 border border-amber-200">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-bounce" /> Offline {pendingCount > 0 && `(${pendingCount} pendente)`}
+                </div>
+              )}
+              <button
+                onClick={() => handleSave('draft')}
+                disabled={saving}
+                className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-60"
+              >
                 <Save size={12} /> {saving ? 'Salvando…' : 'Rascunho'}
               </button>
-              <button onClick={() => router.push(`/patients/${patientId}`)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600 border border-slate-100">
+              <button
+                onClick={() => router.push(`/patients/${patientId}`)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600 border border-slate-100"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -521,596 +484,34 @@ export function PtsForm({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
                 className="rounded-[2rem] border border-slate-200/50 bg-white p-6 shadow-diffusion md:rounded-[2.5rem] md:p-12"
               >
                 {/* Section Header - Compact */}
                 <div className="mb-10 flex items-center gap-5 border-b border-slate-50 pb-8">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-primary/5 text-primary">
-                    {SECTIONS.find(s => s.id === active)?.icon}
+                    {SECTIONS.find((s) => s.id === active)?.icon}
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/40">Etapa {activeIdx + 1} de {SECTIONS.length}</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/40">
+                      Etapa {activeIdx + 1} de {SECTIONS.length}
+                    </p>
                     <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 leading-none">
                       {SECTIONS.find((s) => s.id === active)?.title}
                     </h2>
                   </div>
                 </div>
-              {active === 'demographics' && (
-                <div className="grid grid-cols-12 gap-8">
-                  <Field field="fullName" label="Nome Completo" className="col-span-12" />
-                  <Field field="socialName" label="Nome Social" placeholder="Como prefere ser chamado" />
-                  <Field field="birthDate" label="Data de Nascimento" type="date" className="col-span-12 md:col-span-4" />
-                  <Field field="cpf" label="CPF" mask="cpf" placeholder="000.000.000-00" className="col-span-12 md:col-span-4" />
-                  <Field field="rg" label="RG" className="col-span-12 md:col-span-4" />
-                  <Field field="susCard" label="Cartão SUS" className="col-span-12 md:col-span-6" />
-                  <Field field="cad" label="CAD" className="col-span-12 md:col-span-6" />
-                  <Radio field="gender" label="Gênero" options={['Masculino', 'Feminino', 'Não-Binário', 'Outros']} />
-                  <Field field="fatherName" label="Nome do Pai" className="col-span-12 md:col-span-6" />
-                  <Field field="motherName" label="Nome da Mãe" className="col-span-12 md:col-span-6" />
-                  <Field field="responsible" label="Responsável Legal" className="col-span-12" />
-                  <AddressAutocomplete
-                    value={formData.fullAddress || ''}
-                    onChange={(v) => setValue('fullAddress', v)}
-                    onSelect={(res) => {
-                      setValue('fullAddress', res.display_name);
-                      setValue('lat', parseFloat(res.lat));
-                      setValue('lon', parseFloat(res.lon));
-                    }}
-                  />
-                  <div className="col-span-12 grid grid-cols-2 gap-4">
-                    <Field field="neighborhood" label="Bairro" className="col-span-1" />
-                    <Field field="cep" label="CEP" mask="cep" className="col-span-1" />
-                  </div>
-                  <Field field="phone" label="Telefone" mask="phone" className="col-span-12 md:col-span-6" />
-                  <Field field="email" label="E-mail" type="email" className="col-span-12 md:col-span-6" />
-                  <Field field="profession" label="Profissão" className="col-span-12 md:col-span-4" />
-                  <Field field="education" label="Escolaridade" className="col-span-12 md:col-span-4" />
-                  <Field field="maritalStatus" label="Estado Civil" className="col-span-12 md:col-span-4" />
-                </div>
-              )}
 
-              {active === 'triagem' && (
-                <div className="space-y-12">
-                  <Field field="q1MainComplaint" label="Queixa Principal / Motivo da Busca" type="textarea" className="col-span-12" />
-                  <Checkbox field="q2Substances" label="Substâncias utilizadas" options={['Álcool', 'Tabaco', 'Maconha', 'Cocaína', 'Crack', 'Inalantes', 'Opioides', 'Outros']} />
-                  <Field field="q3UsageTime" label="Há quanto tempo utiliza?" className="col-span-12" />
-                  <Radio field="q4TriedToStop" label="Já tentou parar de usar?" options={['Sim', 'Não']} />
-                  {formData.q4TriedToStop === 'Sim' && <Checkbox field="q5StopMethods" label="Quais métodos tentou?" options={['Sozinho', 'Religião', 'NA/AA', 'Clínica', 'Medicação', 'CAPS AD Anterior']} />}
-                  <div className="rounded-3xl border border-destructive/10 bg-destructive/5 p-10">
-                    <Radio field="q6PreviousHospitalization" label="Já teve alguma internação por dependência química?" options={['Sim', 'Não']} />
-                    {formData.q6PreviousHospitalization === 'Sim' && <Field field="q6HospitalizationDetails" label="Quantas vezes e onde?" type="textarea" className="col-span-12 mt-6" />}
-                  </div>
-                  <Checkbox field="q7AggravatingFactors" label="Fatores Agravantes" options={['Conflitos Familiares', 'Desemprego', 'Saúde Física', 'Saúde Mental', 'Moradia', 'Financeiro', 'Judicial']} />
-                  <Checkbox field="q8RecoveryFactors" label="Fatores de Recuperação" options={['Família', 'Religião', 'Acompanhamento', 'Trabalho', 'Grupos de Apoio', 'Esporte']} />
-                  <ScoreSelector field="q15MotivationRating" label="Grau de Motivação para o Tratamento (0-4)" className="col-span-12 mt-8" />
-                </div>
-              )}
-
-              {active === 'psiquico' && (
-                <div className="space-y-10">
-                  <DomainIntro
-                    domainKey="psiquico"
-                    label="Domínio Psíquico"
-                    description="Saúde mental, sofrimento psíquico e vínculos de cuidado."
-                  />
-                  <Radio field="psPreviousPsychAccount" label="Já teve acompanhamento em saúde mental?" options={['Sim', 'Não']} />
-                  {formData.psPreviousPsychAccount === 'Sim' && <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" />}
-                  <Radio field="psCurrentTreatment" label="Está em algum acompanhamento atualmente?" options={['Sim', 'Não']} />
-                  <Radio field="psSleepDifficulty" label="Apresenta dificuldades de sono?" options={['Sim', 'Não', 'Às vezes']} />
-                  <Radio field="psAnxietySadness" label="Relata ansiedade ou tristeza frequentes?" options={['Sim', 'Não', 'Às vezes']} />
-                  <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-10">
-                    <Radio field="psSelfHarmThoughts" label="Pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
-                    {formData.psSelfHarmThoughts !== 'Não' && formData.psSelfHarmThoughts !== '' && <Field field="psSelfHarmDetails" label="Frequência e histórico" type="textarea" className="mt-6" />}
-                  </div>
-                </div>
-              )}
-
-              {active === 'saude' && (
-                <div className="space-y-10">
-                  <DomainIntro
-                    domainKey="saude"
-                    label="Domínio Saúde"
-                    description="Acesso à saúde, hábitos e autonomia no cotidiano — sem prontuário clínico."
-                  />
-                  <Radio field="ssHealthAccess" label="Possui acesso aos serviços de saúde do território?" options={['Sim', 'Não', 'Parcialmente']} />
-                  {formData.ssHealthAccess === 'Não' && <Field field="ssHealthAccessDetails" label="Quais barreiras de acesso?" type="textarea" />}
-                  <Radio field="efRegularPractice" label="Pratica atividades físicas regularmente?" options={['Sim', 'Não']} />
-                  <Radio field="efPhysicalLimitation" label="Possui limitação física?" options={['Sim', 'Não']} />
-                  {formData.efPhysicalLimitation === 'Sim' && <Field field="efPhysicalLimitationDetails" label="Descreva a limitação" type="textarea" />}
-                  <Field field="ntDietType" label="Tipo de alimentação preponderante" className="col-span-12" />
-                  <div className="rounded-3xl border border-primary/10 bg-primary/[0.02] p-8 space-y-6">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Autonomia no cotidiano</p>
-                    <Radio field="toDailyIndependence" label="Realiza atividades diárias de forma independente?" options={['Sim', 'Não', 'Parcialmente']} />
-                    <Radio field="toLeisureActivity" label="Participa de atividades de lazer?" options={['Sim', 'Não']} />
-                    <ScoreSelector field="autonomia" label="Pontuação de autonomia (0-4)" className="col-span-12" />
-                  </div>
-                </div>
-              )}
-
-              {active === 'social' && (
-                <div className="space-y-10">
-                  <DomainIntro
-                    domainKey="social"
-                    label="Domínio Social / Renda"
-                    description="Convivência, moradia, renda e acesso a benefícios e proteção social."
-                  />
-                  <Radio field="ssLivesWithOthers" label="Mora com familiares ou outras pessoas?" options={['Sim', 'Não']} />
-                  {formData.ssLivesWithOthers === 'Sim' && <Field field="ssLivesWithDetails" label="Com quem reside?" type="textarea" />}
-                  <Radio field="ssSocialBenefits" label="Recebe algum benefício social?" options={['Sim', 'Não']} />
-                  {formData.ssSocialBenefits === 'Sim' && <Field field="ssSocialBenefitsDetails" label="Quais benefícios?" type="textarea" />}
-                </div>
-              )}
-
-              {active === 'juridico' && (
-                <div className="space-y-10">
-                  <DomainIntro
-                    domainKey="juridico"
-                    label="Domínio Jurídico / Direitos"
-                    description="Garantia de direitos, situação de justiça e acompanhamento jurídico."
-                  />
-                  <Field field="q13JusticeInvolvement" label="Envolvimento com o sistema de justiça" type="textarea" className="col-span-12" />
-                  <div className="rounded-3xl border border-destructive/10 bg-destructive/5 p-10">
-                    <Radio field="lgRightsViolation" label="Há indícios de violação de direitos?" options={['Sim', 'Não', 'Em apuração']} />
-                    {formData.lgRightsViolation !== 'Não' && formData.lgRightsViolation !== '' && <Field field="lgRightsViolationDetails" label="Descreva a situação" type="textarea" className="col-span-12 mt-6" />}
-                  </div>
-                  <Radio field="lgLegalFollowUp" label="Possui acompanhamento jurídico (Defensoria, MP, Conselho)?" options={['Sim', 'Não']} />
-                  {formData.lgLegalFollowUp === 'Sim' && <Field field="lgLegalFollowUpDetails" label="Qual órgão e situação?" type="textarea" />}
-                </div>
-              )}
-
-              {active === 'educacao' && (
-                <div className="space-y-10">
-                  <DomainIntro
-                    domainKey="educacao"
-                    label="Domínio Educação / Trabalho"
-                    description="Vínculo escolar, escolaridade e inserção produtiva."
-                  />
-                  <Radio field="edSchoolEnrollment" label="Está matriculado(a) ou vinculado(a) à educação?" options={['Sim', 'Não', 'Não se aplica']} />
-                  {formData.edSchoolEnrollment === 'Sim' && <Field field="edSchoolEnrollmentDetails" label="Qual unidade de ensino?" type="textarea" />}
-                  <Radio field="edLaborActivity" label="Participa de atividade laboral ou de geração de renda?" options={['Sim', 'Não']} />
-                  {formData.edLaborActivity === 'Sim' && <Field field="edLaborActivityDetails" label="Qual atividade?" type="textarea" />}
-                </div>
-              )}
-
-              {active === 'dashboard' && (
-                 <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                   {(() => {
-                     const analysis = analyzePtsState(formData);
-                     return (
-                       <>
-                         {/* 1. DIAGNÓSTICO E VULNERABILIDADE */}
-                         <section className="space-y-8">
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-8 rounded-[2.5rem] bg-slate-900 p-10 text-white shadow-2xl overflow-hidden relative group">
-                              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50 group-hover:opacity-70 transition-opacity duration-500" />
-                              <div className="relative z-10 flex items-center gap-6">
-                                <div className={cn(
-                                  "flex h-24 w-24 items-center justify-center rounded-[2rem] text-5xl font-black shadow-2xl transition-transform duration-500 hover:scale-105",
-                                  formData.vulnerabilityIndex === 'A' ? "bg-emerald-500 shadow-emerald-500/20" :
-                                  formData.vulnerabilityIndex === 'B' ? "bg-blue-500 shadow-blue-500/20" :
-                                  formData.vulnerabilityIndex === 'C' ? "bg-amber-500 shadow-amber-500/20" :
-                                  formData.vulnerabilityIndex === 'D' ? "bg-orange-500 shadow-orange-500/20" :
-                                  formData.vulnerabilityIndex === 'E' ? "bg-rose-500 shadow-rose-500/20" : "bg-slate-700"
-                                )}>
-                                  {loadingAi ? <div className="size-10 animate-spin rounded-full border-4 border-white/20 border-t-white" /> : formData.vulnerabilityIndex || '?'}
-                                </div>
-                                <div>
-                                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40">Índice de Vulnerabilidade</h3>
-                                  <p className="text-2xl font-black tracking-tight">Classificação de Risco Clínico</p>
-                                  <div className="mt-3 flex items-center gap-2">
-                                    <Badge variant="outline" className="border-white/10 text-white/60 bg-white/5 uppercase text-[8px] font-black tracking-widest">
-                                      <Brain size={10} className="mr-1" /> Inteligência Assistida
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="relative z-10 flex flex-col items-end gap-3 text-right">
-                                 <p className="max-w-[280px] text-[10px] font-medium leading-relaxed text-white/50">
-                                   O sistema processou os escores de saúde, riscos sociais e relatos textuais para determinar a prioridade de atendimento.
-                                 </p>
-                                 <div className="h-1 w-24 rounded-full bg-primary/20" />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              {/* Potentialities */}
-                              <div className="rounded-[2.5rem] border border-emerald-500/10 bg-emerald-500/[0.03] p-10 backdrop-blur-sm">
-                                <div className="mb-8 flex items-center gap-3 text-emerald-600">
-                                  <div className="p-2 rounded-xl bg-emerald-500/10">
-                                    <ShieldCheck size={20} />
-                                  </div>
-                                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Potencialidades Identificadas</h3>
-                                </div>
-                                 {loadingAi ? (
-                                  <div className="flex flex-wrap gap-2.5">
-                                    <Skeleton className="h-9 w-32 rounded-xl opacity-40" />
-                                    <Skeleton className="h-9 w-24 rounded-xl opacity-40" />
-                                    <Skeleton className="h-9 w-28 rounded-xl opacity-40" />
-                                  </div>
-                                ) : (formData.aiPotentialities || []).length === 0 ? (
-                                  <p className="text-xs text-muted-foreground/40 italic font-medium px-2">Nenhum fator protetivo mapeado pela IA.</p>
-                                ) : (
-                                  <div className="flex flex-wrap gap-2.5">
-                                    {(formData.aiPotentialities || []).map((p, i) => (
-                                      <div key={i} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 border border-emerald-500/10 text-emerald-700 shadow-sm transition-all hover:border-emerald-500/30">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">{p}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Improvement Suggestions */}
-                              <div className="rounded-[2.5rem] border border-rose-500/10 bg-rose-500/[0.03] p-10 backdrop-blur-sm">
-                                <div className="mb-8 flex items-center gap-3 text-rose-600">
-                                  <div className="p-2 rounded-xl bg-rose-500/10">
-                                    <AlertCircle size={20} />
-                                  </div>
-                                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">Alertas de Fragilidade / Risco</h3>
-                                </div>
-                                {loadingAi ? (
-                                  <div className="flex flex-wrap gap-2.5">
-                                    <Skeleton className="h-9 w-28 rounded-xl opacity-40" />
-                                    <Skeleton className="h-9 w-36 rounded-xl opacity-40" />
-                                    <Skeleton className="h-9 w-24 rounded-xl opacity-40" />
-                                  </div>
-                                ) : (formData.aiFragilities || []).length === 0 ? (
-                                  <p className="text-xs text-muted-foreground/40 italic font-medium px-2">Nenhum risco crítico detectado pela IA.</p>
-                                ) : (
-                                  <div className="flex flex-wrap gap-2.5">
-                                    {(formData.aiFragilities || []).map((f, i) => (
-                                        <div key={i} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 border border-rose-500/10 text-rose-700 shadow-sm transition-all hover:border-rose-500/30">
-                                          <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                                          <span className="text-[10px] font-black uppercase tracking-widest">{f}</span>
-                                        </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                         </section>
-
-                         <Separator className="bg-slate-100" />
-
-                         {/* 2. OBJETIVOS ESTRATÉGICOS (METAS GLOBAIS) */}
-                         <section className="space-y-10">
-                            <div className="flex items-center gap-4">
-                               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/5 text-primary">
-                                 <Target size={24} />
-                               </div>
-                               <div>
-                                 <h3 className="text-xl font-black tracking-tight text-slate-900">Objetivos do Cuidado</h3>
-                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Definição estratégica do Plano Terapêutico Singular</p>
-                               </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                               <div className="col-span-1 space-y-3">
-                                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Curto Prazo (Imediato)</label>
-                                  <textarea 
-                                    className="w-full min-h-[140px] rounded-3xl border border-slate-200 bg-slate-50/50 p-6 text-sm font-medium transition-all focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none placeholder:text-slate-300"
-                                    placeholder="Ações para os próximos dias…"
-                                    {...methods.register('shortTermGoals')}
-                                  />
-                               </div>
-                               <div className="col-span-1 space-y-3">
-                                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Médio Prazo (Até 6 meses)</label>
-                                  <textarea 
-                                    className="w-full min-h-[140px] rounded-3xl border border-slate-200 bg-slate-50/50 p-6 text-sm font-medium transition-all focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none placeholder:text-slate-300"
-                                    placeholder="Metas de estabilização…"
-                                    {...methods.register('mediumTermGoals')}
-                                  />
-                               </div>
-                               <div className="col-span-1 space-y-3">
-                                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Longo Prazo (Estrutural)</label>
-                                  <textarea 
-                                    className="w-full min-h-[140px] rounded-3xl border border-slate-200 bg-slate-50/50 p-6 text-sm font-medium transition-all focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none placeholder:text-slate-300"
-                                    placeholder="Reinserção e autonomia…"
-                                    {...methods.register('longTermGoals')}
-                                  />
-                               </div>
-                            </div>
-                         </section>
-
-                         <Separator className="bg-slate-100" />
-
-                         {/* 3. RECOMENDAÇÕES CLÍNICAS DA IA */}
-                         <section className="space-y-10 rounded-[3rem] bg-slate-50/80 p-10 md:p-12 border border-slate-100">
-                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                             <div className="flex items-center gap-4">
-                               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/10">
-                                 <Brain size={24} />
-                               </div>
-                               <div>
-                                 <h3 className="text-xl font-black tracking-tight text-slate-900 uppercase italic">Motor de Decisão Clínica</h3>
-                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sugestões baseadas no catálogo de ações da unidade</p>
-                               </div>
-                             </div>
-                             {loadingAi && (
-                               <div className="flex items-center gap-3 rounded-full bg-white px-6 py-3 shadow-sm border border-slate-100 animate-pulse">
-                                 <div className="size-2 rounded-full bg-primary animate-bounce" />
-                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">IA Analisando Evidências...</span>
-                               </div>
-                             )}
-                           </div>
-
-                           <div className="grid gap-6">
-                             {loadingAi ? (
-                               Array.from({ length: 3 }).map((_, i) => (
-                                 <div key={i} className="rounded-[2.5rem] border border-slate-200 bg-white p-10 space-y-6">
-                                    <div className="flex items-center gap-4">
-                                      <Skeleton className="h-6 w-24 rounded-lg" />
-                                      <Skeleton className="h-8 w-48 rounded-lg" />
-                                    </div>
-                                    <Skeleton className="h-12 w-full rounded-2xl" />
-                                    <div className="rounded-2xl bg-slate-50 p-6 border border-slate-100 space-y-3">
-                                      <Skeleton className="h-3 w-32 rounded" />
-                                      <Skeleton className="h-4 w-full rounded" />
-                                    </div>
-                                 </div>
-                               ))
-                             ) : (
-                               (formData.aiSuggestions || []).length === 0 ? (
-                                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 rounded-[2.5rem] border border-dashed border-slate-200 bg-white/40">
-                                    <div className="p-6 rounded-full bg-slate-100 text-slate-300">
-                                      <ClipboardList size={40} />
-                                    </div>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhuma recomendação disponível para este perfil.</p>
-                                  </div>
-                               ) : (
-                                (formData.aiSuggestions || []).map((suggestion, sIdx) => {
-                                  const action = catalog.find(a => a.id === suggestion.actionId);
-                                  return (
-                                    <motion.div 
-                                      key={sIdx} 
-                                      initial={{ opacity: 0, x: -20 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      transition={{ delay: sIdx * 0.1 }}
-                                      className={cn(
-                                        "relative overflow-hidden rounded-[2.5rem] border transition-all duration-500 group",
-                                        suggestion.approved ? "border-emerald-500/30 bg-emerald-500/[0.02] shadow-lg shadow-emerald-500/5" : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xl hover:shadow-slate-200/50"
-                                      )}
-                                    >
-                                      <div className="flex flex-col md:flex-row">
-                                        <div className="flex-1 p-10">
-                                           <div className="mb-6 flex items-center gap-4">
-                                             <span className="rounded-xl bg-slate-100 px-4 py-2 text-[8px] font-black uppercase tracking-[0.3em] text-slate-500 transition-colors group-hover:bg-primary/10 group-hover:text-primary">{action?.category || 'Geral'}</span>
-                                             <h4 className="text-xl font-black text-slate-900 tracking-tight">{action?.title || 'Ação do Catálogo'}</h4>
-                                           </div>
-                                           <p className="text-sm font-medium leading-relaxed text-slate-500 mb-8 max-w-[60ch]">{action?.description}</p>
-                                           
-                                           <div className="rounded-3xl bg-slate-50/50 p-8 border border-slate-100 transition-colors group-hover:bg-white group-hover:border-primary/10">
-                                             <div className="flex items-center gap-2 mb-3">
-                                                <Brain size={12} className="text-primary/40" />
-                                                <h5 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary italic">Justificativa Clínica</h5>
-                                             </div>
-                                             <p className="text-sm font-bold italic leading-relaxed text-slate-600">"{suggestion.clinicalJustification}"</p>
-                                           </div>
-                                        </div>
-                                        
-                                        <div className="flex flex-col border-t border-slate-100 md:w-72 md:border-t-0 md:border-l bg-slate-50/30 transition-colors group-hover:bg-slate-50/50">
-                                           <button 
-                                             type="button"
-                                             onClick={() => {
-                                               const next = [...(formData.aiSuggestions || [])];
-                                               next[sIdx].approved = !next[sIdx].approved;
-                                               setValue('aiSuggestions', next);
-                                               
-                                               if (next[sIdx].approved && action) {
-                                                 const currentInt = formData.interventions || [];
-                                                 if (!currentInt.find(i => i.description.includes(action.title))) {
-                                                   setValue('interventions', [
-                                                     ...currentInt,
-                                                     { id: `ai-${Date.now()}`, description: `${action.title}: ${action.description}`, service: 'A definir', status: 'pending' }
-                                                   ]);
-                                                   toast.success('Ação adicionada ao Plano!');
-                                                 }
-                                               }
-                                             }}
-                                             className={cn(
-                                               "flex flex-1 items-center justify-center gap-4 p-8 text-[11px] font-black uppercase tracking-[0.3em] transition-all active:scale-[0.98]",
-                                               suggestion.approved ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" : "bg-white text-slate-900 hover:bg-slate-50"
-                                             )}
-                                           >
-                                             {suggestion.approved ? <CheckCircle2 size={20} /> : <Plus size={20} />}
-                                             {suggestion.approved ? 'Aprovado' : 'Aprovar'}
-                                           </button>
-                                           
-                                           <div className="relative flex flex-1 p-6 flex-col justify-center gap-3">
-                                             <label className="text-[8px] font-black uppercase tracking-widest text-slate-400 px-2 italic">Substituir Ação:</label>
-                                             <div className="relative">
-                                               <select 
-                                                 className="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 focus:border-primary focus:outline-none transition-all cursor-pointer pr-10"
-                                                 onChange={(e) => {
-                                                   const next = [...(formData.aiSuggestions || [])];
-                                                   next[sIdx].actionId = e.target.value;
-                                                   setValue('aiSuggestions', next);
-                                                 }}
-                                                 value={suggestion.actionId}
-                                               >
-                                                 {catalog.map(a => (
-                                                   <option key={a.id} value={a.id}>{a.title}</option>
-                                                 ))}
-                                               </select>
-                                               <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                                  <ChevronRight size={14} className="rotate-90" />
-                                               </div>
-                                             </div>
-                                           </div>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  );
-                                })
-                               )
-                             )}
-                           </div>
-                         </section>
-
-                         <Separator className="bg-slate-100" />
-
-                         {/* 4. PLANO DE AÇÃO FINAL (AÇÕES E ENCAMINHAMENTOS) */}
-                         <section className="space-y-10">
-                            <div className="flex items-center justify-between gap-6">
-                              <div className="flex items-center gap-4">
-                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/5 text-emerald-600">
-                                   <ClipboardList size={24} />
-                                 </div>
-                                 <div>
-                                   <h3 className="text-xl font-black tracking-tight text-slate-900">Ações e Encaminhamentos</h3>
-                                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detalhamento prático da rede de cuidados</p>
-                                 </div>
-                              </div>
-                              <button type="button" onClick={() => {
-                                const current = formData.interventions || [];
-                                setValue('interventions', [...current, { id: Date.now().toString(), description: '', service: '', status: 'pending' as const }]);
-                              }}
-                                className="flex items-center gap-3 rounded-2xl bg-slate-900 px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl shadow-slate-900/20 transition-all hover:scale-105 active:scale-95">
-                                <Plus size={18} /> Adicionar Ação Manual
-                              </button>
-                            </div>
-
-                            <div className="grid gap-6">
-                              {(!formData.interventions || formData.interventions.length === 0) ? (
-                                <div className="flex flex-col items-center justify-center py-24 text-center space-y-6 rounded-[3rem] border border-dashed border-slate-200 bg-slate-50/30">
-                                  <div className="p-8 rounded-full bg-white text-slate-200 shadow-sm">
-                                    <ClipboardList size={48} />
-                                  </div>
-                                  <div className="max-w-xs space-y-2">
-                                    <p className="text-sm font-black uppercase tracking-widest text-slate-400">Plano de ação vazio</p>
-                                    <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-widest">Adicione ações manuais ou aprove as recomendações da IA acima.</p>
-                                  </div>
-                                </div>
-                              ) : (
-                                (formData.interventions || []).map((item: any, idx: number) => (
-                                  <motion.div 
-                                    key={item.id} 
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="flex flex-col gap-8 rounded-[2.5rem] border border-slate-200 bg-white p-10 md:flex-row shadow-sm hover:shadow-md transition-shadow"
-                                  >
-                                    <div className="flex-1 space-y-8">
-                                      <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Descrição da Intervenção</label>
-                                        <textarea 
-                                          placeholder="Ex: Encaminhar para acompanhamento na UBS de referência…"
-                                          className="min-h-[120px] w-full resize-none rounded-3xl border border-slate-100 bg-slate-50/50 p-6 text-sm font-bold text-slate-700 outline-none transition-all focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/5"
-                                          value={item.description}
-                                          onChange={(e) => {
-                                            const l = [...(formData.interventions || [])] as any;
-                                            l[idx].description = e.target.value;
-                                            setValue('interventions', l);
-                                          }}
-                                        />
-                                      </div>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                          <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Serviço/Unidade Responsável</label>
-                                          <div className="relative">
-                                            <select 
-                                              className="w-full appearance-none rounded-2xl border border-slate-100 bg-slate-50/50 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none transition-all focus:border-primary focus:bg-white"
-                                              value={item.service}
-                                              onChange={(e) => {
-                                                const l = [...(formData.interventions || [])] as any;
-                                                l[idx].service = e.target.value;
-                                                setValue('interventions', l);
-                                              }}>
-                                              <option value="">Selecione o Serviço…</option>
-                                              {sortedServices.map((s) => {
-                                                const dist = formData.lat && formData.lon ? calculateDistance(formData.lat, formData.lon, s.lat, s.lon).toFixed(2) : null;
-                                                return <option key={s.id} value={s.name}>{s.type} — {s.name}{dist ? ` (${dist} km)` : ''}</option>;
-                                              })}
-                                            </select>
-                                          </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                          <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Status da Ação</label>
-                                          <button 
-                                            type="button" 
-                                            onClick={() => {
-                                              const l = [...(formData.interventions || [])] as any;
-                                              l[idx].status = l[idx].status === 'completed' ? 'pending' : 'completed';
-                                              setValue('interventions', l);
-                                            }}
-                                            className={cn(
-                                              "flex w-full items-center justify-center gap-4 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
-                                              item.status === 'completed' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-100 text-slate-400'
-                                            )}>
-                                            {item.status === 'completed' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
-                                            {item.status === 'completed' ? 'Finalizada' : 'Em Aberto'}
-                                          </button>
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                          <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Prazo Esperado</label>
-                                          <input 
-                                            type="text"
-                                            placeholder="Ex: Imediato, 15 dias, semanal…"
-                                            className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none transition-all focus:border-primary focus:bg-white"
-                                            value={item.deadline || ''}
-                                            onChange={(e) => {
-                                              const l = [...(formData.interventions || [])] as any;
-                                              l[idx].deadline = e.target.value;
-                                              setValue('interventions', l);
-                                            }}
-                                          />
-                                        </div>
-                                        <div className="space-y-3">
-                                          <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Responsável / Profissional</label>
-                                          <input 
-                                            type="text"
-                                            placeholder="Ex: Psicólogo, Assistente Social, Família…"
-                                            className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none transition-all focus:border-primary focus:bg-white"
-                                            value={item.responsible || ''}
-                                            onChange={(e) => {
-                                              const l = [...(formData.interventions || [])] as any;
-                                              l[idx].responsible = e.target.value;
-                                              setValue('interventions', l);
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-center justify-center border-t border-slate-100 pt-6 md:border-t-0 md:border-l md:pl-8 md:pt-0">
-                                      <button 
-                                        type="button" 
-                                        onClick={() => setValue('interventions', (formData.interventions as any[]).filter((i: any) => i.id !== item.id))}
-                                        className="rounded-full bg-rose-50 p-4 text-rose-400 transition-all hover:bg-rose-500 hover:text-white"
-                                      >
-                                        <Trash size={20} />
-                                      </button>
-                                    </div>
-                                  </motion.div>
-                                ))
-                              )}
-                            </div>
-                         </section>
-
-                         {/* 5. AVISO LEGAL E RESPONSABILIDADE */}
-                         <footer className="rounded-3xl bg-slate-900 p-10 text-white shadow-2xl relative overflow-hidden group">
-                           <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity">
-                              <Brain size={120} />
-                           </div>
-                           <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/10 shadow-inner backdrop-blur-md">
-                                <Brain size={32} className="text-primary" />
-                             </div>
-                             <div className="space-y-2">
-                               <h4 className="text-lg font-black uppercase tracking-tight italic">Protocolo de Segurança Clínica</h4>
-                               <p className="text-[10px] font-bold leading-relaxed uppercase tracking-[0.2em] text-white/40">
-                                 Este Plano Terapêutico Singular foi construído com auxílio de modelos preditivos de IA. A validação das metas, prazos e condutas é de responsabilidade técnica exclusiva do profissional de saúde assinante.
-                               </p>
-                             </div>
-                           </div>
-                         </footer>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
+                {active === 'demographics' && <DemographicsSection />}
+                {active === 'triagem' && <TriagemSection />}
+                {active === 'psiquico' && <PsiquicoSection />}
+                {active === 'saude' && <SaudeSection />}
+                {active === 'social' && <SocialSection />}
+                {active === 'juridico' && <JuridicoSection />}
+                {active === 'educacao' && <EducacaoSection />}
+                {active === 'dashboard' && (
+                  <DashboardSection loadingAi={loadingAi} catalog={catalog} sortedServices={sortedServices} />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1124,11 +525,11 @@ export function PtsForm({
               disabled={activeIdx === 0}
               onClick={() => goToStep(SECTIONS[activeIdx - 1].id)}
               className={cn(
-                "flex h-12 items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-0",
-                "px-4 md:px-6 md:gap-3 border border-slate-200 bg-white/50 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-white"
+                'flex h-12 items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-0',
+                'px-4 md:px-6 md:gap-3 border border-slate-200 bg-white/50 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-white',
               )}
             >
-              <ArrowLeft size={16} /> 
+              <ArrowLeft size={16} />
               <span className="hidden md:inline">Anterior</span>
             </button>
 

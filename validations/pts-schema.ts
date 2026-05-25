@@ -117,6 +117,24 @@ export const ptsSchema = z.object({
   efPleasurableActivity: z.string().optional(),
   ntDietType: z.string().optional(),
   ntWaterIntake: z.string().optional(),
+  // ── Apoio à Decisão e Inteligência Estendida ─────────────────────────
+  efChronicDiseasesCount: z.number().min(0).optional().default(0),
+  efContinuousMedsCount: z.number().min(0).optional().default(0),
+  efEmergencyAdmissionsCount: z.number().min(0).optional().default(0),
+  efKatzIndex: z.number().min(0).max(6).optional().nullable(),
+
+  ssIncomePerCapita: z.number().min(0).optional().nullable(),
+  ssEbiaStatus: z.enum(['segurança', 'insegurança_leve', 'insegurança_moderada', 'insegurança_grave']).optional().nullable(),
+  ssSaneamentoAcesso: z.boolean().optional().default(true),
+  ssHasCaregiver: z.boolean().optional().default(true),
+  ssCommunityVinc: z.number().min(0).optional().default(3), // contatos ecomapa
+
+  srq20Score: z.number().min(0).max(20).optional().nullable(),
+  psCrisisCount: z.number().min(0).optional().default(0),
+  psMedicationCompliance: z.enum(['total', 'parcial', 'nula']).optional().nullable(),
+
+  lgMissingDocuments: z.boolean().optional().default(false),
+  lgActiveJudicialization: z.boolean().optional().default(false),
 
   // ── Motor de Inteligência (Escores Multidomínio) ──────────────────────
   // Mapa nome-do-campo → escore (0-4). Qualquer profissional pontua.

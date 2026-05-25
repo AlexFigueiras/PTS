@@ -6,6 +6,29 @@ import { signupAction, type SignupState } from './actions';
 
 const initialState: SignupState = { error: null, message: null };
 
+const MUNICIPALITIES = [
+  'São Paulo - SP',
+  'Rio de Janeiro - RJ',
+  'Belo Horizonte - MG',
+  'Brasília - DF',
+  'Salvador - BA',
+  'Fortaleza - CE',
+  'Recife - PE',
+  'Curitiba - PR',
+  'Porto Alegre - RS',
+  'Manaus - AM',
+  'Goiânia - GO',
+  'Belém - PA',
+  'Guarulhos - SP',
+  'Campinas - SP',
+  'São Luís - MA',
+  'São Gonçalo - RJ',
+  'Maceió - AL',
+  'Duque de Caxias - RJ',
+  'Natal - RN',
+  'Teresina - PI',
+];
+
 export function SignupForm() {
   const [state, action, pending] = useActionState(signupAction, initialState);
 
@@ -36,21 +59,29 @@ export function SignupForm() {
 
       <div className="space-y-1.5">
         <label htmlFor="tenantName" className="text-sm font-medium">
-          Nome da clínica <span className="text-muted-foreground font-normal">(opcional)</span>
+          Município / Gestão Municipal
         </label>
-        <input
+        <select
           id="tenantName"
           name="tenantName"
-          type="text"
-          autoComplete="organization"
-          placeholder="Clínica São José"
+          required
+          defaultValue=""
           className="border-input bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2"
-        />
+        >
+          <option value="" disabled>
+            Selecione seu município…
+          </option>
+          {MUNICIPALITIES.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-1.5">
         <label htmlFor="email" className="text-sm font-medium">
-          E-mail
+          E-mail institucional
         </label>
         <input
           id="email"
@@ -58,7 +89,7 @@ export function SignupForm() {
           type="email"
           autoComplete="email"
           required
-          placeholder="email@clinica.com"
+          placeholder="admin@municipio.gov.br"
           className="border-input bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2"
         />
       </div>

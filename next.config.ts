@@ -6,21 +6,30 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  experimental: {
+    serverComponentsHmrCache: true,
+    optimizePackageImports: [
+      'recharts',
+      'lucide-react',
+      'framer-motion',
+      'cmdk',
+      'sonner',
+      'date-fns',
+    ],
+  },
 };
 
-export default withSentryConfig(nextConfig, {
-  // Suprime logs do plugin durante o build.
-  silent: true,
+// Sentry só envolve o bundler em produção (com auth token).
+// Em dev local, o wrapper adiciona overhead significativo sem benefício.
+const isSentryBuildEnabled =
+  process.env.NODE_ENV === 'production' && Boolean(process.env.SENTRY_AUTH_TOKEN);
 
-  // Otimização de bundle:
-  // - widenClientFileUpload: cobre mais chunks com source maps no Sentry.
-  // (disableLogger removido: opção descontinuada; o substituto
-  //  webpack.treeshake.removeDebugLogging não é suportado com Turbopack.)
-  widenClientFileUpload: true,
-
-  // Org/Project/AuthToken vêm de SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN.
-  // Sem auth token o build segue (só não sobe source maps).
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-});
+export default isSentryBuildEnabled
+  ? withSentryConfig(nextConfig, {
+      silent: true,
+      widenClientFileUpload: true,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    })
+  : nextConfig;

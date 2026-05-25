@@ -9,7 +9,7 @@ export default function SignupPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Criar conta</h1>
         <p className="text-muted-foreground text-sm">
-          Sua clínica será criada automaticamente.
+          A rede intersetorial do seu município será configurada automaticamente.
         </p>
       </div>
       <SignupForm />

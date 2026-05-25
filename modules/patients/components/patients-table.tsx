@@ -2,10 +2,10 @@ import Link from 'next/link';
 import type { PaginatedResult } from '@/lib/pagination';
 import type { PatientDto } from '../patient.dto';
 import { PatientStatusBadge } from './patient-status-badge';
-import { Search } from 'lucide-react';
+import { Search, AlertTriangle } from 'lucide-react';
 
 type Props = {
-  result: PaginatedResult<PatientDto>;
+  result: PaginatedResult<PatientDto & { hasHighVulnerabilityAlert?: boolean; ivcScore?: number }>;
   search?: string;
 };
 
@@ -56,12 +56,19 @@ export function PatientsTable({ result, search }: Props) {
             {data.map((patient) => (
               <tr key={patient.id} className="group transition-all duration-300 hover:bg-primary/[0.02]">
                 <td className="py-6 pr-4">
-                  <Link
-                    href={`/patients/${patient.id}`}
-                    className="text-sm font-bold tracking-tight text-foreground/90 transition-colors group-hover:text-primary"
-                  >
-                    {patient.socialName ?? patient.fullName}
-                  </Link>
+                  <div className="inline-flex items-center gap-2">
+                    <Link
+                      href={`/patients/${patient.id}`}
+                      className="text-sm font-bold tracking-tight text-foreground/90 transition-colors group-hover:text-primary"
+                    >
+                      {patient.socialName ?? patient.fullName}
+                    </Link>
+                    {patient.hasHighVulnerabilityAlert && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-rose-500 shadow-sm animate-pulse">
+                        <AlertTriangle size={8} /> Atenção Prioritária
+                      </span>
+                    )}
+                  </div>
                   {patient.socialName && (
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground/40">{patient.fullName}</p>
                   )}

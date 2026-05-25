@@ -4,11 +4,23 @@ import { redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { ForbiddenError } from '@/lib/auth/authorization';
 import { revalidateTenantResource } from '@/lib/cache';
+import { getLogger } from '@/lib/logger';
 import { createPatientSchema, updatePatientSchema } from './patient.dto';
 import { CreatePatientService } from './create-patient.service';
 import { UpdatePatientService } from './update-patient.service';
 
 export type PatientActionState = { error: string | null };
+
+function friendlyUniqueViolation(err: unknown): string | null {
+  const cause = (err as { cause?: unknown })?.cause;
+  const pg = (cause ?? err) as { code?: string; constraint?: string; detail?: string };
+  if (pg?.code !== '23505') return null;
+  if (pg.constraint?.includes('cpf')) return 'Já existe um cidadão cadastrado com este CPF.';
+  if (pg.constraint?.includes('cns')) return 'Já existe um cidadão cadastrado com este CNS.';
+  if (pg.constraint?.includes('nis')) return 'Já existe um cidadão cadastrado com este NIS.';
+  if (pg.constraint?.includes('email')) return 'Já existe um cidadão cadastrado com este e-mail.';
+  return 'Registro duplicado: já existe um cidadão com um destes identificadores.';
+}
 
 export async function createPatientAction(
   _prev: PatientActionState,
@@ -46,6 +58,18 @@ export async function createPatientAction(
     patientId = patient.id;
   } catch (err) {
     if (err instanceof ForbiddenError) return { error: 'Sem permissão para criar cidadãos.' };
+    const friendly = friendlyUniqueViolation(err);
+    if (friendly) return { error: friendly };
+    getLogger().error(
+      {
+        err,
+        cause: (err as { cause?: unknown })?.cause,
+        fullName: parsed.data.fullName,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+      },
+      'createPatientAction failed',
+    );
     return { error: 'Erro ao criar cidadão. Tente novamente.' };
   }
 
@@ -86,6 +110,18 @@ export async function updatePatientAction(
     return { error: null };
   } catch (err) {
     if (err instanceof ForbiddenError) return { error: 'Sem permissão para editar cidadãos.' };
+    const friendly = friendlyUniqueViolation(err);
+    if (friendly) return { error: friendly };
+    getLogger().error(
+      {
+        err,
+        cause: (err as { cause?: unknown })?.cause,
+        id: parsed.data.id,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+      },
+      'updatePatientAction failed',
+    );
     return { error: 'Erro ao atualizar cidadão. Tente novamente.' };
   }
 }
