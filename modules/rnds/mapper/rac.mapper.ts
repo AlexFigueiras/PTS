@@ -49,6 +49,15 @@ export function splitBrazilianName(fullName: string): { family: string; given: s
 }
 
 export class RacMapper {
+  private static truncateDefensively(text: string | undefined | null, maxLen = 4000): string {
+    if (!text) return '';
+    const marker = ' [... Conteúdo truncado por limite de tamanho do barramento federal RNDS]';
+    if (text.length > maxLen) {
+      return text.substring(0, maxLen - marker.length) + marker;
+    }
+    return text;
+  }
+
   /**
    * Converte o DTO estruturado e validado do RAC para um Bundle HL7 FHIR R4 completo,
    * livre de inconsistências ontológicas, com URIs canônicas corretas e higienização brasileira de nomes.
@@ -303,7 +312,7 @@ export class RacMapper {
             {
               system: diag.system,
               code: diag.code,
-              display: diag.display
+              display: RacMapper.truncateDefensively(diag.display)
             }
           ]
         },
@@ -406,7 +415,7 @@ export class RacMapper {
         ...(obs.bodySite
           ? {
               bodySite: {
-                text: obs.bodySite
+                text: RacMapper.truncateDefensively(obs.bodySite)
               }
             }
           : {})
@@ -446,7 +455,7 @@ export class RacMapper {
             {
               system: 'http://snomed.info/sct',
               code: allergy.code,
-              display: allergy.display
+              display: RacMapper.truncateDefensively(allergy.display)
             }
           ]
         },
@@ -480,7 +489,7 @@ export class RacMapper {
             {
               system: 'http://www.saude.gov.br/fhir/r4/CodeSystem/BRMedicamento-1.0',
               code: presc.medicationCode,
-              display: presc.medicationDisplay
+              display: RacMapper.truncateDefensively(presc.medicationDisplay)
             }
           ]
         },
@@ -493,7 +502,7 @@ export class RacMapper {
         authoredOn: dto.date,
         dosageInstruction: [
           {
-            text: presc.dosageInstruction
+            text: RacMapper.truncateDefensively(presc.dosageInstruction)
           }
         ],
         ...(presc.quantity
@@ -635,7 +644,7 @@ export class RacMapper {
           display: dto.encounter.participant.fullName
         }
       ],
-      title: dto.title,
+      title: RacMapper.truncateDefensively(dto.title),
       section: compositionSections
     };
 

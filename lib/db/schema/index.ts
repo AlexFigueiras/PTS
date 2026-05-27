@@ -12,3 +12,6 @@ export * from './pts-responses';
 export * from './groups';
 export * from './predefined-actions';
 export * from './pts-evolutions';
+export * from './intersectoral-tasks';
+export * from './background-jobs';
+export * from './inbox-notifications';

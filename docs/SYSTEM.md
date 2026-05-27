@@ -4,7 +4,7 @@
 > precise entender como o sistema funciona **hoje**. Mantenha este arquivo
 > atualizado a cada mudança arquitetural relevante.
 >
-> Última atualização: 2026-05-25.
+> Última atualização: 2026-05-26.
 
 ---
 
@@ -206,6 +206,15 @@ groups · group_facilitators · group_memberships · group_sessions · group_att
 ### 7.4 RLS
 Migração 0001 ativa RLS em todas as tabelas. O app usa a role `postgres` (bypassa RLS) — autorização é feita em código via `TenantContext`. RLS é **defense-in-depth** contra acesso direto via Supabase anon/authenticated keys.
 
+### 7.5 Estratégia de domínio clínico — Híbrida
+
+O domínio do PTS é modelado em **dois eixos**, cada um persistido conforme seu padrão de acesso:
+
+- **Eixo Estático — Observações/SDoH (Módulo I).** Respostas de baseline e evolução vivem no payload JSONB de `pts_responses` / `pts_evolutions`. Evita tabelas gigantes hardcoded e migrations a cada nova pergunta de formulário. Mutações usam `jsonb_set` atômico no banco com checagem de True Idempotency (descarta duplicados em retry).
+- **Eixo Dinâmico — Tasks/Encaminhamentos (Módulo III).** Tarefas intersetoriais vivem em tabela física normalizada (`intersectoral_tasks`) para garantir integridade referencial, travas concorrentes (`FOR UPDATE SKIP LOCKED`), histórico linear de auditoria (`history` append-only) e indexação GIN/B-Tree sub-milissegundo para as filas das unidades (CRAS/CREAS/CAPS). A transição entre estados é uma **FSM estrita** validada no `IntersectoralTaskService`.
+
+Implementado em [modules/pts/services/intersectoral-task.service.ts](../modules/pts/services/intersectoral-task.service.ts) e [lib/db/schema/intersectoral-tasks.ts](../lib/db/schema/intersectoral-tasks.ts).
+
 ---
 
 ## 8. Camadas e padrões de código
@@ -292,6 +301,38 @@ Sempre dentro do service ou na borda de uma action — **nunca** em repository.
 - `lib/logger.ts` — Pino em Node, JSON-console fallback em Edge. Redact em `password|token|authorization|cookie|jwt|access_token|refresh_token|apiKey`.
 - O proxy gera/propaga `x-request-id`.
 - `lib/request-logger.ts` → `getRequestLogger()` retorna child logger com `{requestId, userId, tenantId, appEnv}`.
+
+### 8.8 Server Actions: Zero Trust (Anti-Spoofing)
+
+Server Actions são **controladores RPC finos** — orquestram entrada, delegam à camada de serviço e revalidam cache. Toda a inteligência de negócio vive no service.
+
+**Proteção obrigatória contra Client-Input Spoofing:** Server Actions **nunca** aceitam `tenantId`, `activeUnitId`, `userId` ou `role` vindos do cliente. Esses metadados são lidos **estritamente** da sessão segura via:
+
+```ts
+const ctx = await getTenantContext();   // lê cookie httpOnly + valida em tenant_members
+requireRole(ctx, 'PROFESSIONAL');        // política RBAC
+```
+
+Mesmo que o cliente envie esses campos no payload, o service os ignora — apenas o `TenantContext` derivado do cookie é fonte da verdade. O Zod schema valida apenas dados de domínio (texto, IDs de entidades-filhas, etc.).
+
+### 8.9 Worker de background: exceção de escopo
+
+Workers de fila (`background_jobs`) e o Reaper rodam em **escopo global de superusuário** — não há `TenantContext` na borda externa do Cron. O `BackgroundJobsRepository` por isso **não** estende `BaseTenantRepository` para os métodos estáticos (`pollNextJobForExecution`, `reapStuckJobs`), que precisam varrer todos os tenants via `FOR UPDATE SKIP LOCKED`. O `TenantContext` é então **reinjetado explicitamente** no handler de cada job antes da execução da lógica de negócio — restabelecendo o isolamento dentro de um worker que precisa enxergar a fila inteira.
+
+### 8.10 Sincronização Descentralizada Delta Relacional (Offline-First)
+
+Para dar suporte aos aplicativos móveis em campo sem introduzir bancos NoSQL externos (como CouchDB ou MongoDB), o sistema opera uma esteira de sincronização delta relacional atômica e resiliente via `SyncService`:
+
+- **Janela de Tolerância (Lookback Window)**: No `pullDelta`, subtraímos deterministicamente **1 minuto** da data de referência `lastPulledAt` enviada pelo cliente. Isso resolve o Limbo de Visibilidade de Transações do PostgreSQL (onde timestamps de registros herdam o início da transação lenta e podem ficar invisíveis durante commits concorrentes concorrendo com a query de pull). O cliente móvel é responsável por aplicar filtros de idempotência locais (deduplicação por ID).
+- **Soft Delete / Tombstones**: Registros excluídos no campo ou no servidor não são deletados fisicamente do banco de dados (o que impediria os dispositivos offline de descobrirem a deleção). Em vez disso, marcamos a coluna `deleted_at` e atualizamos o `updated_at`. No `pullDelta`, varremos esses registros deletados no lookback e os retornamos na chave unificada `deleted: string[]` de IDs, permitindo a purga local no SQLite/WatermelonDB.
+- **Upsert Inteligente no Push**: Na inserção de novos registros offline (`created`), usamos `.onConflictDoUpdate()` baseado no ID para evitar erros por falhas parciais de rede ou escritas secundárias concorrentes, assegurando que o estado local do profissional nunca seja silenciosamente descartado.
+- **Motor de Fusão Lógica (Merge Payload)**: Quando há conflito de concorrência (`dbRecord.updatedAt > lastPulledAt`), realizamos uma mesclagem em memória de forma determinística:
+  - *Campos de Texto (FHIR/RNDS Compativeis)*: Concatenam-se com marcadores claros (`[Servidor - Modificado em <data>]: ... \n\n [Dispositivo Offline - Profissional <id>]: ...`) e passam por **Truncamento Defensivo estrito a 4000 caracteres** para evitar estouro de limites do barramento federal RNDS (FHIR R4) e consequentes DLQs.
+  - *Histórico (Estabilização de Clock Drift)*: Union dos históricos JSONB, normalizando e truncando os timestamps `changedAt` nos segundos (removendo milissegundos) para evitar que desvios menores inflassem o histórico, ordenando de forma cronológica ascendente.
+  - *Metadados e Enums*: Matriz de severidade determina a precedência (Prioridade: `stat` > `asap` > `urgent` > `routine`; Status: encerramentos técnicos `completed` / `failed` / `cancelled` / `rejected` vencem o andamento, anexando o relatório consolidado de encerramento).
+  - *Alinhamento de Estado (Protocolo WatermelonDB)*: O servidor retorna os registros mesclados diretamente dentro da chave `changes` no formato nativo proprietário do WatermelonDB (`changes: { <tabela>: { created: [], updated: [...], deleted: [] } }`), permitindo que a base SQLite local realize o overwrite de forma nativa e perfeita.
+- **Salvaguarda de Integridade Relacional**: Se uma evolução gerada offline fizer referência a uma tarefa (`taskId`) que foi soft-deletada no servidor por outro profissional, capturamos essa exceção de integridade e re-vinculamos a evolução no prontuário do paciente (`patientId`) como uma nota geral de contingência autoexplicativa (removendo a FK e inserindo flag `isContingency: true` + notas de contingência no data JSONB).
+- **Badge e Estado Offline (`useSyncExternalStore`)**: A contagem de mutações pendentes na IndexedDB é exposta à interface reativa do Next.js via hook `useSyncExternalStore` acoplado ao padrão observer estático da classe `OfflineStore`. Isso elimina hooks customizados baseados em intervalos e eventos de DOM globais, permitindo reatividade instantânea sem re-renders indesejados. Um lock de voo (Mutex `isSyncing`) impede múltiplos cliques concorrentes no badge de sincronismo manual, desativando ponteiros e animações de clique.
 
 ---
 
@@ -382,7 +423,44 @@ Envs: `RESEND_API_KEY`, `NEXT_PUBLIC_FROM_EMAIL` (opcional; default `BOSYN <supo
 
 ---
 
-## 13. Variáveis de ambiente
+## 13. Background Jobs (Filas Relacionais e Resiliência)
+
+Uma infraestrutura de fila transacional baseada em banco de dados (`database-centric queue`) desenvolvida para isolar o fluxo síncrono do utilizador das oscilações, falhas e latências das integrações externas (como RNDS/MDS).
+
+### 13.1 Arquitetura da Fila
+- **Tabela canônica**: `background_jobs` no PostgreSQL.
+- **Transacionalidade e Concorrência**: Busca de tarefas no banco usando a estratégia PostgreSQL `SELECT FOR UPDATE SKIP LOCKED` nativa do Drizzle, garantindo concorrência perfeita e execução livre de race conditions mesmo com múltiplos workers rodando em paralelo.
+- **Trabalho Tenant-Aware e Desacoplamento de Herança**: O `BackgroundJobsRepository` é desacoplado da herança do `BaseTenantRepository`. Isso elimina o **Paradoxo do Cron Global** (onde um worker global executando sem tenant ativo falharia ao tentar filtrar queries com `WHERE tenant_id = NULL`). A classe recebe e isola o `tenantId` apenas para operações de instância geradas pela aplicação (como `enqueueJob` e `listJobs`), enquanto os métodos estáticos do Worker de Background (`pollNextJobForExecution`, `reapStuckJobs`) operam de forma global na base de dados para processar e recuperar jobs de todos os inquilinos sequencialmente.
+- **Transactional Outbox**: Para garantir consistência indestrutível, as Server Actions (como criação ou evolução do PTS) e o enfileiramento das integrações correspondentes (como a RNDS) rodam na mesma transação atômica (`db.transaction(async (tx) => { ... })`). Se o PTS falhar em salvar, o job nunca é enfileirado. Se o job falhar em enfileirar, a mutação clínica sofre rollback atômico. Todas as queries de fila internas respeitam estritamente a referência `tx` local sem vazamentos de transação ou de conexões.
+
+### 13.2 Retry Engine e Backoff Exponencial
+Diferenciação clara entre falhas temporárias (rede/infraestrutura) e falhas permanentes (negócio/semântica):
+- **Erros Fatais (Clínicos/Semânticos)**: Erros como `RndsClinicalValidationError` (validações FHIR que retornam `OperationOutcome`) são fatais. O job é movido imediatamente para `dead_letter` (DLQ) para análise humana e re-enfileiramento.
+- **Erros Retentáveis (Infraestrutura/Rede)**: Erros de conexão, timeouts de socket, handshakes mTLS do ICP-Brasil (`RndsInfrastructureError` ou erros da biblioteca `undici`) sofrem retentativa automática.
+- **Backoff Exponencial + Jitter**: A retentativa é agendada de forma exponencial com cálculo de jitter aleatório para evitar colisões no barramento (thundering herd):
+  $$backoff = \min(30s \times 2^{retryCount - 1}, 3600s)$$
+  $$jitter = [0, 20\% \times backoff]$$
+
+### 13.3 Invocação e Triggering
+- **API Endpoint**: `/api/jobs/process` protegida em produção via token no header `Authorization: Bearer <CRON_SECRET>`.
+- **Lote Limitado**: Processa um lote controlado de até 15 jobs por chamada para evitar timeouts e respeitar limites serverless.
+- **Cron**: Disparado periodicamente (ex: a cada minuto) via Vercel Cron.
+
+### 13.4 Reaper (Mecanismo Antizumbi)
+Em ambientes serverless, processos de execução de API ou de workers em background podem sofrer interrupções abruptas por limites de tempo (`timeouts`), faltas de memória ou restarts. Para evitar que tarefas fiquem presas indefinidamente no status `'processing'` (estados zumbis):
+- **Mecanismo de Reaper**: A cada início da execução da rota do cron (`/api/jobs/process`), o método `BackgroundJobsRepository.reapStuckJobs` busca atomicamente todas as tarefas marcadas como `'processing'` há mais de 5 minutos.
+- **Recuperação e Resiliência**: Essas tarefas são resetadas atomicamente de volta para `'queued'`. O log de erros é atualizado com informações sobre o shutdown abrupto e o contador de tentativas (`retries`) é incrementado. Caso as tentativas tenham se esgotado, a tarefa é despachada para a DLQ (`dead_letter`).
+
+### 13.5 Motor de Alertas e Notificações (Loop Fechado em Tempo Real)
+Para fechar o loop de feedback assíncrono de tarefas que falham no background:
+- **Camada de Dados**: Tabela `inbox_notifications` mapeia alertas críticos (`type: 'info' | 'warning' | 'error'`) sob isolamento multi-tenant (`tenantId`) e vinculados a usuários específicos (`userId`).
+- **Geração Humanizada de Alertas (TypeScript)**: O processamento de falhas ocorre inteiramente no ecossistema da aplicação (`JobProcessorService`). Quando um job é movido para o status `'dead_letter'`, invocamos o `ErrorParser.toHumanMessage(job.errorLog)` para traduzir diagnósticos de validação clínica e técnica em explicações amigáveis em português antes de salvar a notificação via `NotificationService.createNotification()`.
+- **Segurança Zero-Trust e RLS Estrito**: A tabela `inbox_notifications` possui Row Level Security (RLS) habilitado. Uma política estrita garante que os usuários (`auth.uid() = user_id`) só possam visualizar ou escutar suas próprias notificações.
+- **Realtime Sync Seguro**: O canal de replicação do Supabase Realtime para a tabela `inbox_notifications` passa obrigatoriamente pela validação das políticas RLS no banco de dados. O componente `NotificationListener` no client-side subscreve-se de maneira segura, recebendo notificações instantaneamente via WebSocket, exibindo toasts (`sonner`) e atualizando o `NotificationBell` com baixa latência.
+
+---
+
+## 14. Variáveis de ambiente
 
 | Variável | Escopo | Obrigatória |
 |---|---|---|
@@ -396,12 +474,13 @@ Envs: `RESEND_API_KEY`, `NEXT_PUBLIC_FROM_EMAIL` (opcional; default `BOSYN <supo
 | `CLOUDFLARE_R2_*` | server | upload de arquivos |
 | `UPSTASH_REDIS_REST_URL/TOKEN` | server | rate limit (cai p/ noop sem) |
 | `NEXT_PUBLIC_APP_URL` | público | URL base p/ links de convite |
+| `CRON_SECRET` | server | token secreto para proteger trigger de background jobs |
 
 Validação fail-fast em [lib/env.ts](../lib/env.ts) (Zod).
 
 ---
 
-## 14. Dev local
+## 15. Dev local
 
 ```bash
 npm install
@@ -417,7 +496,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 
 ---
 
-## 15. Convenções e armadilhas (leia antes de mexer)
+## 16. Convenções e armadilhas (leia antes de mexer)
 
 - ✅ **Server-First**: RSC por padrão; Client Component só quando há interatividade. Use `'use client'` apenas no menor escopo possível.
 - ✅ **Multi-tenant é regra de ouro**: toda query passa por `BaseTenantRepository` (filtro automático `this.tenantId`). Nunca passe `tenantId` arbitrário.
@@ -425,31 +504,54 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 - ✅ **DTO/Mapper sempre**: row do banco nunca chega à UI.
 - ✅ **withAudit em Service ou Action**, nunca em Repository.
 - ✅ **Provider pattern** para qualquer integração externa nova.
+- ✅ **Server Action é controlador RPC fino**: Zod no input, ler `TenantContext` do cookie, delegar ao service. Lógica de negócio mora no service.
+- ✅ **Transactional Outbox**: mutações que disparam integração externa (RNDS/MDS) enfileiram o job em `background_jobs` **dentro da mesma transação** (`db.transaction(tx => {...})`) da entidade clínica.
+- ✅ **Preservação de Dados Locais vs. Limites Downstream**: Jamais mutile ou trunque dados clínicos/sociais salvos no PostgreSQL municipal (ex: truncamento de strings de 4000 caracteres dos perfis FHIR R4) na camada de sincronismo ou persistência do core (`SyncService`). As restrições e higienizações para satisfazer canos estreitos de terceiros devem residir **exclusivamente nas camadas de mapeamento final** (`RacMapper.toFhirBundle`).
+- ❌ **Anti-spoofing**: Server Action **nunca** aceita `tenantId`, `activeUnitId`, `userId` ou `role` do cliente. Esses campos vêm exclusivamente da sessão (cookie httpOnly), nunca do payload.
 - ❌ **Não use `getSession()`** para autorização — apenas `getUser()`.
 - ❌ **Não rode `drizzle-kit migrate`** sem ler §10.4 — o ledger está inconsistente.
 - ❌ **Não crie tela de signup de profissional** — o acesso é controlado por convite (§5). O `/signup` existente é só para bootstrap de Admin Geral.
 - ❌ **Não acrescente o legado PEP** (prontuário, prescrição, exames, triagem de enfermagem). Foi removido na pivotagem 0012 — qualquer adição contradiz a identidade do produto.
 - ❌ **Não confunda `tenant_members.role` (legado)** com `profiles.role` (canônico). RBAC lê `profiles.role`.
+- ❌ **Não introduza microservices, event bus externo, Kubernetes ou realtime prematuro.** A arquitetura é deliberadamente simples: monolito Next.js + Postgres + fila relacional (`background_jobs`).
 
 ---
 
-## 16. Roadmap conhecido / fora de escopo atual
+## 17. Fases de implementação
 
+O sistema evolui em fases. Cada fase fecha um "loop" funcional antes da próxima abrir.
+
+| Fase | Tema | Status |
+|---|---|---|
+| 1 | Fundação (Auth, multi-tenant, RBAC base) | ✅ Concluída |
+| 2 | Convites controlados (fluxo inverso) | ✅ Concluída |
+| 3 | Pivotagem intersetorial + Governança | ✅ Concluída |
+| 3.1 | `IntersectoralTaskService` (FSM, RBAC, append atômico de auditoria) | ✅ Concluída em 2026-05-26 |
+| 3.2 | Server Actions Zero-Trust + Transactional Outbox (RNDS) | ✅ Concluída em 2026-05-26 |
+| 4 | Background jobs + integração RNDS + Motor de Alertas e Notificações | ✅ Concluída em 2026-05-27 |
+| 5 | Frontend completo do Painel de Triagem + UI do Loop Fechado | ✅ Concluída em 2026-05-27 |
+| 5.1 | Offline-First: Estrutura do Servidor para Sincronização Delta Relacional (Pull & Push API) | ✅ Concluída em 2026-05-27 |
+| 5.2 | Motor de Resolução de Conflitos e Fusão Lógica (Merge Payload) | ✅ Concluída em 2026-05-27 |
+| 5.3 | Acessibilidade de Campo, Touch Targets e Ergonomia na UI (UX/UI de Campo) | ✅ Concluída em 2026-05-27 |
+| 5.4 | Sinalizadores de Fila Offline e Prevenção de Estado Órfão (Divulgação Progressiva) | ✅ Concluída em 2026-05-27 |
+| 6 | Suite Playwright (e2e) | ⏳ Próxima |
+
+**Fora de escopo / backlog:**
 - Tela de criação/gerência de `service_units` para o Admin Geral (CRUD).
-- Refresh em tempo real do RoleProvider ao trocar de unidade (atualmente o `revalidatePath('/', 'layout')` cobre).
-- Reconciliação completa do ledger `drizzle.__drizzle_migrations` com o `_journal.json`.
-- PostHog (analytics), antivirus scanning em uploads, background jobs.
-- Frontend completo (Fase 5 do PROJECT_BRAIN) + suite Playwright (Fase 6).
+- Refresh em tempo real do RoleProvider ao trocar de unidade (atualmente `revalidatePath('/', 'layout')` cobre).
+- Reconciliação completa do ledger `drizzle.__drizzle_migrations` com `_journal.json` ([technical-debt.md](technical-debt.md) TD-001).
+- PostHog (analytics), antivirus scanning em uploads.
 
 ---
 
-## 17. Onde achar o resto
+## 18. Onde achar o resto
 
 - **`docs/ARCHITECTURE.md`** — diagramas de bolso (auth, cache, auditoria, providers).
 - **`docs/DESIGN_SYSTEM.md`** — tokens visuais (paleta OKLCH, geometria, tipografia).
 - **`docs/VISUAL_GUIDE.md`** — guia de componentes (sidebar, formulários, especificações Tailwind).
 - **`docs/technical-debt.md`** — dívidas técnicas conhecidas.
+- **`docs/research/`** — leitura de fundo (não-operacional):
+  - [`pts-clinical-guidelines.md`](research/pts-clinical-guidelines.md) — diretrizes clínico-tecnológicas do PTS (metodologia, matriz multidimensional, fluxos intersetoriais). Base conceitual de domínio — não dita arquitetura técnica.
 - **`CLAUDE.md`** — cheatsheet para agentes Claude.
 - **`GEMINI.md`** — cheatsheet para agentes Gemini.
-- **`PROJECT_BRAIN.md`** — aposentado, aponta para este arquivo.
 - **Skills** em `.agent/skills/` — playbooks específicos (database-architect, drizzle-orm-expert, uxui-principles, etc.).

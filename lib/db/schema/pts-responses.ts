@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb, index, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, index, integer, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 import { patients } from './patients';
 import { profiles } from './profiles';
@@ -39,14 +39,17 @@ export const ptsResponses = pgTable(
     suggestedGoals: jsonb('suggested_goals').notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
     index('pts_responses_tenant_idx').on(t.tenantId),
     index('pts_responses_patient_idx').on(t.patientId),
     index('pts_responses_professional_idx').on(t.professionalId),
     index('pts_responses_unit_idx').on(t.unitId),
+    uniqueIndex('pts_responses_tenant_patient_unique_idx').on(t.tenantId, t.patientId),
   ],
 );
 
 export type PtsResponse = typeof ptsResponses.$inferSelect;
 export type NewPtsResponse = typeof ptsResponses.$inferInsert;
+

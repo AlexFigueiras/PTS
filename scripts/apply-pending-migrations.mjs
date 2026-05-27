@@ -21,6 +21,11 @@ if (!url) {
 const FILES = [
   'drizzle/migrations/0012_intersectoral_pivot.sql',
   'drizzle/migrations/0013_governance_rbac.sql',
+  'drizzle/migrations/0014_background_jobs.sql',
+  'drizzle/migrations/0015_add_cnes_to_service_units.sql',
+  'drizzle/migrations/0016_add_inbox_notifications.sql',
+  'drizzle/migrations/0017_add_rls_notifications.sql',
+  'drizzle/migrations/0018_add_deleted_at.sql',
 ];
 
 const sql = postgres(url, { prepare: false, max: 1, idle_timeout: 10, connect_timeout: 20 });

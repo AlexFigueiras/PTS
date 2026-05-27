@@ -10,6 +10,7 @@ export function toUnitDto(row: ServiceUnit): UnitDto {
     lat: row.lat ?? null,
     lon: row.lon ?? null,
     phone: row.phone ?? null,
+    cnes: row.cnes ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

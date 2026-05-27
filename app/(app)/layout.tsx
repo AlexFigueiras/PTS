@@ -7,6 +7,7 @@ import { tenants } from '@/lib/db/schema';
 import { listUserUnits, type UnitOption } from '@/modules/units/unit.queries';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppHeader } from '@/components/layout/app-header';
+import { NotificationListener } from '@/components/layout/notification-listener';
 import { Toaster } from '@/components/ui/sonner';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -43,7 +44,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </main>
         </RoleProvider>
       </div>
+      {ctx?.userId && <NotificationListener userId={ctx.userId} />}
       <Toaster />
     </div>
   );
 }
+

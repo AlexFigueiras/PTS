@@ -44,12 +44,24 @@ Profissional pode atuar em N unidades (`professionals_to_units`). Cookie
 `active_unit_id` controla qual unidade carimba as mutações de PTS. O switcher
 no header revalida o layout ao trocar.
 
+## Após concluir mudança (OBRIGATÓRIO)
+
+Antes de finalizar a resposta ao usuário, **atualize `docs/SYSTEM.md`** na
+seção pertinente:
+- Feature/fase concluída → linha nova ou atualização na **tabela §17**.
+- Mudança arquitetural → seção correspondente (§7 dados, §8 padrões, §13 jobs, etc.).
+- Mudança trivial (typo, comentário) → declarar explicitamente na resposta, sem alterar doc.
+
+Git pre-commit valida isso. Bypass só com `--no-verify` explícito.
+
 ## Regras de ouro
 
 - **Multi-tenant é lei**: queries passam por `BaseTenantRepository` (filtra `tenantId` automaticamente).
 - **DTO/Mapper sempre**: nunca devolva row do banco direto para a UI.
 - **`getUser()`** valida JWT no Auth server; **nunca** use `getSession()` para autorização.
 - **Active unit** carimba PTS — leia `ctx.activeUnitId` antes de gravar `pts_responses`/`pts_evolutions`.
+- **Server Action é Zero Trust**: nunca aceite `tenantId`, `activeUnitId`, `userId` ou `role` do payload do cliente — leia do `TenantContext` (cookie httpOnly).
+- **Transactional Outbox**: mutações que enfileiram job (RNDS/MDS) persistem entidade clínica e job em `background_jobs` na **mesma transação** (`db.transaction(tx => {...})`).
 - **Não rode `drizzle-kit migrate`** ingenuamente — o ledger está inconsistente. Aplique novas migrações via [scripts/apply-pending-migrations.mjs](scripts/apply-pending-migrations.mjs). Detalhes em [docs/SYSTEM.md](docs/SYSTEM.md) §10.4.
 
 ## Documentação de apoio
@@ -59,6 +71,7 @@ no header revalida o layout ao trocar.
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — tokens visuais (paleta, tipografia).
 - [docs/VISUAL_GUIDE.md](docs/VISUAL_GUIDE.md) — guia de componentes.
 - [docs/technical-debt.md](docs/technical-debt.md) — dívidas conhecidas.
+- [docs/research/](docs/research/) — leitura de fundo (base clínica de domínio, não-operacional).
 - `.agent/skills/` — playbooks específicos (database-architect, drizzle-orm-expert, etc.).
 
 ## Pastas de domínio

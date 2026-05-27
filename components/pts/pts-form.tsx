@@ -33,6 +33,8 @@ import { DemographicsSection } from './sections/demographics-section';
 import { TriagemSection } from './sections/triagem-section';
 import { OfflineStore } from '@/lib/offline/offline-store';
 
+import { SyncStatusBadge } from '@/components/layout/sync-status-badge';
+
 // Seções pesadas (domínios e dashboard) carregam sob demanda para reduzir
 // o bundle inicial. O dashboard usa framer-motion intensamente e só é
 // renderizado na última etapa do fluxo.
@@ -449,27 +451,19 @@ export function PtsForm({
             </nav>
 
             <div className="flex items-center gap-2">
-              {isOnline ? (
-                <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-600 border border-emerald-200">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Conectado
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-amber-600 border border-amber-200">
-                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-bounce" /> Offline {pendingCount > 0 && `(${pendingCount} pendente)`}
-                </div>
-              )}
+              <SyncStatusBadge />
               <button
                 onClick={() => handleSave('draft')}
                 disabled={saving}
-                className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-60"
+                className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-700 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-60"
               >
                 <Save size={12} /> {saving ? 'Salvando…' : 'Rascunho'}
               </button>
               <button
                 onClick={() => router.push(`/patients/${patientId}`)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition-all hover:bg-slate-200 hover:text-slate-600 border border-slate-100"
+                className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-800 border border-slate-200"
               >
-                <X size={16} />
+                <X size={20} />
               </button>
             </div>
           </div>
@@ -493,10 +487,10 @@ export function PtsForm({
                     {SECTIONS.find((s) => s.id === active)?.icon}
                   </div>
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/40">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-primary/60">
                       Etapa {activeIdx + 1} de {SECTIONS.length}
                     </p>
-                    <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 leading-none">
+                    <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 leading-none mt-1">
                       {SECTIONS.find((s) => s.id === active)?.title}
                     </h2>
                   </div>
@@ -518,7 +512,7 @@ export function PtsForm({
         </div>
 
         {/* Floating Glass Navigation Pill */}
-        <div className="pointer-events-none fixed inset-x-0 bottom-8 z-[150] flex justify-center px-6">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(2rem+env(safe-area-inset-bottom))] z-[150] flex justify-center px-6">
           <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/20 bg-white/40 p-2 shadow-2xl shadow-primary/10 backdrop-blur-xl ring-1 ring-slate-900/5 animate-in slide-in-from-bottom-8 duration-500">
             <button
               type="button"

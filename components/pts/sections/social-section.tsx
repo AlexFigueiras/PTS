@@ -15,7 +15,16 @@ export function SocialSection() {
         label="Domínio Social / Renda"
         description="Convivência, moradia, renda e acesso a benefícios e proteção social."
       />
-      <Radio field="ssLivesWithOthers" label="Mora com familiares ou outras pessoas?" options={['Sim', 'Não']} />
+      <Radio
+        field="ssLivesWithOthers"
+        label="Mora com familiares ou outras pessoas?"
+        options={['Sim', 'Não']}
+        onChange={(val) => {
+          if (val !== 'Sim') {
+            setValue('ssLivesWithDetails', undefined, { shouldValidate: true, shouldDirty: true });
+          }
+        }}
+      />
       {formData.ssLivesWithOthers === 'Sim' && (
         <Field field="ssLivesWithDetails" label="Com quem reside?" type="textarea" />
       )}
@@ -72,7 +81,16 @@ export function SocialSection() {
         </div>
       </div>
 
-      <Radio field="ssSocialBenefits" label="Recebe algum benefício social?" options={['Sim', 'Não']} />
+      <Radio
+        field="ssSocialBenefits"
+        label="Recebe algum benefício social?"
+        options={['Sim', 'Não']}
+        onChange={(val) => {
+          if (val !== 'Sim') {
+            setValue('ssSocialBenefitsDetails', undefined, { shouldValidate: true, shouldDirty: true });
+          }
+        }}
+      />
       {formData.ssSocialBenefits === 'Sim' && (
         <Field field="ssSocialBenefitsDetails" label="Quais benefícios?" type="textarea" />
       )}

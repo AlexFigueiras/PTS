@@ -33,6 +33,45 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 export class OfflineStore {
+  private static listeners: (() => void)[] = [];
+  private static pendingCount: number = 0;
+
+  private static emit(): void {
+    for (const listener of OfflineStore.listeners) {
+      listener();
+    }
+  }
+
+  static subscribe(listener: () => void): () => void {
+    OfflineStore.listeners.push(listener);
+    // Dispara a contagem inicial em background para atualizar o valor
+    OfflineStore.updatePendingCount();
+
+    return () => {
+      OfflineStore.listeners = OfflineStore.listeners.filter(l => l !== listener);
+    };
+  }
+
+  static getSnapshot(): number {
+    return OfflineStore.pendingCount;
+  }
+
+  static getServerSnapshot(): number {
+    return 0;
+  }
+
+  static async updatePendingCount(): Promise<void> {
+    try {
+      const queue = await OfflineStore.getSyncQueue();
+      if (OfflineStore.pendingCount !== queue.length) {
+        OfflineStore.pendingCount = queue.length;
+        OfflineStore.emit();
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar contagem pendente para o snapshot offline:', e);
+    }
+  }
+
   /**
    * Grava um rascunho completo de PTS localmente na IndexedDB.
    */
@@ -100,7 +139,10 @@ export class OfflineStore {
       };
       const request = store.add(mutation);
 
-      request.onsuccess = () => resolve(request.result as number);
+      request.onsuccess = () => {
+        resolve(request.result as number);
+        OfflineStore.updatePendingCount();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -130,7 +172,10 @@ export class OfflineStore {
       const store = tx.objectStore('syncQueue');
       const request = store.delete(id);
 
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        resolve();
+        OfflineStore.updatePendingCount();
+      };
       request.onerror = () => reject(request.error);
     });
   }

@@ -34,6 +34,7 @@ export const serviceUnits = pgTable(
     lat: doublePrecision('lat'),
     lon: doublePrecision('lon'),
     phone: text('phone'),
+    cnes: text('cnes'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

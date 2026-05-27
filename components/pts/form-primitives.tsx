@@ -58,11 +58,11 @@ export function Field({
 
   return (
     <div className={className}>
-      <label className="mb-2.5 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
+      <label className="mb-2.5 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">{label}</label>
       {type === 'textarea' ? (
         <textarea
           {...fieldProps}
-          className={`min-h-[120px] w-full resize-none rounded-2xl border bg-background/30 p-5 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
+          className={`min-h-[120px] w-full resize-none rounded-2xl border bg-background/30 p-5 text-base font-semibold text-foreground placeholder:text-slate-500 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
           placeholder={placeholder || 'Digite aqui…'}
         />
       ) : (
@@ -73,11 +73,11 @@ export function Field({
             fieldProps.onChange(e);
             handle(e);
           }}
-          className={`w-full rounded-2xl border bg-background/30 px-5 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/20 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
+          className={`w-full rounded-2xl border bg-background/30 px-5 py-4 text-base font-semibold text-foreground placeholder:text-slate-500 focus:ring-4 focus:outline-none transition-all duration-300 ${error ? 'border-destructive/50 focus:border-destructive focus:ring-destructive/10' : 'border-border focus:border-primary focus:ring-primary/10'}`}
           placeholder={placeholder || '…'}
         />
       )}
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
+      {error && <p className="mt-2 ml-1 text-xs font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
     </div>
   );
 }
@@ -87,11 +87,13 @@ export function Radio({
   field,
   options,
   className = 'col-span-12',
+  onChange,
 }: {
   label: string;
   field: keyof PtsFormData;
   options: string[];
   className?: string;
+  onChange?: (value: string) => void;
 }) {
   const {
     formState: { errors },
@@ -103,20 +105,23 @@ export function Radio({
 
   return (
     <div className={className}>
-      <label className="mb-4 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
+      <label className="mb-4 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">{label}</label>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
-            onClick={() => setValue(field, opt as any, { shouldValidate: true, shouldDirty: true })}
-            className={`rounded-xl border px-6 py-3.5 min-h-[48px] text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 flex items-center justify-center ${current === opt ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-muted-foreground hover:bg-secondary/30 hover:text-foreground'}`}
+            onClick={() => {
+              setValue(field, opt as any, { shouldValidate: true, shouldDirty: true });
+              if (onChange) onChange(opt);
+            }}
+            className={`rounded-xl border px-6 py-3.5 min-h-[48px] text-xs font-black uppercase tracking-widest transition-all duration-300 active:scale-95 flex items-center justify-center ${current === opt ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-slate-600 hover:bg-secondary/30 hover:text-foreground dark:text-slate-400'}`}
           >
             {opt}
           </button>
         ))}
       </div>
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
+      {error && <p className="mt-2 ml-1 text-xs font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
     </div>
   );
 }
@@ -126,11 +131,13 @@ export function Checkbox({
   field,
   options,
   className = 'col-span-12',
+  onChange,
 }: {
   label: string;
   field: keyof PtsFormData;
   options: string[];
   className?: string;
+  onChange?: (value: string[]) => void;
 }) {
   const {
     formState: { errors },
@@ -143,24 +150,25 @@ export function Checkbox({
   const toggle = (opt: string) => {
     const next = current.includes(opt) ? current.filter((i) => i !== opt) : [...current, opt];
     setValue(field, next as any, { shouldValidate: true, shouldDirty: true });
+    if (onChange) onChange(next);
   };
 
   return (
     <div className={className}>
-      <label className="mb-4 ml-1 block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</label>
+      <label className="mb-4 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">{label}</label>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => toggle(opt)}
-            className={`rounded-xl border px-6 py-3.5 min-h-[48px] text-[10px] font-black uppercase tracking-widest transition-all duration-300 active:scale-95 flex items-center justify-center ${current.includes(opt) ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-muted-foreground hover:bg-secondary/30 hover:text-foreground'}`}
+            className={`rounded-xl border px-6 py-3.5 min-h-[48px] text-xs font-black uppercase tracking-widest transition-all duration-300 active:scale-95 flex items-center justify-center ${current.includes(opt) ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'border-border bg-background/30 text-slate-600 hover:bg-secondary/30 hover:text-foreground dark:text-slate-400'}`}
           >
             {opt}
           </button>
         ))}
       </div>
-      {error && <p className="mt-2 ml-1 text-[9px] font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
+      {error && <p className="mt-2 ml-1 text-xs font-bold text-destructive uppercase tracking-widest animate-reveal">{error}</p>}
     </div>
   );
 }

@@ -25,7 +25,7 @@ function NumberStepper({
 
   return (
     <div className="col-span-12 md:col-span-4 p-5 rounded-2xl border border-border/60 bg-background/10 space-y-3">
-      <label className="block text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground/80 leading-snug">
+      <label className="block text-xs font-black uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200 leading-snug">
         {label}
       </label>
       <div className="flex items-center justify-between gap-4">
@@ -48,7 +48,7 @@ function NumberStepper({
         </button>
       </div>
       {description && (
-        <p className="text-[9px] font-medium text-muted-foreground/60 leading-relaxed">{description}</p>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed mt-1">{description}</p>
       )}
     </div>
   );
@@ -121,13 +121,13 @@ export function TriagemSection() {
             >
               <div className="flex items-center gap-2 mb-4 text-primary">
                 <BrainCircuit size={18} className="animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Detecções do Assistente Clínico</span>
+                <span className="text-xs font-black uppercase tracking-widest">Detecções do Assistente Clínico</span>
               </div>
               <div className="flex flex-wrap gap-2.5">
                 {entities.map((e, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-primary shadow-sm hover:bg-primary/10 transition-colors cursor-default"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-primary shadow-sm hover:bg-primary/20 transition-colors cursor-default"
                   >
                     <Sparkles size={10} />
                     {e.label} (&quot;{e.matchedText}&quot;)
@@ -143,22 +143,59 @@ export function TriagemSection() {
         field="q2Substances"
         label="Substâncias utilizadas"
         options={['Álcool', 'Tabaco', 'Maconha', 'Cocaína', 'Crack', 'Inalantes', 'Opioides', 'Outros']}
+        onChange={(val) => {
+          if (!val || val.length === 0) {
+            setValue('q3UsageTime', undefined, { shouldValidate: true, shouldDirty: true });
+            setValue('q4TriedToStop', undefined, { shouldValidate: true, shouldDirty: true });
+            setValue('q5StopMethods', [], { shouldValidate: true, shouldDirty: true });
+            setValue('q6PreviousHospitalization', undefined, { shouldValidate: true, shouldDirty: true });
+            setValue('q6HospitalizationDetails', undefined, { shouldValidate: true, shouldDirty: true });
+          }
+        }}
       />
-      <Field field="q3UsageTime" label="Há quanto tempo utiliza?" className="col-span-12" />
-      <Radio field="q4TriedToStop" label="Já tentou parar de usar?" options={['Sim', 'Não']} />
-      {formData.q4TriedToStop === 'Sim' && (
-        <Checkbox
-          field="q5StopMethods"
-          label="Quais métodos tentou?"
-          options={['Sozinho', 'Religião', 'NA/AA', 'Clínica', 'Medicação', 'CAPS AD Anterior']}
-        />
+
+      {/* REVELAÇÃO PROGRESSIVA: Perguntas secundárias sobre substâncias apenas se houver uso */}
+      {formData.q2Substances && formData.q2Substances.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-10"
+        >
+          <Field field="q3UsageTime" label="Há quanto tempo utiliza?" className="col-span-12" />
+          <Radio
+            field="q4TriedToStop"
+            label="Já tentou parar de usar?"
+            options={['Sim', 'Não']}
+            onChange={(val) => {
+              if (val !== 'Sim') {
+                setValue('q5StopMethods', [], { shouldValidate: true, shouldDirty: true });
+              }
+            }}
+          />
+          {formData.q4TriedToStop === 'Sim' && (
+            <Checkbox
+              field="q5StopMethods"
+              label="Quais métodos tentou?"
+              options={['Sozinho', 'Religião', 'NA/AA', 'Clínica', 'Medicação', 'CAPS AD Anterior']}
+            />
+          )}
+          <div className="rounded-3xl border border-destructive/10 bg-destructive/5 p-10">
+            <Radio
+              field="q6PreviousHospitalization"
+              label="Já teve alguma internação por dependência química?"
+              options={['Sim', 'Não']}
+              onChange={(val) => {
+                if (val !== 'Sim') {
+                  setValue('q6HospitalizationDetails', undefined, { shouldValidate: true, shouldDirty: true });
+                }
+              }}
+            />
+            {formData.q6PreviousHospitalization === 'Sim' && (
+              <Field field="q6HospitalizationDetails" label="Quantas vezes e onde?" type="textarea" className="col-span-12 mt-6" />
+            )}
+          </div>
+        </motion.div>
       )}
-      <div className="rounded-3xl border border-destructive/10 bg-destructive/5 p-10">
-        <Radio field="q6PreviousHospitalization" label="Já teve alguma internação por dependência química?" options={['Sim', 'Não']} />
-        {formData.q6PreviousHospitalization === 'Sim' && (
-          <Field field="q6HospitalizationDetails" label="Quantas vezes e onde?" type="textarea" className="col-span-12 mt-6" />
-        )}
-      </div>
 
       {/* REVELAÇÃO PROGRESSIVA: Escalas de Triagem Clínicas e de Sofrimento Mental */}
       <div className="rounded-3xl border border-primary/10 bg-primary/[0.01] overflow-hidden transition-all duration-300">
@@ -171,8 +208,8 @@ export function TriagemSection() {
           <div className="flex items-center gap-3 text-left">
             <Activity className="text-primary animate-pulse" size={20} />
             <div>
-              <h4 className="text-xs font-black uppercase tracking-widest text-foreground">Triagem e Escalas Clínicas Estendidas</h4>
-              <p className="text-[10px] font-medium text-muted-foreground mt-1">Escore SRQ-20, crises CAPS e contadores para cálculo de alta fidelidade do IVC</p>
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Triagem e Escalas Clínicas Estendidas</h4>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Escore SRQ-20, crises CAPS e contadores para cálculo de alta fidelidade do IVC</p>
             </div>
           </div>
           {showAdvanced ? <ChevronUp className="text-muted-foreground" size={20} /> : <ChevronDown className="text-muted-foreground" size={20} />}
@@ -189,7 +226,7 @@ export function TriagemSection() {
             >
               {/* Contadores Clínicos de Triage */}
               <div>
-                <h5 className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-4">Eixo Clínico: Complexidade e Histórico Recente</h5>
+                <h5 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-4">Eixo Clínico: Complexidade e Histórico Recente</h5>
                 <div className="grid grid-cols-12 gap-4">
                   <NumberStepper
                     field="efChronicDiseasesCount"
@@ -211,15 +248,15 @@ export function TriagemSection() {
 
               {/* Sofrimento Mental e CAPS */}
               <div className="border-t border-border/50 pt-8 space-y-6">
-                <h5 className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Eixo Psicológico: Sofrimento Mental e Crises</h5>
+                <h5 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Eixo Psicológico: Sofrimento Mental e Crises</h5>
                 
                 <div className="grid grid-cols-12 gap-6">
                   <div className="col-span-12 md:col-span-8 space-y-3">
                     <div className="flex justify-between items-center">
-                      <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 leading-snug">
+                      <label className="block text-xs font-black uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200 leading-snug">
                         Escore de Sofrimento Mental (SRQ-20)
                       </label>
-                      <span className="text-[10px] font-black text-primary px-3 py-1 bg-primary/10 rounded-full tabular-nums">
+                      <span className="text-xs font-black text-primary px-3 py-1.5 bg-primary/10 rounded-full tabular-nums">
                         {formData.srq20Score !== undefined && formData.srq20Score !== null ? `${formData.srq20Score} / 20` : 'Não avaliado'}
                       </span>
                     </div>
@@ -234,7 +271,7 @@ export function TriagemSection() {
                         aria-label="Escore SRQ-20"
                       />
                     </div>
-                    <p className="text-[9px] font-medium text-muted-foreground/60 leading-relaxed">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
                       * O escore SRQ-20 (Self-Reporting Questionnaire) rastreia transtornos mentais comuns. Pontuações ≥ 7 (mulheres) ou ≥ 6 (homens) indicam sofrimento mental clinicamente relevante.
                     </p>
                   </div>

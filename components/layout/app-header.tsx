@@ -1,5 +1,7 @@
 import { UserMenu } from './user-menu';
 import { UnitSwitcher } from './unit-switcher';
+import { NotificationBell } from './notification-bell';
+import { SyncStatusBadge } from './sync-status-badge';
 import type { UnitOption } from '@/modules/units/unit.queries';
 
 interface AppHeaderProps {
@@ -17,9 +19,12 @@ export function AppHeader({ userEmail, tenantName, units = [], activeUnitId = nu
         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic">{tenantName}</span>
       </div>
       <div className="flex items-center gap-5">
+        <SyncStatusBadge />
         <UnitSwitcher units={units} activeUnitId={activeUnitId} />
+        <NotificationBell />
         {userEmail && <UserMenu email={userEmail} />}
       </div>
     </header>
   );
 }
+

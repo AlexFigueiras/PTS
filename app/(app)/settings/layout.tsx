@@ -21,6 +21,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
         {[
           { href: '/settings', label: 'Geral' },
           { href: '/settings/team', label: 'Equipe' },
+          { href: '/admin/dlq', label: 'Fila de Erros (DLQ)' },
           ...(ctx.role === 'ADMIN' ? [
             { href: '/settings/units', label: 'Unidades' },
             { href: '/settings/ivc', label: 'Pesos do IVC' }

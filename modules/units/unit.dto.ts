@@ -9,6 +9,7 @@ export const createUnitSchema = z.object({
   lat: z.coerce.number().optional().nullable(),
   lon: z.coerce.number().optional().nullable(),
   phone: z.string().max(50).optional().nullable().or(z.literal('')),
+  cnes: z.string().max(50).optional().nullable().or(z.literal('')),
 });
 
 export const updateUnitSchema = createUnitSchema.partial().extend({
@@ -26,6 +27,7 @@ export type UnitDto = {
   lat: number | null;
   lon: number | null;
   phone: string | null;
+  cnes: string | null;
   createdAt: string;
   updatedAt: string;
 };

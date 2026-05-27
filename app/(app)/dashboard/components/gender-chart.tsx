@@ -1,14 +1,5 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-
-const data = [
-  { name: 'Masculino', value: 4000 },
-  { name: 'Feminino', value: 1000 },
-];
-
-const COLORS = ['#004AAD', '#CBD5E1'];
-
 export function GenderChart() {
   return (
     <div className="rounded-[2rem] bg-white p-8 shadow-sm">
@@ -37,27 +28,31 @@ export function GenderChart() {
           </div>
         </div>
 
-        <div className="relative h-[120px] w-[120px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={55}
-                paddingAngle={0}
-                dataKey="value"
-                startAngle={90}
-                endAngle={450}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative h-[120px] w-[120px] flex items-center justify-center">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            {/* Background circle (Feminino - 20%) */}
+            <circle
+              cx="18"
+              cy="18"
+              r="15.915"
+              fill="transparent"
+              stroke="#CBD5E1"
+              strokeWidth="4"
+            />
+            {/* Foreground circle (Masculino - 80%) */}
+            <circle
+              cx="18"
+              cy="18"
+              r="15.915"
+              fill="transparent"
+              stroke="#004AAD"
+              strokeWidth="4"
+              strokeDasharray="80 20"
+              strokeDashoffset="0"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-sm font-bold text-slate-800">80%</span>
           </div>
         </div>
@@ -65,3 +60,4 @@ export function GenderChart() {
     </div>
   );
 }
+

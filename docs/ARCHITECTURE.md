@@ -1,6 +1,6 @@
 # Arquitetura — visão de bolso
 
-Documento curto para desenvolvedores entrarem no projeto. Detalhes profundos em `PROJECT_BRAIN.md`.
+Documento curto para desenvolvedores entrarem no projeto. Referência completa em [SYSTEM.md](SYSTEM.md).
 
 ---
 
@@ -14,7 +14,7 @@ Browser ──▶ Proxy ──▶ Supabase Auth ──▶ Server Component
    └─ sessão guardada em cookies httpOnly
 ```
 
-- Login/signup (Fase 5) chama Supabase pelo client — cookies vêm via `Set-Cookie`.
+- Login/signup chama Supabase pelo client — cookies vêm via `Set-Cookie`.
 - Em todo request server-side: `getAuthUser()` revalida o JWT.
 - Tipos da app não conhecem o Supabase: `AuthenticatedUser` é a interface de domínio.
 - Logout limpa cookies via Server Action.
@@ -27,13 +27,13 @@ Browser ──▶ Proxy ──▶ Supabase Auth ──▶ Server Component
 cookie active_tenant_id ──▶ getActiveTenantContext()
                               │
                               ├─ valida user em tenant_members
-                              └─ retorna TenantContext { tenantId, userId, role }
+                              └─ retorna TenantContext { tenantId, userId, role, activeUnitId }
                                           │
                                           ├─▶ Service (regras + audit)
                                           └─▶ Repository (filtra WHERE tenant_id)
 ```
 
-- Cookie é setado pelo fluxo "trocar de tenant" da UI (Fase 5).
+- Cookie é setado pelo fluxo "trocar de tenant" da UI.
 - `BaseTenantRepository` exige `TenantContext` no construtor — toda subclasse usa `this.tenantId`.
 - RLS no banco é defesa em profundidade.
 
@@ -101,7 +101,7 @@ Ordem de preferência:
 
 Auditar:
 
-- mutações de domínio clínico (paciente, prontuário, profissional, PTS).
+- mutações de domínio clínico (paciente, PTS, encaminhamento intersetorial).
 - ações sensíveis (login/logout, export, mudança de role).
 
 NÃO auditar:
@@ -125,42 +125,60 @@ Cada ambiente tem **seu próprio** projeto Supabase, banco, Upstash, R2, Sentry,
 
 ---
 
-## 9. Convenção de Schemas Zod
+## 8. Padrão de Provedores Externos
 
-Schemas Zod vivem **próximos do domínio**, nunca em pasta global genérica.
+Toda integração externa segue:
 
-| Contexto                        | Onde colocar                         |
-| ------------------------------- | ------------------------------------ |
-| Schema de input de um módulo    | `modules/<dominio>/<dominio>.dto.ts` |
-| Schema de input de uma API      | junto ao route handler               |
-| Tipo de paginação/filtro compartilhado | `lib/pagination/index.ts`     |
+```
+lib/providers/<dominio>/
+   ├─ types.ts       ← interface de domínio (independente do vendor)
+   ├─ <vendor>.ts    ← implementação concreta
+   └─ index.ts       ← factory que escolhe a impl baseado em env
+```
 
-A pasta `validations/` existe mas **não deve crescer** — manter schemas perto do módulo que os usa. Se um schema for reutilizado por >2 módulos, promova para `lib/`.
+Casos atuais:
+
+- DB: Drizzle + postgres-js (vendor-agnóstico).
+- Auth: `AuthenticatedUser` (`lib/auth/types.ts`); impl atual = Supabase.
+- Rate limit: `RateLimiter` (Upstash + noop).
+- Storage: R2 (S3-compatible).
+- Email: Resend (com noop em local).
+
+A regra: **services nunca importam SDKs de vendor diretamente**.
 
 ---
 
-## 10. Soft Delete — Decisão Futura
+## 9. Camadas: Service / Repository
 
-**Não implementado.** Quando necessário (ex.: pacientes, profissionais), seguir o padrão:
-
-```typescript
-// Na migration:
-deleted_at timestamp with time zone  // nullable, default null
-
-// No repository — excluir deletados por padrão em TODAS as queries:
-.where(buildFilters(
-  eq(table.tenantId, this.tenantId),
-  isNull(table.deletedAt),        // ← sempre presente
-  ...filtrosAdicionais,
-))
-
-// Soft delete:
-await db.update(table)
-  .set({ deletedAt: new Date() })
-  .where(and(eq(table.id, id), eq(table.tenantId, tenantId)));
+```
+Server Action / Route Handler
+    └── Service (regras de negócio, auditoria, RBAC fino)
+            └── Repository (Drizzle, filtra por tenantId)
+                    └── DB (postgres-js)
 ```
 
-Nunca deletar registros clínicos — usar soft delete + auditoria.
+**Regras:**
+- Repository só faz SQL. Sem lógica de negócio, sem chamadas externas.
+- Service nunca faz SQL direto. Usa repositories.
+- Server Action / Route Handler instanciam service com `TenantContext` validado.
+- Nunca instanciar repository fora de um service.
+
+---
+
+## 10. Server Actions: Zero Trust
+
+Server Actions são **controladores RPC finos** — orquestram entrada, delegam ao service, revalidam cache.
+
+```
+Client envia payload (Zod) ──▶ Server Action
+                                  │
+                                  ├─ ctx = await getTenantContext()   ← cookie httpOnly, nunca payload
+                                  ├─ requireRole(ctx, 'PROFESSIONAL')
+                                  ├─ service.metodo(ctx, dadosValidados)
+                                  └─ revalidateTag('tenant:<id>')
+```
+
+**Anti-spoofing:** `tenantId`, `activeUnitId`, `userId` e `role` vêm **estritamente** do `TenantContext` derivado do cookie. Qualquer um desses campos no payload do cliente é ignorado.
 
 ---
 
@@ -182,24 +200,48 @@ Nunca deletar registros clínicos — usar soft delete + auditoria.
 
 ---
 
-## 12. Camadas: Service / Repository
+## 12. Convenção de Schemas Zod
 
-```
-Server Action / Route Handler
-    └── Service (regras de negócio, auditoria)
-            └── Repository (Drizzle, filtra por tenantId)
-                    └── DB (postgres-js)
-```
+Schemas Zod vivem **próximos do domínio**, nunca em pasta global genérica.
 
-**Regras:**
-- Repository só faz SQL. Sem lógica de negócio, sem chamadas externas.
-- Service nunca faz SQL direto. Usa repositories.
-- Server Action / Route Handler instanciam service com `TenantContext` validado.
-- Nunca instanciar repository fora de um service.
+| Contexto                        | Onde colocar                         |
+| ------------------------------- | ------------------------------------ |
+| Schema de input de um módulo    | `modules/<dominio>/<dominio>.dto.ts` |
+| Schema de input de uma API      | junto ao route handler               |
+| Tipo de paginação/filtro compartilhado | `lib/pagination/index.ts`     |
+
+A pasta `validations/` existe mas **não deve crescer** — manter schemas perto do módulo que os usa. Se um schema for reutilizado por >2 módulos, promova para `lib/`.
 
 ---
 
-## 13. Helpers de Infraestrutura
+## 13. Background Jobs e Transactional Outbox
+
+```
+Server Action (db.transaction(tx => { ... }))
+   │
+   ├─ persiste entidade clínica (pts_responses / intersectoral_tasks)
+   └─ enfileira job em background_jobs   ← MESMA transação
+                              │
+                              v
+Cron /api/jobs/process (Bearer CRON_SECRET)
+   │
+   ├─ Reaper: reseta jobs 'processing' > 5min para 'queued'
+   ├─ pollNextJobForExecution (FOR UPDATE SKIP LOCKED, escopo global)
+   ├─ injeta TenantContext do job no handler
+   └─ executa handler (RNDS / e-mail / etc.)
+       ├─ sucesso → marca completed
+       ├─ erro fatal (RndsClinicalValidationError) → dead_letter
+       └─ erro infra (timeout, mTLS) → retry com backoff exponencial + jitter
+```
+
+**Pontos críticos:**
+- `BackgroundJobsRepository` **não** estende `BaseTenantRepository` nos métodos estáticos do worker — Cron varre todos os tenants.
+- Após `pollNextJobForExecution`, o `TenantContext` é **reinjetado explicitamente** no handler.
+- Jobs e mutações respeitam estritamente a referência `tx` local — sem vazamento de transação.
+
+---
+
+## 14. Helpers de Infraestrutura
 
 | Helper                                  | Arquivo              | Uso                                    |
 | --------------------------------------- | -------------------- | -------------------------------------- |
@@ -212,22 +254,25 @@ Server Action / Route Handler
 
 ---
 
-## 8. Padrão de Provedores Externos
+## 15. Soft Delete — decisão futura
 
-Toda integração externa segue:
+**Não implementado.** Quando necessário (ex.: pacientes, profissionais), seguir o padrão:
 
+```ts
+// Na migration:
+deleted_at timestamp with time zone  // nullable, default null
+
+// No repository — excluir deletados por padrão em TODAS as queries:
+.where(buildFilters(
+  eq(table.tenantId, this.tenantId),
+  isNull(table.deletedAt),        // ← sempre presente
+  ...filtrosAdicionais,
+))
+
+// Soft delete:
+await db.update(table)
+  .set({ deletedAt: new Date() })
+  .where(and(eq(table.id, id), eq(table.tenantId, tenantId)));
 ```
-lib/providers/<dominio>/
-   ├─ types.ts       ← interface de domínio (independente do vendor)
-   ├─ <vendor>.ts    ← implementação concreta
-   └─ index.ts       ← factory que escolhe a impl baseado em env
-```
 
-Casos atuais:
-
-- DB: Drizzle + postgres-js (vendor-agnóstico).
-- Auth: `AuthenticatedUser` (`lib/auth/types.ts`); impl atual = Supabase.
-- Rate limit: `RateLimiter` (Upstash + noop).
-- (Fase 4) Storage, Email, Error tracking, Analytics — cada um com interface antes da impl.
-
-A regra: **services nunca importam SDKs de vendor diretamente**.
+Nunca deletar registros clínicos — usar soft delete + auditoria.

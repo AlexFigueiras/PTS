@@ -5,7 +5,7 @@ import type { PtsSchema } from '@/validations/pts-schema';
 import { Field, Radio, DomainIntro } from '../form-primitives';
 
 export function PsiquicoSection() {
-  const { watch } = useFormContext<PtsSchema>();
+  const { watch, setValue } = useFormContext<PtsSchema>();
   const formData = watch();
 
   return (
@@ -15,7 +15,16 @@ export function PsiquicoSection() {
         label="Domínio Psíquico"
         description="Saúde mental, sofrimento psíquico e vínculos de cuidado."
       />
-      <Radio field="psPreviousPsychAccount" label="Já teve acompanhamento em saúde mental?" options={['Sim', 'Não']} />
+      <Radio
+        field="psPreviousPsychAccount"
+        label="Já teve acompanhamento em saúde mental?"
+        options={['Sim', 'Não']}
+        onChange={(val) => {
+          if (val !== 'Sim') {
+            setValue('psPreviousPsychDetails', undefined, { shouldValidate: true, shouldDirty: true });
+          }
+        }}
+      />
       {formData.psPreviousPsychAccount === 'Sim' && (
         <Field field="psPreviousPsychDetails" label="Quando e onde?" type="textarea" />
       )}
@@ -23,7 +32,16 @@ export function PsiquicoSection() {
       <Radio field="psSleepDifficulty" label="Apresenta dificuldades de sono?" options={['Sim', 'Não', 'Às vezes']} />
       <Radio field="psAnxietySadness" label="Relata ansiedade ou tristeza frequentes?" options={['Sim', 'Não', 'Às vezes']} />
       <div className="rounded-3xl border border-amber-500/10 bg-amber-500/5 p-10">
-        <Radio field="psSelfHarmThoughts" label="Pensamentos de auto-extermínio recentemente?" options={['Sim', 'Não', 'No Passado']} />
+        <Radio
+          field="psSelfHarmThoughts"
+          label="Pensamentos de auto-extermínio recentemente?"
+          options={['Sim', 'Não', 'No Passado']}
+          onChange={(val) => {
+            if (val === 'Não' || val === '') {
+              setValue('psSelfHarmDetails', undefined, { shouldValidate: true, shouldDirty: true });
+            }
+          }}
+        />
         {formData.psSelfHarmThoughts !== 'Não' && formData.psSelfHarmThoughts !== '' && (
           <Field field="psSelfHarmDetails" label="Frequência e histórico" type="textarea" className="mt-6" />
         )}

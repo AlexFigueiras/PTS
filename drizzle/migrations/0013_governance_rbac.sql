@@ -1,22 +1,55 @@
-CREATE TYPE "public"."profile_status" AS ENUM('PENDING', 'ACTIVE', 'INACTIVE');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('ADMIN', 'MANAGER', 'PROFESSIONAL');--> statement-breakpoint
-ALTER TABLE "profiles" ADD COLUMN "role" "user_role" DEFAULT 'PROFESSIONAL' NOT NULL;--> statement-breakpoint
-ALTER TABLE "profiles" ADD COLUMN "status" "profile_status" DEFAULT 'ACTIVE' NOT NULL;--> statement-breakpoint
-ALTER TABLE "profiles" ADD COLUMN "cpf" text;--> statement-breakpoint
-ALTER TABLE "profiles" ADD COLUMN "professional_registry" text;--> statement-breakpoint
-ALTER TABLE "profiles" ADD COLUMN "job_title" text;--> statement-breakpoint
-ALTER TABLE "tenant_invites" ADD COLUMN "profile_id" uuid;--> statement-breakpoint
-ALTER TABLE "tenant_invites" ADD COLUMN "unit_id" uuid;--> statement-breakpoint
-ALTER TABLE "tenant_invites" ADD CONSTRAINT "tenant_invites_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "tenant_invites" ADD CONSTRAINT "tenant_invites_unit_id_service_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."service_units"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "invites_profile_idx" ON "tenant_invites" USING btree ("profile_id");--> statement-breakpoint
--- Data migration: donos/administradores de tenant existentes viram ADMIN.
+-- ============================================================
+-- Sistema de Governança e Controle de Acesso (RBAC de 3 níveis)
+-- Hierarquia: ADMIN > MANAGER > PROFESSIONAL
+-- ============================================================
+
+-- 1. Criação resiliente dos Tipos Enum -------------------------------------
+DO $$ BEGIN
+	CREATE TYPE "public"."profile_status" AS ENUM('PENDING', 'ACTIVE', 'INACTIVE');
+EXCEPTION
+	WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+	CREATE TYPE "public"."user_role" AS ENUM('ADMIN', 'MANAGER', 'PROFESSIONAL');
+EXCEPTION
+	WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+
+-- 2. Colunas resilientes para Perfis ---------------------------------------
+ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "role" "user_role" DEFAULT 'PROFESSIONAL' NOT NULL;--> statement-breakpoint
+ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "status" "profile_status" DEFAULT 'ACTIVE' NOT NULL;--> statement-breakpoint
+ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "cpf" text;--> statement-breakpoint
+ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "professional_registry" text;--> statement-breakpoint
+ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "job_title" text;--> statement-breakpoint
+
+-- 3. Colunas resilientes para Convites de Tenant ---------------------------
+ALTER TABLE "tenant_invites" ADD COLUMN IF NOT EXISTS "profile_id" uuid;--> statement-breakpoint
+ALTER TABLE "tenant_invites" ADD COLUMN IF NOT EXISTS "unit_id" uuid;--> statement-breakpoint
+
+-- 4. Chaves Estrangeiras Robustas -----------------------------------------
+DO $$ BEGIN
+	ALTER TABLE "tenant_invites" ADD CONSTRAINT "tenant_invites_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+	WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+	ALTER TABLE "tenant_invites" ADD CONSTRAINT "tenant_invites_unit_id_service_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."service_units"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION
+	WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+
+-- 5. Índices Robustos -----------------------------------------------------
+CREATE INDEX IF NOT EXISTS "invites_profile_idx" ON "tenant_invites" USING btree ("profile_id");--> statement-breakpoint
+
+-- 6. Migração de dados legados para ADMIN ----------------------------------
 UPDATE "profiles" SET "role" = 'ADMIN'
 WHERE "id" IN (
   SELECT "user_id" FROM "tenant_members" WHERE "role" IN ('owner', 'admin')
 );--> statement-breakpoint
--- Trigger: o bootstrap de um novo tenant (signup do Administrador Geral)
--- passa a marcar o profile como ADMIN/ACTIVE.
+
+-- 7. Trigger robusta para novos usuários -----------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
