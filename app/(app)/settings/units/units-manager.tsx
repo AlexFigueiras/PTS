@@ -22,6 +22,22 @@ const SECTOR_BADGES: Record<string, string> = {
   EDUCATION: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800',
 };
 
+function getSectorBadge(type: string): string {
+  if (type === 'HEALTH') return SECTOR_BADGES.HEALTH;
+  if (type === 'SOCIAL') return SECTOR_BADGES.SOCIAL;
+  if (type === 'LEGAL') return SECTOR_BADGES.LEGAL;
+  if (type === 'EDUCATION') return SECTOR_BADGES.EDUCATION;
+  return 'bg-slate-50 text-slate-700';
+}
+
+function getSectorLabel(type: string): string {
+  if (type === 'HEALTH') return SECTOR_LABELS.HEALTH;
+  if (type === 'SOCIAL') return SECTOR_LABELS.SOCIAL;
+  if (type === 'LEGAL') return SECTOR_LABELS.LEGAL;
+  if (type === 'EDUCATION') return SECTOR_LABELS.EDUCATION;
+  return type;
+}
+
 export function UnitsManager({ initialUnits }: { initialUnits: UnitDto[] }) {
   const [editingUnit, setEditingUnit] = useState<UnitDto | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
@@ -82,10 +98,10 @@ export function UnitsManager({ initialUnits }: { initialUnits: UnitDto[] }) {
                       </h3>
                       <span
                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide transition-all ${
-                          SECTOR_BADGES[u.type] || 'bg-slate-50 text-slate-700'
+                          getSectorBadge(u.type)
                         }`}
                       >
-                        {SECTOR_LABELS[u.type] || u.type}
+                        {getSectorLabel(u.type)}
                       </span>
                     </div>
 

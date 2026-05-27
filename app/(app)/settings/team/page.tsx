@@ -2,11 +2,24 @@ import { redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { hasRole } from '@/lib/auth/authorization';
 import { MemberRepository } from '@/modules/members/member.repository';
-import { ROLE_LABELS, STATUS_LABELS } from '@/modules/members/member.dto';
 import { RemoveMemberButton } from '@/modules/members/components/remove-member-button';
 import { listTenantUnits, listUserUnits } from '@/modules/units/unit.queries';
 import { MemberRoleForm } from './member-role-form';
 import { InviteForm } from './invite-form';
+
+function getStatusLabel(status: string): string {
+  if (status === 'PENDING') return 'Pendente';
+  if (status === 'ACTIVE') return 'Ativo';
+  if (status === 'INACTIVE') return 'Inativo';
+  return status;
+}
+
+function getRoleLabel(role: string): string {
+  if (role === 'ADMIN') return 'Administrador Geral';
+  if (role === 'MANAGER') return 'Gerente de Unidade';
+  if (role === 'PROFESSIONAL') return 'Profissional Técnico';
+  return role;
+}
 
 export const metadata = { title: 'Equipe' };
 
@@ -46,7 +59,7 @@ export default async function TeamPage() {
                             : 'bg-slate-100 text-slate-500'
                         }`}
                       >
-                        {STATUS_LABELS[m.status]}
+                        {getStatusLabel(m.status)}
                       </span>
                     )}
                   </div>
@@ -58,7 +71,7 @@ export default async function TeamPage() {
                 {canEdit ? (
                   <MemberRoleForm userId={m.userId} currentRole={m.role} />
                 ) : (
-                  <span className="text-muted-foreground text-sm">{ROLE_LABELS[m.role]}</span>
+                  <span className="text-muted-foreground text-sm">{getRoleLabel(m.role)}</span>
                 )}
                 {canEdit && (
                   <RemoveMemberButton

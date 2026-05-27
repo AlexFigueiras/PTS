@@ -15,7 +15,14 @@ export async function GET() {
   ];
 
   const sql = postgres(url, { prepare: false, max: 1 });
-  const results: any[] = [];
+  const results: {
+    file: string;
+    statementsCount: number;
+    status: string;
+    error?: string | null;
+    failedStatement?: string;
+    fallbackError?: string;
+  }[] = [];
 
   try {
     for (const file of FILES) {
@@ -27,7 +34,16 @@ export async function GET() {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-      results.push({ file, statementsCount: statements.length, status: 'starting' });
+      const currentResult: {
+        file: string;
+        statementsCount: number;
+        status: string;
+        error?: string | null;
+        failedStatement?: string;
+        fallbackError?: string;
+      } = { file, statementsCount: statements.length, status: 'starting' };
+
+      results.push(currentResult);
 
       try {
         await sql.begin(async (tx) => {
@@ -36,19 +52,21 @@ export async function GET() {
             await tx.unsafe(stmt);
           }
         });
-        results[results.length - 1].status = 'success';
-      } catch (err: any) {
-        results[results.length - 1].status = 'failed';
-        results[results.length - 1].error = err?.message ?? String(err);
-        results[results.length - 1].failedStatement = err?.query ?? '';
+        currentResult.status = 'success';
+      } catch (err: unknown) {
+        currentResult.status = 'failed';
+        const error = err as { message?: string; query?: string };
+        currentResult.error = error?.message ?? String(err);
+        currentResult.failedStatement = error?.query ?? '';
         
         // Let's also try executing the raw file as a fallback, just in case
         try {
           await sql.begin((tx) => [tx.unsafe(raw)]);
-          results[results.length - 1].status = 'success_fallback';
-          results[results.length - 1].error = null;
-        } catch (fallbackErr: any) {
-          results[results.length - 1].fallbackError = fallbackErr?.message ?? String(fallbackErr);
+          currentResult.status = 'success_fallback';
+          currentResult.error = null;
+        } catch (fallbackErr: unknown) {
+          const error = fallbackErr as { message?: string };
+          currentResult.fallbackError = error?.message ?? String(fallbackErr);
           break;
         }
       }
@@ -58,8 +76,9 @@ export async function GET() {
       ok: true,
       results,
     });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message ?? String(err) }, { status: 500 });
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    return NextResponse.json({ ok: false, error: error?.message ?? String(err) }, { status: 500 });
   } finally {
     await sql.end();
   }

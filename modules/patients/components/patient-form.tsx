@@ -108,8 +108,12 @@ export function PatientForm(props: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const errors = form.formState.errors as Record<string, any>;
 
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    form.handleSubmit(onSubmit)(e);
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleFormSubmit} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Field label="Nome completo *" error={errors.fullName?.message}>

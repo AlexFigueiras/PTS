@@ -2,12 +2,19 @@
 
 import { useActionState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { ROLE_LABELS, type MemberDto } from '@/modules/members/member.dto';
+import { type MemberDto } from '@/modules/members/member.dto';
 import { updateMemberRoleAction, type MemberActionState } from '@/modules/members/member.actions';
 
 const initialState: MemberActionState = { error: null };
 
 const EDITABLE_ROLES: Array<MemberDto['role']> = ['ADMIN', 'MANAGER', 'PROFESSIONAL'];
+
+function getRoleLabel(role: MemberDto['role']): string {
+  if (role === 'ADMIN') return 'Administrador Geral';
+  if (role === 'MANAGER') return 'Gerente de Unidade';
+  if (role === 'PROFESSIONAL') return 'Profissional Técnico';
+  return role;
+}
 
 const inputClass =
   'border-input bg-background focus-visible:ring-ring rounded-md border px-2 py-1 text-sm outline-none focus-visible:ring-2';
@@ -47,7 +54,7 @@ export function MemberRoleForm({
     >
       {EDITABLE_ROLES.map((r) => (
         <option key={r} value={r}>
-          {ROLE_LABELS[r]}
+          {getRoleLabel(r)}
         </option>
       ))}
     </select>

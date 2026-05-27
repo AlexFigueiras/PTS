@@ -534,6 +534,7 @@ O sistema evolui em fases. Cada fase fecha um "loop" funcional antes da próxima
 | 5.2 | Motor de Resolução de Conflitos e Fusão Lógica (Merge Payload) | ✅ Concluída em 2026-05-27 |
 | 5.3 | Acessibilidade de Campo, Touch Targets e Ergonomia na UI (UX/UI de Campo) | ✅ Concluída em 2026-05-27 |
 | 5.4 | Sinalizadores de Fila Offline e Prevenção de Estado Órfão (Divulgação Progressiva) | ✅ Concluída em 2026-05-27 |
+| 5.5 | Correção de Vulnerabilidades de Segurança (Mitigação de Prototype Pollution no Backend e UI) | ✅ Concluída em 2026-05-27 |
 | 6 | Suite Playwright (e2e) | ⏳ Próxima |
 
 **Fora de escopo / backlog:**
