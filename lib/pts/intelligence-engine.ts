@@ -1,4 +1,5 @@
 import type { PtsSchema } from '@/validations/pts-schema';
+import { DIMENSIONS, Dimension } from '@pts/domain';
 
 export interface PtsAnalysis {
   improvementSuggestions: { field: string; label: string; score?: number }[];
@@ -7,19 +8,11 @@ export interface PtsAnalysis {
 }
 
 /**
- * Domínios de avaliação do PTS Intersetorial. Qualquer profissional logado
- * (Saúde, Assistência Social, Jurídico, Educação) pontua qualquer domínio.
+ * Domínios de avaliação do PTS Intersetorial (alinhado a @pts/domain).
  */
-export type PtsDomain = 'Psíquico' | 'Saúde' | 'Social' | 'Jurídico' | 'Educação' | 'Autonomia';
+export type PtsDomain = Dimension;
 
-export const PTS_DOMAINS: PtsDomain[] = [
-  'Psíquico',
-  'Saúde',
-  'Social',
-  'Jurídico',
-  'Educação',
-  'Autonomia',
-];
+export const PTS_DOMAINS = DIMENSIONS;
 
 /** Rótulos legíveis para as chaves de escore conhecidas. */
 export const FIELD_LABELS: Record<string, string> = {
@@ -28,6 +21,7 @@ export const FIELD_LABELS: Record<string, string> = {
   social: 'Domínio Social / Renda',
   juridico: 'Domínio Jurídico / Direitos',
   educacao: 'Domínio Educação / Trabalho',
+  'saude.autonomia': 'Domínio Autonomia (Saúde)',
   autonomia: 'Domínio Autonomia / Cotidiano',
   q15MotivationRating: 'Motivação para o Plano',
   psSelfHarmThoughts: 'Sofrimento Psíquico',
@@ -55,54 +49,55 @@ export const FIELD_LABELS: Record<string, string> = {
 };
 
 /** Mapa explícito chave-de-escore → domínio. */
-export const FIELD_DOMAINS: Record<string, PtsDomain> = {
-  psiquico: 'Psíquico',
-  saude: 'Saúde',
-  social: 'Social',
-  juridico: 'Jurídico',
-  educacao: 'Educação',
-  autonomia: 'Autonomia',
-  q15MotivationRating: 'Psíquico',
-  psSelfHarmThoughts: 'Psíquico',
-  psSleepDifficulty: 'Psíquico',
-  ssSocialBenefits: 'Social',
-  ssHealthAccess: 'Saúde',
-  lgRightsViolation: 'Jurídico',
-  edSchoolEnrollment: 'Educação',
-  toDailyIndependence: 'Autonomia',
+export const FIELD_DOMAINS: Record<string, Dimension> = {
+  psiquico: 'psiquico',
+  saude: 'saude',
+  social: 'social',
+  juridico: 'juridico',
+  educacao: 'educacao',
+  'saude.autonomia': 'saude',
+  autonomia: 'saude',
+  q15MotivationRating: 'psiquico',
+  psSelfHarmThoughts: 'psiquico',
+  psSleepDifficulty: 'psiquico',
+  ssSocialBenefits: 'social',
+  ssHealthAccess: 'saude',
+  lgRightsViolation: 'juridico',
+  edSchoolEnrollment: 'educacao',
+  toDailyIndependence: 'saude',
 
   // Novos campos
-  efChronicDiseasesCount: 'Saúde',
-  efContinuousMedsCount: 'Saúde',
-  efEmergencyAdmissionsCount: 'Saúde',
-  efKatzIndex: 'Saúde',
-  ssIncomePerCapita: 'Social',
-  ssEbiaStatus: 'Social',
-  ssCommunityVinc: 'Social',
-  ssSaneamentoAcesso: 'Social',
-  srq20Score: 'Psíquico',
-  psCrisisCount: 'Psíquico',
-  psMedicationCompliance: 'Psíquico',
-  lgMissingDocuments: 'Jurídico',
-  lgActiveJudicialization: 'Jurídico',
+  efChronicDiseasesCount: 'saude',
+  efContinuousMedsCount: 'saude',
+  efEmergencyAdmissionsCount: 'saude',
+  efKatzIndex: 'saude',
+  ssIncomePerCapita: 'social',
+  ssEbiaStatus: 'social',
+  ssCommunityVinc: 'social',
+  ssSaneamentoAcesso: 'social',
+  srq20Score: 'psiquico',
+  psCrisisCount: 'psiquico',
+  psMedicationCompliance: 'psiquico',
+  lgMissingDocuments: 'juridico',
+  lgActiveJudicialization: 'juridico',
 };
 
-export function getFieldDomain(field: string): PtsDomain {
+export function getFieldDomain(field: string): Dimension {
   if (FIELD_DOMAINS[field]) return FIELD_DOMAINS[field];
-  if (field.startsWith('ps')) return 'Psíquico';
-  if (field.startsWith('ss')) return 'Social';
-  if (field.startsWith('lg')) return 'Jurídico';
-  if (field.startsWith('ed')) return 'Educação';
-  if (field.startsWith('to')) return 'Autonomia';
-  if (field.startsWith('ef') || field.startsWith('nt')) return 'Saúde';
-  return 'Saúde';
+  if (field.startsWith('ps')) return 'psiquico';
+  if (field.startsWith('ss')) return 'social';
+  if (field.startsWith('lg')) return 'juridico';
+  if (field.startsWith('ed')) return 'educacao';
+  if (field.startsWith('to')) return 'saude'; // Autonomia mapeada para Saúde
+  if (field.startsWith('ef') || field.startsWith('nt')) return 'saude';
+  return 'saude';
 }
 
-function emptyDomainRecord(): Record<PtsDomain, number> {
-  return { 'Psíquico': 0, 'Saúde': 0, 'Social': 0, 'Jurídico': 0, 'Educação': 0, 'Autonomia': 0 };
+function emptyDomainRecord(): Record<Dimension, number> {
+  return { saude: 0, social: 0, psiquico: 0, juridico: 0, educacao: 0 };
 }
 
-export function calculateDomainAverages(scores: Record<string, number>): Record<PtsDomain, number> {
+export function calculateDomainAverages(scores: Record<string, number>): Record<Dimension, number> {
   const sums = emptyDomainRecord();
   const counts = emptyDomainRecord();
 
@@ -113,7 +108,7 @@ export function calculateDomainAverages(scores: Record<string, number>): Record<
   });
 
   const avgs = emptyDomainRecord();
-  PTS_DOMAINS.forEach((d) => {
+  DIMENSIONS.forEach((d) => {
     avgs[d] = counts[d] > 0 ? Number((sums[d] / counts[d]).toFixed(1)) : 0;
   });
 
@@ -197,9 +192,9 @@ export function analyzeEvolutionDelta(previousData: Partial<PtsSchema>, currentD
     const currCrisisCount = crisisTerms.filter((t) => curr.includes(t)).length;
 
     if (currCrisisCount < prevCrisisCount) {
-      delta.semanticChanges.push(`Redução de termos de crise no relato de: ${label}`);
+      delta.semanticChanges.push(`Redução de termos de crisis no relato de: ${label}`);
     } else if (currCrisisCount > prevCrisisCount) {
-      delta.stagnationAlerts.push(`Aumento de termos de crise no relato de: ${label}`);
+      delta.stagnationAlerts.push(`Aumento de termos de crisis no relato de: ${label}`);
     }
   };
 
@@ -221,6 +216,14 @@ export function calculateIvc(
   data: PtsSchema,
   weights = { alpha: 0.35, beta: 0.35, gamma: 0.30 },
 ): IvcResult {
+  // Extrai o score de autonomia recalibrado dentro da dimensão Saúde
+  const autonomyScore = 
+    data.scores?.['saude.autonomia'] ?? 
+    data.scores?.['toDailyIndependence'] ?? 
+    (data.scores as any)?.['saude']?.['autonomia'] ?? 
+    data.scores?.['autonomia'] ?? 
+    0;
+
   // 1. Clínico (0-4)
   let clScore = 0;
   const hasClinicalCounts =
@@ -251,8 +254,13 @@ export function calculateIvc(
     if (data.cRelief) symptomsCount++;
     if (data.cRelevance) symptomsCount++;
     clScore += symptomsCount * 0.2;
+
+    // Integra o escore funcional/autonomia recalibrado se fornecido
+    if (autonomyScore > 0) {
+      clScore += (4 - autonomyScore) * 0.5; // Menor autonomia -> maior vulnerabilidade
+    }
   }
-  const iCl = Math.min(4.0, clScore);
+  const iCl = Math.min(4.0, isNaN(clScore) ? 0 : clScore);
 
   // 2. Social (0-4)
   let socScore = 0;
@@ -277,7 +285,7 @@ export function calculateIvc(
   } else if (data.ssEbiaStatus === 'insegurança_leve') {
     socScore += 0.5;
   }
-  const iSoc = Math.min(4.0, socScore);
+  const iSoc = Math.min(4.0, isNaN(socScore) ? 0 : socScore);
 
   // 3. Psicológico (0-4)
   let psicScore = 0;
@@ -301,7 +309,7 @@ export function calculateIvc(
     if (data.psAnxietySadness === 'Sim') psicScore += 1.0;
     if (data.psDistressingMemories === 'Sim') psicScore += 0.5;
   }
-  const iPsic = Math.min(4.0, psicScore);
+  const iPsic = Math.min(4.0, isNaN(psicScore) ? 0 : psicScore);
 
   // Média Ponderada
   const ivc = Number((weights.alpha * iCl + weights.beta * iSoc + weights.gamma * iPsic).toFixed(2));
@@ -315,4 +323,3 @@ export function calculateIvc(
 
   return { ivc, iCl, iSoc, iPsic, vulnerabilityIndex };
 }
-
