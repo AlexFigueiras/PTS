@@ -7,6 +7,7 @@ import {
   isSignalPriority,
   GateContext,
   SignalGate,
+  defaultSignalGate,
 } from './signal';
 import { InvalidStateTransitionError, UnauthorizedTransitionError } from './errors';
 

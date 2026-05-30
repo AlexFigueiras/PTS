@@ -6,8 +6,7 @@ import { getLogger } from '@/lib/logger';
 import { IntersectoralTaskService } from './services/intersectoral-task.service';
 import { PtsRepository } from './pts.repository';
 import { intersectoralTaskInsertSchema, type TaskStatus } from './pts.dto';
-import { pullSyncInputSchema, pushSyncInputSchema, type PullSyncInput, type PushSyncInput } from './dtos/sync.dto';
-import { SyncService } from './services/sync.service';
+
 
 export type CreateTaskInput = {
   patientId: string;
@@ -138,67 +137,4 @@ export async function getTargetUnitQueueAction(filters: {
   }
 }
 
-/**
- * Puxa o lote líquido de alterações (Pull API) ocorridas após a data de referência no campo.
- * Proteção e governança multi-tenant estrita.
- */
-export async function pullDeltaSyncAction(input: PullSyncInput) {
-  const ctx = await getActiveTenantContext();
-  if (!ctx) {
-    return { success: false, error: 'Sessão expirada. Faça login novamente.' };
-  }
 
-  // Validação estrita via Zod Schema
-  const parsed = pullSyncInputSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? 'Parâmetros de sincronização pull inválidos.',
-    };
-  }
-
-  try {
-    const service = new SyncService(ctx);
-    const result = await service.pullDelta(parsed.data);
-
-    return { success: true, data: result };
-  } catch (err: any) {
-    getLogger().error({ err, input, tenantId: ctx.tenantId }, 'pullDeltaSyncAction failed');
-    return { success: false, error: err?.message || 'Erro ao processar sincronização delta pull.' };
-  }
-}
-
-/**
- * Envia e processa em lote atômico (Push API) as mutações geradas offline.
- * Proteção e governança multi-tenant estrita.
- */
-export async function pushDeltaSyncAction(input: PushSyncInput) {
-  const ctx = await getActiveTenantContext();
-  if (!ctx) {
-    return { success: false, error: 'Sessão expirada. Faça login novamente.' };
-  }
-
-  // Validação estrita via Zod Schema
-  const parsed = pushSyncInputSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? 'Dados de sincronização push inválidos.',
-    };
-  }
-
-  try {
-    const service = new SyncService(ctx);
-    const result = await service.pushDelta(parsed.data);
-
-    // Invalida os caches do tenant
-    revalidateTenantResource(ctx.tenantId, 'intersectoral_tasks');
-    revalidateTenantResource(ctx.tenantId, 'pts_evolutions');
-    revalidateTenantResource(ctx.tenantId, 'pts_responses');
-
-    return { success: true, data: result };
-  } catch (err: any) {
-    getLogger().error({ err, input, tenantId: ctx.tenantId }, 'pushDeltaSyncAction failed');
-    return { success: false, error: err?.message || 'Erro ao processar sincronização delta push.' };
-  }
-}
