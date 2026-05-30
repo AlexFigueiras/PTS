@@ -12,10 +12,31 @@ Assistência Social (CRAS/CREAS), Educação e Setor Jurídico/Direitos por igua
 enfermagem ou evolução ambulatorial — esse legado foi removido na migração 0012.
 O escopo é o **Ciclo do PTS**: Cadastro → Baseline multidomínio → Evolução (Radar) → Despacho.
 
+**Sistema online-only** (sem offline-first/WatermelonDB — removido na Fase 0).
+**Não envia dados ao governo federal** — RNDS é módulo congelado/pós-contrato (ver Regras de ouro).
+
+## As 5 Dimensões e o modelo de visibilidade (LGPD)
+
+5 Dimensões oficiais (fonte única em
+[packages/domain/src/dimensions.ts](packages/domain/src/dimensions.ts)):
+**Saúde · Social · Psíquico · Jurídico · Educação**. Autonomia é métrica
+transversal (sub-score), não 6ª dimensão.
+
+**Princípio que rege tudo:** compartilha-se a *necessidade de coordenação*, nunca o
+*dado bruto que a justifica*. Dimensões (derivadas, read-only) são visíveis a todos
+os profissionais do caso; o **relato clínico/assistencial bruto nunca atravessa
+esferas** (fica na origem, só alimenta a IA na ingestão); conteúdo psiquiátrico
+sensível sai **abstraído** na Dimensão Psíquico, por **regra fixa do sistema — nunca
+decidida pela IA**. Detalhes em [docs/SYSTEM.md](docs/SYSTEM.md) §1.1–1.2.
+
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · TypeScript estrito · Drizzle ORM · Supabase
+Next.js 16 (App Router, Turbopack) · TypeScript estrito · **Drizzle ORM** · Supabase
 (Postgres + Auth) · Tailwind v4 + shadcn/ui · R2 (storage) · Resend · Sentry · Vitest.
+
+Monorepo NPM Workspaces (`apps/*`, `packages/*`). Drizzle é decisão travada — desvio
+**deliberado e documentado** do "Sem ORM" do plano §2.1; RLS real ainda pendente
+([docs/technical-debt.md](docs/technical-debt.md) TD-RLS-001).
 
 ## RBAC de 3 níveis
 
@@ -62,7 +83,8 @@ Git pre-commit também valida.
 - **`getUser()`** valida JWT no Auth server; **nunca** use `getSession()` para autorização.
 - **Active unit** carimba PTS — leia `ctx.activeUnitId` antes de gravar `pts_responses`/`pts_evolutions`.
 - **Server Action é Zero Trust**: nunca aceite `tenantId`, `activeUnitId`, `userId` ou `role` do payload do cliente — leia do `TenantContext` (cookie httpOnly).
-- **Transactional Outbox**: mutações que enfileiram job (RNDS/MDS) persistem entidade clínica e job em `background_jobs` na **mesma transação** (`db.transaction(tx => {...})`).
+- **Transactional Outbox**: mutações que enfileiram job (e-mail, notificações) persistem entidade e job em `background_jobs` na **mesma transação** (`db.transaction(tx => {...})`).
+- **RNDS é congelado / pós-contrato**: integração federal está neutralizada via flag `RNDS_ENABLED=false` (server-only). Não é regra de ouro nem invariante — só reativar após contrato/credenciamento. Não remover, não investir, não pode quebrar o build.
 - **Não rode `drizzle-kit migrate`** ingenuamente — o ledger está inconsistente. Aplique novas migrações via [scripts/apply-pending-migrations.mjs](scripts/apply-pending-migrations.mjs). Detalhes em [docs/SYSTEM.md](docs/SYSTEM.md) §10.4.
 
 ## Documentação de apoio
@@ -78,7 +100,13 @@ Git pre-commit também valida.
 
 ## Pastas de domínio
 
+Monorepo NPM Workspaces. **Web continua na raiz** (não em `apps/web` — estado de transição).
+
 ```
+packages/domain    @pts/domain — regras puras, sem I/O. Fonte única das DIMENSIONS (5).
+packages/adapters  @pts/adapters — ingestão plugável e ISOLADA (núcleo nunca conhece a fonte). STUB hoje.
+apps/mobile        @pts/mobile — stub do app de campo.
+─── web na raiz (transição) ───
 /app/(app)         rotas autenticadas        /app/(auth)        ativação de convite (pública)
 /app/(public)      login/signup              /app/api           route handlers
 /components        UI (ui/, layout/, pts/, maps/)

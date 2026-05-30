@@ -3,6 +3,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@pts/domain', '@pts/adapters'],
   turbopack: {
     root: path.join(__dirname),
   },

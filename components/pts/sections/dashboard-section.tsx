@@ -258,7 +258,7 @@ export function DashboardSection({
                           <Brain size={12} className="text-primary/40" />
                           <h5 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary italic">Justificativa Clínica</h5>
                         </div>
-                        <p className="text-sm font-bold italic leading-relaxed text-slate-600">"{suggestion.clinicalJustification}"</p>
+                        <p className="text-sm font-bold italic leading-relaxed text-slate-600">&quot;{suggestion.clinicalJustification}&quot;</p>
                       </div>
                     </div>
 

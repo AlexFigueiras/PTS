@@ -83,7 +83,7 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
     );
   }
 
-  const { items: rawTasks, total, totalPages } = queueResult.data;
+  const { data: rawTasks, total, totalPages } = queueResult.data;
 
   // DTO + MAPPER: Enriquece os dados brutos de tarefas buscando pacientes e unidades em lote
   let enrichedTasks: EnrichedTask[] = [];

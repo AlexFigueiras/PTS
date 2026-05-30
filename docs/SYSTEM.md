@@ -4,7 +4,7 @@
 > precise entender como o sistema funciona **hoje**. Mantenha este arquivo
 > atualizado a cada mudança arquitetural relevante.
 >
-> Última atualização: 2026-05-26.
+> Última atualização: 2026-05-30.
 
 ---
 
@@ -19,6 +19,41 @@ Cadastro do cidadão  ➔  PTS Baseline multidomínio  ➔  Evolução (Radar)  
 ```
 
 O sistema é **multi-tenant** (cada município/organização é um tenant) e segue um modelo de **controle centralizado do Estado** com hierarquia clara de governança.
+
+---
+
+## 1.1 As 5 Dimensões (fonte única)
+
+O PTS clássico (Política Nacional de Humanização) olha três âmbitos — orgânico, psicológico e social. Este sistema adota uma **adaptação intersetorial deliberada** desse modelo, com **5 Dimensões** (não 6):
+
+```
+Saúde · Social · Psíquico · Jurídico · Educação
+```
+
+Fonte única canônica em [packages/domain/src/dimensions.ts](../packages/domain/src/dimensions.ts) (`DIMENSIONS = ['saude','social','psiquico','juridico','educacao']`).
+
+**Autonomia não é uma 6ª dimensão** — é uma **métrica transversal** (sub-score) avaliada dentro de cada dimensão. O Radar histórico ([components/pts/evolution-tracker.tsx](../components/pts/evolution-tracker.tsx)) ainda renderiza 6 eixos por legado; a unificação para as 5 dimensões oficiais está pendente na Fase 1 (ver [technical-debt.md](technical-debt.md) TD-DOMAIN-001).
+
+> Apresentar sempre como **"adaptação intersetorial do PTS"**, nunca como protocolo oficial fechado.
+
+## 1.2 Modelo de visibilidade e sensibilidade (coração LGPD)
+
+Princípio que rege tudo: **compartilha-se a necessidade de coordenação, não o dado clínico que a justifica.**
+
+Duas camadas de dado:
+
+- **Camada-fonte (sensível, bruta):** o relato clínico/assistencial original de cada rede. Alimenta a IA na ingestão; **fica restrita à esfera de origem e nunca entra no PTS compartilhado.**
+- **Camada-derivada (Dimensão):** abstração read-only produzida pela IA — estado, fragilidade, potencialidade, risco. É o que o PTS exibe e compartilha.
+
+Regras fixas de visibilidade:
+
+1. **Dimensões → visíveis a todos os profissionais do caso** (Saúde, Social, Jurídico, Educação). É o coração do PTS interdisciplinar.
+2. **Relato bruto → nunca atravessa esferas.** A evolução detalhada, o registro de sessão, o relato do CRAS ficam na esfera de origem. Só alimentam a IA no momento da ingestão.
+3. **Exceção estreita — conteúdo psiquiátrico sensível:** diagnóstico nominal, medicação e conteúdo de sessão **não** aparecem crus na Dimensão Psíquico. Ela exibe apenas a **vulnerabilidade e a necessidade de ação**, de forma abstraída.
+
+**A regra de sensibilidade é fixa, decidida pelo sistema — nunca pela IA** — para ser previsível e auditável. Um alerta ao CRAS diz *"risco aumentado de reinternação, articular suporte social"*, nunca *"médico relatou surto em tal data"*.
+
+> Princípio de produto, ainda não implementado em código (Fases 1–4). Documentado aqui como invariante de design — toda feature de Dimensão/alerta/ingestão deve respeitá-lo.
 
 ---
 
@@ -146,7 +181,7 @@ Núcleo enxuto em [patients](../lib/db/schema/patients.ts): `fullName, socialNam
 Cada domínio tem um `DomainIntro` deixando explícito que **qualquer profissional logado pontua o domínio** (`ScoreSelector` 0–4). O assistente social do CRAS pontua "Social/Renda" com a mesma naturalidade que o psicólogo do CAPS pontua "Psíquico".
 
 ### 6.3 Evolução (Radar)
-[components/pts/evolution-tracker.tsx](../components/pts/evolution-tracker.tsx) — gráfico Radar (recharts) compara baseline × evolução atual em 6 domínios: `Psíquico, Saúde, Social, Jurídico, Educação, Autonomia`.
+[components/pts/evolution-tracker.tsx](../components/pts/evolution-tracker.tsx) — gráfico Radar (recharts) compara baseline × evolução atual nas **5 Dimensões oficiais** (`Saúde, Social, Psíquico, Jurídico, Educação` — ver §1.1). **Autonomia** é métrica transversal (sub-score dentro de cada dimensão), não um 6º eixo. O componente ainda renderiza 6 eixos por legado; unificação pendente na Fase 1 ([technical-debt.md](technical-debt.md) TD-DOMAIN-001).
 
 ### 6.4 Apoio à Decisão (IA)
 [lib/pts/ai-recommender.ts](../lib/pts/ai-recommender.ts) — Gemini analisa o PTS e devolve:
@@ -206,6 +241,8 @@ groups · group_facilitators · group_memberships · group_sessions · group_att
 ### 7.4 RLS
 Migração 0001 ativa RLS em todas as tabelas. O app usa a role `postgres` (bypassa RLS) — autorização é feita em código via `TenantContext`. RLS é **defense-in-depth** contra acesso direto via Supabase anon/authenticated keys.
 
+> **Desvio deliberado e documentado do plano §2.1.** O plano fixou "Sem ORM" (supabase-js direto, RLS nativo). A decisão consciente do projeto foi **manter Drizzle + postgres-js** (preserva o código que funciona e a type-safety) — não é desvio acidental nem deve ser revertido. A contrapartida acordada é **tornar o RLS real**: client request-scoped operando como role `authenticated` com propagação de claims por transação, em vez de conectar como `postgres`. Essa aplicação do RLS real está **pendente na Fase 0**. Até lá, o isolamento depende exclusivamente do `TenantContext` em código.
+
 ### 7.5 Estratégia de domínio clínico — Híbrida
 
 O domínio do PTS é modelado em **dois eixos**, cada um persistido conforme seu padrão de acesso:
@@ -221,7 +258,15 @@ Implementado em [modules/pts/services/intersectoral-task.service.ts](../modules/
 
 ### 8.1 Estrutura de pastas
 
+**Monorepo via NPM Workspaces** (`package.json` raiz: `workspaces: ["apps/*","packages/*"]`). Criado na Fase 0 (30/05). Estado de transição: o **app web Next.js continua na raiz** (não foi movido para `apps/web`).
+
 ```
+packages/domain    @pts/domain — regras puras, sem I/O. Fonte única das DIMENSIONS (5).
+packages/adapters  @pts/adapters — ingestão plugável e ISOLADA (depende de @pts/domain).
+                   STUB hoje; ingestão real entra na Fase 3 (plano §7). Princípio
+                   inegociável: o núcleo nunca conhece a fonte (plano §2).
+apps/mobile        @pts/mobile — stub do app de campo (futuro).
+─── (web na raiz — estado de transição) ───
 /app                rotas, layouts, server components
    /(app)           rotas autenticadas (dashboard, patients, settings…)
    /(auth)          rotas de ativação de conta (públicas)
@@ -319,20 +364,9 @@ Mesmo que o cliente envie esses campos no payload, o service os ignora — apena
 
 Workers de fila (`background_jobs`) e o Reaper rodam em **escopo global de superusuário** — não há `TenantContext` na borda externa do Cron. O `BackgroundJobsRepository` por isso **não** estende `BaseTenantRepository` para os métodos estáticos (`pollNextJobForExecution`, `reapStuckJobs`), que precisam varrer todos os tenants via `FOR UPDATE SKIP LOCKED`. O `TenantContext` é então **reinjetado explicitamente** no handler de cada job antes da execução da lógica de negócio — restabelecendo o isolamento dentro de um worker que precisa enxergar a fila inteira.
 
-### 8.10 Sincronização Descentralizada Delta Relacional (Offline-First)
+### 8.10 Sincronização offline — REMOVIDA
 
-Para dar suporte aos aplicativos móveis em campo sem introduzir bancos NoSQL externos (como CouchDB ou MongoDB), o sistema opera uma esteira de sincronização delta relacional atômica e resiliente via `SyncService`:
-
-- **Janela de Tolerância (Lookback Window)**: No `pullDelta`, subtraímos deterministicamente **1 minuto** da data de referência `lastPulledAt` enviada pelo cliente. Isso resolve o Limbo de Visibilidade de Transações do PostgreSQL (onde timestamps de registros herdam o início da transação lenta e podem ficar invisíveis durante commits concorrentes concorrendo com a query de pull). O cliente móvel é responsável por aplicar filtros de idempotência locais (deduplicação por ID).
-- **Soft Delete / Tombstones**: Registros excluídos no campo ou no servidor não são deletados fisicamente do banco de dados (o que impediria os dispositivos offline de descobrirem a deleção). Em vez disso, marcamos a coluna `deleted_at` e atualizamos o `updated_at`. No `pullDelta`, varremos esses registros deletados no lookback e os retornamos na chave unificada `deleted: string[]` de IDs, permitindo a purga local no SQLite/WatermelonDB.
-- **Upsert Inteligente no Push**: Na inserção de novos registros offline (`created`), usamos `.onConflictDoUpdate()` baseado no ID para evitar erros por falhas parciais de rede ou escritas secundárias concorrentes, assegurando que o estado local do profissional nunca seja silenciosamente descartado.
-- **Motor de Fusão Lógica (Merge Payload)**: Quando há conflito de concorrência (`dbRecord.updatedAt > lastPulledAt`), realizamos uma mesclagem em memória de forma determinística:
-  - *Campos de Texto (FHIR/RNDS Compativeis)*: Concatenam-se com marcadores claros (`[Servidor - Modificado em <data>]: ... \n\n [Dispositivo Offline - Profissional <id>]: ...`) e passam por **Truncamento Defensivo estrito a 4000 caracteres** para evitar estouro de limites do barramento federal RNDS (FHIR R4) e consequentes DLQs.
-  - *Histórico (Estabilização de Clock Drift)*: Union dos históricos JSONB, normalizando e truncando os timestamps `changedAt` nos segundos (removendo milissegundos) para evitar que desvios menores inflassem o histórico, ordenando de forma cronológica ascendente.
-  - *Metadados e Enums*: Matriz de severidade determina a precedência (Prioridade: `stat` > `asap` > `urgent` > `routine`; Status: encerramentos técnicos `completed` / `failed` / `cancelled` / `rejected` vencem o andamento, anexando o relatório consolidado de encerramento).
-  - *Alinhamento de Estado (Protocolo WatermelonDB)*: O servidor retorna os registros mesclados diretamente dentro da chave `changes` no formato nativo proprietário do WatermelonDB (`changes: { <tabela>: { created: [], updated: [...], deleted: [] } }`), permitindo que a base SQLite local realize o overwrite de forma nativa e perfeita.
-- **Salvaguarda de Integridade Relacional**: Se uma evolução gerada offline fizer referência a uma tarefa (`taskId`) que foi soft-deletada no servidor por outro profissional, capturamos essa exceção de integridade e re-vinculamos a evolução no prontuário do paciente (`patientId`) como uma nota geral de contingência autoexplicativa (removendo a FK e inserindo flag `isContingency: true` + notas de contingência no data JSONB).
-- **Badge e Estado Offline (`useSyncExternalStore`)**: A contagem de mutações pendentes na IndexedDB é exposta à interface reativa do Next.js via hook `useSyncExternalStore` acoplado ao padrão observer estático da classe `OfflineStore`. Isso elimina hooks customizados baseados em intervalos e eventos de DOM globais, permitindo reatividade instantânea sem re-renders indesejados. Um lock de voo (Mutex `isSyncing`) impede múltiplos cliques concorrentes no badge de sincronismo manual, desativando ponteiros e animações de clique.
+> **O sistema é online-only** (decisão travada, alinhada ao plano §2). Não há offline-first, WatermelonDB, IndexedDB, `OfflineStore` nem `SyncService` de merge. A pasta `lib/offline/` foi removida na Fase 0. O PTS salva diretamente via Server Action. Não reintroduzir sincronização offline — está fora de escopo inclusive na operação real.
 
 ---
 
@@ -425,7 +459,9 @@ Envs: `RESEND_API_KEY`, `NEXT_PUBLIC_FROM_EMAIL` (opcional; default `BOSYN <supo
 
 ## 13. Background Jobs (Filas Relacionais e Resiliência)
 
-Uma infraestrutura de fila transacional baseada em banco de dados (`database-centric queue`) desenvolvida para isolar o fluxo síncrono do utilizador das oscilações, falhas e latências das integrações externas (como RNDS/MDS).
+> ⚠️ **RNDS é módulo CONGELADO / pós-contrato.** O plano §0 é categórico: o sistema **não envia dados ao governo federal** — integração federal (RNDS/MDS) é caminho futuro, só após contrato e credenciamento (plano, apêndice "Integração real"). Hoje está **neutralizada via flag `RNDS_ENABLED=false`** (server-only). **Não é regra de ouro nem invariante de arquitetura.** A infraestrutura de fila descrita abaixo (`background_jobs`, Outbox, Reaper, Notificações) **é real e em uso** — porém para consumidores vivos (e-mail, notificações in-app). O handler RNDS permanece congelado: não remover, não investir, não pode quebrar o build.
+
+Uma infraestrutura de fila transacional baseada em banco de dados (`database-centric queue`) que isola o fluxo síncrono do utilizador das oscilações, falhas e latências de jobs assíncronos (e-mail, notificações; e, quando reativado pós-contrato, RNDS/MDS).
 
 ### 13.1 Arquitetura da Fila
 - **Tabela canônica**: `background_jobs` no PostgreSQL.
@@ -506,7 +542,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 - ✅ **Provider pattern** para qualquer integração externa nova.
 - ✅ **Server Action é controlador RPC fino**: Zod no input, ler `TenantContext` do cookie, delegar ao service. Lógica de negócio mora no service.
 - ✅ **Transactional Outbox**: mutações que disparam integração externa (RNDS/MDS) enfileiram o job em `background_jobs` **dentro da mesma transação** (`db.transaction(tx => {...})`) da entidade clínica.
-- ✅ **Preservação de Dados Locais vs. Limites Downstream**: Jamais mutile ou trunque dados clínicos/sociais salvos no PostgreSQL municipal (ex: truncamento de strings de 4000 caracteres dos perfis FHIR R4) na camada de sincronismo ou persistência do core (`SyncService`). As restrições e higienizações para satisfazer canos estreitos de terceiros devem residir **exclusivamente nas camadas de mapeamento final** (`RacMapper.toFhirBundle`).
+- ✅ **Preservação de Dados Locais vs. Limites Downstream**: Jamais mutile ou trunque dados clínicos/sociais salvos no PostgreSQL municipal (ex: truncamento de strings de 4000 caracteres dos perfis FHIR R4) na camada de persistência do core. As restrições para satisfazer canos estreitos de terceiros devem residir **exclusivamente nas camadas de mapeamento final** (`RacMapper.toFhirBundle`). _Nota: `SyncService` (sync offline/delta) e o `RacMapper`/FHIR são **código congelado** (`@ts-nocheck`) — sync offline foi removido (§8.10) e RNDS é pós-contrato (§13). Esta convenção só volta a valer se/quando reativados._
 - ❌ **Anti-spoofing**: Server Action **nunca** aceita `tenantId`, `activeUnitId`, `userId` ou `role` do cliente. Esses campos vêm exclusivamente da sessão (cookie httpOnly), nunca do payload.
 - ❌ **Não use `getSession()`** para autorização — apenas `getUser()`.
 - ❌ **Não rode `drizzle-kit migrate`** sem ler §10.4 — o ledger está inconsistente.
@@ -519,23 +555,40 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 
 ## 17. Fases de implementação
 
-O sistema evolui em fases. Cada fase fecha um "loop" funcional antes da próxima abrir.
+**As fases canônicas são as do plano (`PLANO_PTS_PIA`), numeradas 0–4** — o plano é a fonte da verdade do destino. A Fase 4 (Segurança/LGPD) é **transversal e contínua**, corre em paralelo desde o início. Ordem: 0 → 1 → 2 → 3, com 4 em paralelo.
 
-| Fase | Tema | Status |
+| Fase | Tema (plano) | Status real |
 |---|---|---|
-| 1 | Fundação (Auth, multi-tenant, RBAC base) | ✅ Concluída |
-| 2 | Convites controlados (fluxo inverso) | ✅ Concluída |
-| 3 | Pivotagem intersetorial + Governança | ✅ Concluída |
-| 3.1 | `IntersectoralTaskService` (FSM, RBAC, append atômico de auditoria) | ✅ Concluída em 2026-05-26 |
-| 3.2 | Server Actions Zero-Trust + Transactional Outbox (RNDS) | ✅ Concluída em 2026-05-26 |
-| 4 | Background jobs + integração RNDS + Motor de Alertas e Notificações | ✅ Concluída em 2026-05-27 |
-| 5 | Frontend completo do Painel de Triagem + UI do Loop Fechado | ✅ Concluída em 2026-05-27 |
-| 5.1 | Offline-First: Estrutura do Servidor para Sincronização Delta Relacional (Pull & Push API) | ✅ Concluída em 2026-05-27 |
-| 5.2 | Motor de Resolução de Conflitos e Fusão Lógica (Merge Payload) | ✅ Concluída em 2026-05-27 |
-| 5.3 | Acessibilidade de Campo, Touch Targets e Ergonomia na UI (UX/UI de Campo) | ✅ Concluída em 2026-05-27 |
-| 5.4 | Sinalizadores de Fila Offline e Prevenção de Estado Órfão (Divulgação Progressiva) | ✅ Concluída em 2026-05-27 |
-| 5.5 | Correção de Vulnerabilidades de Segurança (Mitigação de Prototype Pollution no Backend e UI) | ✅ Concluída em 2026-05-27 |
-| 6 | Suite Playwright (e2e) | ⏳ Próxima |
+| **0** | **Fundação** — monorepo, Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial, CI/lint, RLS de tenant | 🟡 Em fechamento |
+| **1** | **Núcleo PTS/PIA** — domínio Caso/Plano/Dimensão/Objetivo/Meta/Ação + FSM, CRUD+RBAC, onboarding cascata, UI dimensões read-only + metas/ações + caixa de sinalizações | 🟡 Parcial |
+| **2** | **Motor de Sinalização Cruzada** — catálogo RAPS+SUAS→necessidade, severidade graduada, roteamento ao componente certo, fila+distribuição, estados+auditoria | 🟡 Parcial |
+| **3** | **Ingestão simulada + IA (a demo)** — 2 fontes fictícias + endpoint adapter, normalização→Dimensão, IA deriva/sugere/sinaliza, 3 telas split, [opcional] minuta PDF | 🔴 Não iniciada |
+| **4** | **Segurança, LGPD e conformidade** (transversal) — base legal, minimização, cifragem, tokenização CPF/CNS, auditoria imutável, regra fixa de sensibilidade | 🟡 Contínua |
+
+### 17.1 Status por fase (estado real do código)
+
+- **Fase 0 — 🟡 em fechamento.** ✅ Monorepo (NPM Workspaces, `@pts/domain`/`@pts/adapters`/`@pts/mobile`), Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial (mig. 0012/0013), higiene de repo, online-only. ⏳ Pendente: gate de CI/lint verde (TD-LINT-*), **RLS real** (TD-RLS-001), tokenização CPF/CNS (compartilhada com Fase 4).
+- **Fase 1 — 🟡 parcial.** ✅ PTS baseline multidomínio, CRUD+RBAC, onboarding cascata (Resend), UI de triagem/loop fechado, `IntersectoralTaskService` (FSM). ⏳ Pendente: **PIA como 2º plano** (RM-PIA), unificação das 5 Dimensões (TD-DOMAIN-001).
+- **Fase 2 — 🟡 parcial.** ✅ Fila de unidade + distribuição, estados+auditoria (FSM), motor de notificações/loop fechado. ⏳ Pendente: **catálogo RAPS+SUAS e roteamento por necessidade** (RM-RAPS), severidade graduada completa.
+- **Fase 3 — 🔴 não iniciada.** Adapter existe como **stub** (`@pts/adapters`) e há `ai-recommender` (Gemini sugere). Faltam: fontes fictícias, ingestão real→Dimensão, 3 telas split, minuta PDF (RM-PDF).
+- **Fase 4 — 🟡 contínua.** ✅ Auditoria, logging redatado, RLS defense-in-depth, anti-spoofing. ⏳ Pendente: cifragem de coluna (TD-002), tokenização IA (RM-TOKEN), modelo de sensibilidade em código (RM-VISIB, já documentado em §1.2).
+
+### 17.2 Marcos entregues (histórico)
+
+| Data | Entrega |
+|---|---|
+| — | Fundação (Auth, multi-tenant, RBAC base) · Convites controlados · Pivotagem intersetorial + Governança |
+| 2026-05-26 | `IntersectoralTaskService` (FSM, RBAC, append atômico de auditoria) · Server Actions Zero-Trust + Transactional Outbox |
+| 2026-05-27 | Background jobs + Motor de Alertas e Notificações · Painel de Triagem + UI do Loop Fechado · Correção de Prototype Pollution |
+| 2026-05-30 | Higiene de repositório (scripts ad-hoc, JSONs FHIR→docs/schemas/, remoção de offline-first, .env.example) · Migração para monorepo (NPM Workspaces) |
+
+> **Nota:** entregas datadas foram realizadas antes da adoção da numeração de fases do plano; acima estão **remapeadas** para as Fases 0–2 conforme o tema. A suíte Playwright (e2e) entra como parte do gate de qualidade da Fase 0/contínuo.
+
+**Decisões arquiteturais fixadas (Fase 0):**
+- Sistema é **online-only**: sem IndexedDB, sem fila de sync cliente. `lib/offline/` removida. PTS salva diretamente via server action.
+- Módulos RNDS, files/R2, groups e settings/ivc estão **congelados**: não remover, não investir, não podem quebrar o build.
+- JSONs FHIR de referência (BRIndividuo, BRContatoAssistencial, BRRegistroAtendimentoClinico) residem em `docs/schemas/` — referência documental, não importados em runtime.
+- Disparo RNDS neutralizado via `RNDS_ENABLED` (feature flag server-only, default `false`). Os três branches `HEALTH` em `savePtsDocument`, `createPtsEvolution` e `createTaskAudited` agora exigem `rndsEnabled && ...`. Habilitar requer contrato RNDS ativo. `intersectoral-task.service.ts` marcado `@ts-nocheck` (LIGADO a código vivo, branch RNDS pós-contrato).
 
 **Fora de escopo / backlog:**
 - Tela de criação/gerência de `service_units` para o Admin Geral (CRUD).

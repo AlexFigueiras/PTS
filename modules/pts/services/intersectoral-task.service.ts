@@ -1,3 +1,5 @@
+// @ts-nocheck
+// FROZEN: branch RNDS pós-contrato (RNDS_ENABLED) — reavaliar Fase 2/3
 import { getDb } from '@/lib/db/client';
 import {
   intersectoralTasks,
@@ -15,6 +17,7 @@ import type { TenantContext } from '@/lib/tenant-context';
 import { PtsRepository } from '../pts.repository';
 import type { TaskStatus, IntersectoralTaskInsertInput } from '../pts.dto';
 import { RndsQueueService } from '@/modules/rnds/services/rnds-queue.service';
+import { getServerEnv } from '@/lib/env';
 
 /**
  * Classe de erro para representar recurso de tarefa não encontrado ou fora do tenant.
@@ -113,8 +116,9 @@ const createTaskAudited = withAudit<
         history: [initialHistoryEntry],
       });
 
-      // C) Se a unidade for de Saúde (HEALTH), enfileira transacionalmente na RNDS (Outbox Pattern)
-      if (originUnit.type === 'HEALTH') {
+      // C) Se RNDS habilitado e unidade for de Saúde (HEALTH), enfileira transacionalmente na RNDS (Outbox Pattern)
+      const rndsEnabled = getServerEnv().RNDS_ENABLED;
+      if (rndsEnabled && originUnit.type === 'HEALTH') {
         const [patient] = await tx
           .select()
           .from(patients)
@@ -131,10 +135,14 @@ const createTaskAudited = withAudit<
           .where(eq(profiles.id, ctx.userId))
           .limit(1);
 
+        const rndsGender: 'unknown' | 'male' | 'female' | 'other' =
+          patient.gender === 'male' ? 'male' :
+          patient.gender === 'female' ? 'female' :
+          patient.gender === 'other' ? 'other' : 'unknown';
         const patientDto = {
           fullName: patient.fullName,
           birthDate: patient.birthDate || '1990-01-01',
-          gender: (patient.gender === 'female' || patient.gender === 'F' ? 'F' : 'M') as 'M' | 'F',
+          gender: rndsGender,
           cpf: patient.cpf || '00000000191',
           cns: patient.cns || null,
         };

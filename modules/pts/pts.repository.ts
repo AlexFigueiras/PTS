@@ -1,4 +1,5 @@
 import { and, count, desc, eq, sql } from 'drizzle-orm';
+import type { TenantContext } from '@/lib/tenant-context';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import {
   ptsResponses,

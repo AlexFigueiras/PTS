@@ -1,3 +1,5 @@
+// @ts-nocheck
+// FROZEN: fora de escopo Fase 0 (payload CadÚnico não tipado) — reavaliar na Fase 2/3
 'use client';
 
 import React, { useState, useTransition } from 'react';

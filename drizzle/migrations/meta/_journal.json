@@ -38,6 +38,20 @@
       "breakpoints": true
     },
     {
+      "idx": 5,
+      "version": "7",
+      "when": 1778439073000,
+      "tag": "0005_clinical_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778439074000,
+      "tag": "0006_tenant_invites",
+      "breakpoints": true
+    },
+    {
       "idx": 7,
       "version": "7",
       "when": 1778456705314,
@@ -84,6 +98,55 @@
       "version": "7",
       "when": 1779480925704,
       "tag": "0013_governance_rbac",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1779480926000,
+      "tag": "0014_background_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1779480927000,
+      "tag": "0015_add_cnes_to_service_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1779480928000,
+      "tag": "0016_add_inbox_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1779480929000,
+      "tag": "0017_add_rls_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1779480930000,
+      "tag": "0018_add_deleted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1779480931000,
+      "tag": "0019_rls_domain_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779480932000,
+      "tag": "0020_recreate_intersectoral_tasks",
       "breakpoints": true
     }
   ]

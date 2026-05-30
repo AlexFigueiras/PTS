@@ -1,0 +1,31 @@
+name: CI
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Mocks só para satisfazer a validação de env (Zod) e o import do drizzle.config.
+  # build é lazy (não conecta), testes são puros, drizzle-kit check não conecta.
+  DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock'
+  NEXT_PUBLIC_SUPABASE_URL: 'https://mock.supabase.co'
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'mock-anon-key'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npx drizzle-kit check
+      - run: npm run build

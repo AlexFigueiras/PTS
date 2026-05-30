@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState, startTransition } from 'react';
+import { useActionState, useEffect, useRef, startTransition } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,14 +35,12 @@ export function InviteForm({
   const [state, action, pending] = useActionState(sendProfessionalInviteAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const submittedRef = useRef(false);
-  const [cpf, setCpf] = useState('');
 
   useEffect(() => {
     if (submittedRef.current && !pending) {
       if (state.success) {
         toast.success(state.success);
         formRef.current?.reset();
-        setCpf('');
       } else if (state.error) {
         toast.error(state.error);
       }
@@ -70,8 +68,9 @@ export function InviteForm({
           className={inputClass}
           required
           placeholder="000.000.000-00"
-          value={cpf}
-          onChange={(e) => setCpf(maskCpf(e.target.value))}
+          onChange={(e) => {
+            e.target.value = maskCpf(e.target.value);
+          }}
         />
       </div>
       <div className="space-y-1.5">

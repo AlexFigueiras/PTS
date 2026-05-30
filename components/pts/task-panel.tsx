@@ -453,7 +453,7 @@ export function TaskPanel({
                       <FileText size={12} /> Descrição da Queixa & Objetivos do Encaminhamento
                     </h4>
                     <p className="text-sm font-medium text-slate-600 bg-slate-50/50 p-5 rounded-2xl border border-slate-100/50 leading-relaxed italic">
-                      "{task.description}"
+                      &quot;{task.description}&quot;
                     </p>
                   </div>
 
@@ -475,7 +475,7 @@ export function TaskPanel({
                             </p>
                             {hist.notes && (
                               <p className="text-xs text-slate-500 italic mt-1 bg-white p-2.5 rounded-lg border border-slate-100/50">
-                                "{hist.notes}"
+                                &quot;{hist.notes}&quot;
                               </p>
                             )}
                           </div>

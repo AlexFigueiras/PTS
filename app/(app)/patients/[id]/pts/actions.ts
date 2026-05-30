@@ -19,6 +19,7 @@ import { getClinicalAiSuggestions } from '@/lib/pts/ai-recommender';
 import { PtsSchema } from '@/validations/pts-schema';
 import type { TenantContext } from '@/lib/tenant-context';
 import { RndsQueueService } from '@/modules/rnds/services/rnds-queue.service';
+import { getServerEnv } from '@/lib/env';
 
 export type PtsStatus = 'draft' | 'completed';
 
@@ -69,6 +70,7 @@ export async function savePtsDocument(
   if (!ctx) redirect('/login');
 
   const db = getDb();
+  const rndsEnabled = getServerEnv().RNDS_ENABLED;
 
   const scores = data.scores || {};
   const suggestedGoals = data.suggestedActions || [];
@@ -144,8 +146,8 @@ export async function savePtsDocument(
         .where(and(eq(patients.id, patientId), eq(patients.tenantId, ctx.tenantId)));
     }
 
-    // Se concluído e unidade de origem for SAÚDE ('HEALTH'), enfileira na RNDS (Transactional Outbox)
-    if (isCompleted && originUnit?.unitType === 'HEALTH') {
+    // Se concluído, RNDS habilitado e unidade de origem for SAÚDE ('HEALTH'), enfileira na RNDS (Transactional Outbox)
+    if (rndsEnabled && isCompleted && originUnit?.unitType === 'HEALTH') {
       // Busca paciente
       const [patient] = await tx
         .select()
@@ -175,13 +177,17 @@ export async function savePtsDocument(
         }
 
         // Monta DTO do Registro de Atendimento Clínico (RAC) compatível com racSchema
+        const rndsGender1: 'unknown' | 'male' | 'female' | 'other' =
+          patient.gender === 'male' ? 'male' :
+          patient.gender === 'female' ? 'female' :
+          patient.gender === 'other' ? 'other' : 'unknown';
         const patientDto = {
           fullName: patient.fullName,
           cpf: patient.cpf,
           cns: patient.cns,
           motherName: patient.motherName || 'Mãe não informada',
           birthDate: patient.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : '2000-01-01',
-          gender: (patient.gender === 'male' || patient.gender === 'female' || patient.gender === 'other') ? patient.gender : 'unknown',
+          gender: rndsGender1,
           raceCode: '99', // RNDS Sem informação
           birthCountryCode: 'BRA',
           birthCityCode: '3550308',
@@ -288,6 +294,7 @@ export async function createPtsEvolution(
   if (!ctx) redirect('/login');
 
   const db = getDb();
+  const rndsEnabled = getServerEnv().RNDS_ENABLED;
   const scores = data.scores || {};
   const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
 
@@ -329,8 +336,8 @@ export async function createPtsEvolution(
         })
         .where(eq(ptsResponses.id, ptsId));
 
-      // Se concluído e unidade de origem for SAÚDE ('HEALTH'), enfileira na RNDS (Transactional Outbox)
-      if (originUnit?.unitType === 'HEALTH') {
+      // Se RNDS habilitado e unidade de origem for SAÚDE ('HEALTH'), enfileira na RNDS (Transactional Outbox)
+      if (rndsEnabled && originUnit?.unitType === 'HEALTH') {
         // Busca paciente
         const [patient] = await tx
           .select()
@@ -360,13 +367,17 @@ export async function createPtsEvolution(
           }
 
           // Monta DTO do Registro de Atendimento Clínico (RAC) compatível com racSchema
+          const rndsGender2: 'unknown' | 'male' | 'female' | 'other' =
+            patient.gender === 'male' ? 'male' :
+            patient.gender === 'female' ? 'female' :
+            patient.gender === 'other' ? 'other' : 'unknown';
           const patientDto = {
             fullName: patient.fullName,
             cpf: patient.cpf,
             cns: patient.cns,
             motherName: patient.motherName || 'Mãe não informada',
             birthDate: patient.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : '2000-01-01',
-            gender: (patient.gender === 'male' || patient.gender === 'female' || patient.gender === 'other') ? patient.gender : 'unknown',
+            gender: rndsGender2,
             raceCode: '99', // RNDS Sem informação
             birthCountryCode: 'BRA',
             birthCityCode: '3550308',

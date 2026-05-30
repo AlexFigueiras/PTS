@@ -1,0 +1,1 @@
+Regras de negócio PURAS, sem I/O. Proibido importar db/supabase/drizzle/rede/fs. Núcleo nunca conhece a fonte (plano §2, §10). A FSM de status da Ação e a regra fixa de sensibilidade por dimensão entram aqui na Fase 1.

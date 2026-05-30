@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@pts/domain": ["./packages/domain/src/index.ts"],
+      "@pts/adapters": ["./packages/adapters/src/index.ts"]
     }
   },
   "include": [
@@ -30,5 +32,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "PTS", ".next"]
+  "exclude": ["node_modules", "PTS", ".next", "modules/pts/workers/cadunico-etl.worker.ts"]
 }

@@ -1,0 +1,1 @@
+Adapters de ingestão, PLUGÁVEIS e ISOLADOS (plano §2, §10). Dependem de @pts/domain, nunca o contrário. Trocar fonte fictícia→real não toca o núcleo. Stub nesta fase; implementação na Fase 3. O worker CadÚnico orphan (modules/pts/workers) NÃO migra — é resíduo congelado.

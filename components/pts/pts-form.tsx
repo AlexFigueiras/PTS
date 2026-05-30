@@ -31,9 +31,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { DemographicsSection } from './sections/demographics-section';
 import { TriagemSection } from './sections/triagem-section';
-import { OfflineStore } from '@/lib/offline/offline-store';
-
-import { SyncStatusBadge } from '@/components/layout/sync-status-badge';
 
 // Seções pesadas (domínios e dashboard) carregam sob demanda para reduzir
 // o bundle inicial. O dashboard usa framer-motion intensamente e só é
@@ -143,84 +140,10 @@ export function PtsForm({
   const [loadingAi, setLoadingAi] = useState(false);
   const [catalog, setCatalog] = useState<PredefinedAction[]>([]);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [pendingCount, setPendingCount] = useState(0);
-
-  const updatePendingCount = async () => {
-    try {
-      const queue = await OfflineStore.getSyncQueue();
-      setPendingCount(queue.length);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const triggerBackgroundSync = async () => {
-    try {
-      const queue = await OfflineStore.getSyncQueue();
-      if (queue.length === 0) return;
-
-      toast.loading('Sincronizando alterações offline...', { id: 'sync-toast' });
-
-      let successCount = 0;
-      for (const item of queue) {
-        try {
-          if (item.actionType === 'save_pts') {
-            const payload = item.payload as { data: unknown; status: 'draft' | 'completed' };
-            await savePtsDocument(item.patientId, payload.data, payload.status);
-          }
-          await OfflineStore.clearSyncQueueItem(item.id!);
-          successCount++;
-        } catch (err) {
-          console.error('Falha ao sincronizar item da fila:', err);
-        }
-      }
-
-      await updatePendingCount();
-      if (successCount > 0) {
-        toast.success(`${successCount} alteração(ões) sincronizada(s) com sucesso!`, { id: 'sync-toast' });
-      } else {
-        toast.dismiss('sync-toast');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   useEffect(() => {
     getPredefinedActions().then(setCatalog);
-
-    if (typeof window === 'undefined') return;
-
-    const updateOnline = () => {
-      setIsOnline(navigator.onLine);
-      if (navigator.onLine) {
-        triggerBackgroundSync();
-      }
-    };
-
-    window.addEventListener('online', updateOnline);
-    window.addEventListener('offline', updateOnline);
-
-    // Carrega rascunho local se houver e a fila pendente
-    OfflineStore.getDraft(patientId).then((draft) => {
-      if (draft) {
-        toast.info('Rascunho local recuperado offline', {
-          description: 'Carregamos as últimas alterações salvas no seu aparelho.'
-        });
-        Object.entries(draft).forEach(([key, value]) => {
-          setValue(key, value);
-        });
-      }
-    });
-
-    updatePendingCount();
-
-    return () => {
-      window.removeEventListener('online', updateOnline);
-      window.removeEventListener('offline', updateOnline);
-    };
-  }, [patientId]);
+  }, []);
 
   const methods: any = useForm({
     resolver: zodResolver(ptsSchema),
@@ -253,32 +176,8 @@ export function PtsForm({
 
   const onSave = async (status: 'draft' | 'completed', data: PtsFormData) => {
     setSaving(true);
-    
-    // Se estiver offline, salvar na IndexedDB local e enfileirar na fila de sync
-    if (!isOnline) {
-      try {
-        await OfflineStore.saveDraft(patientId, data);
-        await OfflineStore.enqueueSyncMutation(patientId, 'save_pts', { data, status });
-        await updatePendingCount();
-        
-        toast.warning('Alteração salva localmente!', {
-          description: 'Você está offline. Os dados serão sincronizados assim que a conexão voltar.'
-        });
-        
-        if (status === 'completed') {
-          router.push(`/patients/${patientId}`);
-        }
-      } catch {
-        toast.error('Erro ao salvar localmente');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-
     try {
       await savePtsDocument(patientId, data as unknown as Record<string, unknown>, status);
-      await OfflineStore.clearDraft(patientId); // Limpa rascunho de sucesso online
       toast.success(status === 'completed' ? 'PTS finalizado!' : 'Rascunho salvo!', {
         description: status === 'completed' ? 'O documento foi concluído com sucesso.' : 'Suas alterações foram salvas.',
       });
@@ -451,7 +350,6 @@ export function PtsForm({
             </nav>
 
             <div className="flex items-center gap-2">
-              <SyncStatusBadge />
               <button
                 onClick={() => handleSave('draft')}
                 disabled={saving}

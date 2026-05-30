@@ -14,6 +14,8 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   // AI Keys
   GEMINI_API_KEY: z.string().min(1).optional(),
+  // Feature flags — server-only
+  RNDS_ENABLED: z.enum(['true', 'false']).optional().default('false').transform(v => v === 'true'),
 });
 
 const publicSchema = z.object({

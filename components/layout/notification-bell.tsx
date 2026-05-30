@@ -40,38 +40,45 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
-    fetchNotifications();
-
-    // Configura inscrição em tempo real no cliente para sincronização instantânea
+    let active = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     const supabase = createSupabaseBrowserClient();
-    
-    // Obter ID do usuário autenticado no browser
-    let userId: string | null = null;
-    supabase.auth.getUser().then(({ data }) => {
-      userId = data.user?.id || null;
-      if (!userId) return;
 
-      const channel = supabase
+    const init = async () => {
+      await fetchNotifications();
+      if (!active) return;
+
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id || null;
+      if (!userId || !active) return;
+
+      channel = supabase
         .channel('bell_notifications_sync')
         .on(
           'postgres_changes',
           {
-            event: '*', // UPDATE, INSERT, DELETE
+            event: '*',
             schema: 'public',
             table: 'inbox_notifications',
             filter: `user_id=eq.${userId}`,
           },
           () => {
-            // Em qualquer mudança nas notificações do usuário, recarrega a lista
-            fetchNotifications();
+            if (active) {
+              fetchNotifications();
+            }
           }
         )
         .subscribe();
+    };
 
-      return () => {
+    init();
+
+    return () => {
+      active = false;
+      if (channel) {
         supabase.removeChannel(channel);
-      };
-    });
+      }
+    };
   }, []);
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
@@ -120,22 +127,20 @@ export function NotificationBell() {
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className="relative rounded-full p-2.5 text-muted-foreground hover:bg-slate-100 hover:text-foreground focus:outline-none transition-all duration-200"
-          aria-label="Abrir notificações"
-        >
-          <Bell className="h-5 w-5 transition-transform duration-200 group-hover:scale-105" />
-          {unreadCount > 0 && (
-            <>
-              {/* Badge vermelha premium com efeito ping */}
-              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#F8FAFC]">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-              <span className="absolute right-1.5 top-1.5 h-4 min-w-4 animate-ping rounded-full bg-red-500 opacity-40 ring-2 ring-[#F8FAFC]" />
-            </>
-          )}
-        </button>
+      <PopoverTrigger
+        className="relative rounded-full p-2.5 text-muted-foreground hover:bg-slate-100 hover:text-foreground focus:outline-none transition-all duration-200"
+        aria-label="Abrir notificações"
+      >
+        <Bell className="h-5 w-5 transition-transform duration-200 group-hover:scale-105" />
+        {unreadCount > 0 && (
+          <>
+            {/* Badge vermelha premium com efeito ping */}
+            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#F8FAFC]">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+            <span className="absolute right-1.5 top-1.5 h-4 min-w-4 animate-ping rounded-full bg-red-500 opacity-40 ring-2 ring-[#F8FAFC]" />
+          </>
+        )}
       </PopoverTrigger>
 
       <PopoverContent className="w-80 sm:w-96 p-0 bg-white/95 backdrop-blur-md border border-slate-100 shadow-2xl rounded-xl" align="end" sideOffset={8}>
