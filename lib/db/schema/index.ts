@@ -15,3 +15,5 @@ export * from './pts-evolutions';
 export * from './intersectoral-tasks';
 export * from './background-jobs';
 export * from './inbox-notifications';
+export * from './pts-relational';
+

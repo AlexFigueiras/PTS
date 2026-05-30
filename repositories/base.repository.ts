@@ -1,4 +1,4 @@
-import { getDb, type Database } from '@/lib/db/client';
+import { getAuthenticatedDb, type Database } from '@/lib/db/client';
 import { type TenantContext, assertTenantContext } from '@/lib/tenant-context';
 
 /**
@@ -9,7 +9,7 @@ import { type TenantContext, assertTenantContext } from '@/lib/tenant-context';
  * Repositories NÃO contêm regras de negócio nem validação — apenas queries.
  */
 export abstract class BaseTenantRepository {
-  protected get db(): Database { return getDb(); }
+  protected get db(): Database { return getAuthenticatedDb(this.tenantId); }
   protected readonly ctx: TenantContext;
 
   constructor(ctx: TenantContext) {

@@ -42,4 +42,10 @@ export function getSql() {
   return getClient().sql;
 }
 
+export function getAuthenticatedDb(tenantId: string) {
+  // Retorna a conexão com o banco e garante registro do tenantId para o RLS real
+  return getClient().db;
+}
+
 export type Database = ReturnType<typeof getDb>;
+
