@@ -570,7 +570,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 ### 17.1 Status por fase (estado real do código)
 
 - **Fase 0 — 🟡 em fechamento.** ✅ Monorepo (NPM Workspaces, `@pts/domain`/`@pts/adapters`/`@pts/mobile`), Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial (mig. 0012/0013), higiene de repo, online-only. ⏳ Pendente: gate de CI/lint verde (TD-LINT-*), **RLS real** (TD-RLS-001), tokenização CPF/CNS (compartilhada com Fase 4).
-- **Fase 1 — 🟡 parcial.** ✅ PTS baseline multidomínio, CRUD+RBAC, onboarding cascata (Resend), UI de triagem/loop fechado, `IntersectoralTaskService` (FSM), unificação de dimensões e eixos legados no domínio puro (TD-DOMAIN-001 puro), regras de sensibilidade LGPD, e FSM de Ação/Sinalização no core de domínio. ⏳ Pendente: **PIA como 2º plano** (RM-PIA), refactoring de acoplamento do intelligence-engine no app web.
+- **Fase 1 — 🟡 parcial.** ✅ PTS baseline multidomínio, CRUD+RBAC, onboarding cascata (Resend), UI de triagem/loop fechado, `IntersectoralTaskService` (FSM), unificação completa de dimensões e eixos legados (TD-DOMAIN-001 completo) no core e no app web, regras de sensibilidade LGPD, FSM de Ação/Sinalização no core de domínio. ⏳ Pendente: **PIA como 2º plano** (RM-PIA).
 - **Fase 2 — 🟡 parcial.** ✅ Fila de unidade + distribuição, estados+auditoria (FSM), motor de notificações/loop fechado. ⏳ Pendente: **catálogo RAPS+SUAS e roteamento por necessidade** (RM-RAPS), severidade graduada completa.
 - **Fase 3 — 🔴 não iniciada.** Adapter existe como **stub** (`@pts/adapters`) e há `ai-recommender` (Gemini sugere). Faltam: fontes fictícias, ingestão real→Dimensão, 3 telas split, minuta PDF (RM-PDF).
 - **Fase 4 — 🟡 contínua.** ✅ Auditoria, logging redatado, RLS defense-in-depth, anti-spoofing. ⏳ Pendente: cifragem de coluna (TD-002), tokenização IA (RM-TOKEN), modelo de sensibilidade em código (RM-VISIB, já documentado em §1.2).
@@ -584,6 +584,8 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-27 | Background jobs + Motor de Alertas e Notificações · Painel de Triagem + UI do Loop Fechado · Correção de Prototype Pollution |
 | 2026-05-30 | Higiene de repositório (scripts ad-hoc, JSONs FHIR→docs/schemas/, remoção de offline-first, .env.example) · Migração para monorepo (NPM Workspaces) |
 | 2026-05-30 | Domínio puro de `@pts/domain` (Fase 1) — Mapeamento de eixos legados, sub-scores de Autonomia, regras de sensibilidade LGPD, FSM de Ação e FSM de Sinalização regulada com gate e testes unitários robustos |
+| 2026-05-30 | Infraestrutura relacional do PTS/PIA (`pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`), limpeza dos resíduos de sincronismo offline (TD-SYNC-001) e unificação do motor de IA e seus call sites para as 5 dimensões canônicas (TD-DOMAIN-001) |
+
 
 > **Nota:** entregas datadas foram realizadas antes da adoção da numeração de fases do plano; acima estão **remapeadas** para as Fases 0–2 conforme o tema. A suíte Playwright (e2e) entra como parte do gate de qualidade da Fase 0/contínuo.
 
