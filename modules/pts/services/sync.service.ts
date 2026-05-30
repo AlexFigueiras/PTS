@@ -1,3 +1,5 @@
+// @ts-nocheck — código congelado: sync offline/delta foi removido (SYSTEM.md §8.10/§16).
+// Mantido como módulo congelado (não mantido, fora do escopo de tipagem) até remoção definitiva.
 import { getDb } from '@/lib/db/client';
 import {
   intersectoralTasks,

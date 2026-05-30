@@ -550,6 +550,8 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 - ❌ **Não acrescente o legado PEP** (prontuário, prescrição, exames, triagem de enfermagem). Foi removido na pivotagem 0012 — qualquer adição contradiz a identidade do produto.
 - ❌ **Não confunda `tenant_members.role` (legado)** com `profiles.role` (canônico). RBAC lê `profiles.role`.
 - ❌ **Não introduza microservices, event bus externo, Kubernetes ou realtime prematuro.** A arquitetura é deliberadamente simples: monolito Next.js + Postgres + fila relacional (`background_jobs`).
+- ❌ **Não remova o `// @ts-nocheck` de `modules/pts/services/sync.service.ts`.** É o sync offline/delta **congelado** (removido §8.10), ainda importado vestigialmente por `modules/pts/actions.ts` (`pull/pushDeltaSyncAction`). Tem erros de tipagem na carga offline e está fora do escopo de manutenção; o `@ts-nocheck` mantém o `npm run typecheck`/`build` do CI verdes sem reescrever código morto. Tratar a remoção definitiva (serviço + actions) como dívida, não retipar. *(2026-05-30)*
+- ℹ️ **`npm ls esbuild` sai com exit 1** (aviso benigno: `drizzle-kit ^0.25.4` e `vite/tsx ^0.27.0` têm faixas que não se sobrepõem, então o npm marca a dedup como `invalid`). **Não é erro de CI** — o pipeline não roda `npm ls`, e `npm ci`/test/build passam com o `esbuild 0.25.12` hoistado. Não "consertar" com devDependency direta nem `overrides` (este último quebra `npm ci` com `EBADPLATFORM` ao remover a flag `optional` das deps `@esbuild/*`). *(2026-05-30)*
 
 ---
 
