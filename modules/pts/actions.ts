@@ -1,11 +1,17 @@
 'use server';
 
+import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { revalidateTenantResource } from '@/lib/cache';
 import { getLogger } from '@/lib/logger';
+import { ForbiddenError } from '@/lib/auth/authorization';
 import { IntersectoralTaskService } from './services/intersectoral-task.service';
+import { InitializeCaseService } from './services/initialize-case.service';
+import { RecordActionService } from './services/record-action.service';
 import { PtsRepository } from './pts.repository';
 import { intersectoralTaskInsertSchema, type TaskStatus } from './pts.dto';
+
 
 
 export type CreateTaskInput = {
@@ -136,5 +142,187 @@ export async function getTargetUnitQueueAction(filters: {
     return { success: false, error: err?.message || 'Erro ao carregar a fila de entrada da unidade.' };
   }
 }
+
+const initializeCaseInputSchema = z.object({
+  patientId: z.string().uuid('ID do cidadão inválido.'),
+  legalMeasure: z.string().optional().nullable(),
+  mandatoryReviewDate: z.preprocess(
+    (arg) => (typeof arg === 'string' && arg ? new Date(arg) : arg),
+    z.date().optional().nullable()
+  ),
+});
+
+export async function initializeCaseAction(
+  input: { patientId: string; legalMeasure?: string | null; mandatoryReviewDate?: Date | null | string } | FormData
+) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  let rawInput: any = {};
+  if (input instanceof FormData) {
+    rawInput = {
+      patientId: input.get('patientId'),
+      legalMeasure: input.get('legalMeasure'),
+      mandatoryReviewDate: input.get('mandatoryReviewDate'),
+    };
+  } else {
+    rawInput = input;
+  }
+
+  const parsed = initializeCaseInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? 'Dados de inicialização inválidos.',
+      success: null,
+    };
+  }
+
+  try {
+    const service = new InitializeCaseService(ctx);
+    const result = await service.execute(parsed.data);
+
+    // Invalida os caches do tenant
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath(`/patients/${parsed.data.patientId}/pts`);
+    revalidatePath(`/patients/${parsed.data.patientId}`);
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, patientId: parsed.data.patientId, tenantId: ctx.tenantId }, 'initializeCaseAction failed');
+    if (err instanceof ForbiddenError) {
+      return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
+    }
+    return { error: err?.message || 'Erro interno ao inicializar o caso.', success: null };
+  }
+}
+
+const createActionInputSchema = z.object({
+  planId: z.string().uuid('ID do plano inválido.'),
+  responsibleUnitId: z.string().uuid('ID da unidade responsável inválido.'),
+  assignedProfessionalId: z.string().uuid().optional().nullable(),
+  deadline: z.preprocess(
+    (arg) => (typeof arg === 'string' && arg ? new Date(arg) : arg),
+    z.date({ message: 'Prazo limite deve ser uma data válida.' })
+  ),
+  description: z.string().min(3, 'A descrição da ação deve ter ao menos 3 caracteres.').max(1000),
+});
+
+const transitionActionInputSchema = z.object({
+  actionId: z.string().uuid('ID da ação inválido.'),
+  currentStatus: z.enum(['pactuada', 'em_andamento', 'concluida', 'bloqueada']).optional(),
+  nextStatus: z.enum(['pactuada', 'em_andamento', 'concluida', 'bloqueada']),
+  evolutionNotes: z.string().optional().nullable(),
+});
+
+export async function createActionAction(
+  input: {
+    planId: string;
+    responsibleUnitId: string;
+    assignedProfessionalId?: string | null;
+    deadline: Date | string;
+    description: string;
+  } | FormData
+) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  let rawInput: any = {};
+  if (input instanceof FormData) {
+    rawInput = {
+      planId: input.get('planId'),
+      responsibleUnitId: input.get('responsibleUnitId'),
+      assignedProfessionalId: input.get('assignedProfessionalId'),
+      deadline: input.get('deadline'),
+      description: input.get('description'),
+    };
+  } else {
+    rawInput = input;
+  }
+
+  const parsed = createActionInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? 'Dados de ação inválidos.',
+      success: null,
+    };
+  }
+
+  try {
+    const service = new RecordActionService(ctx);
+    const result = await service.createAction(parsed.data);
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planId: parsed.data.planId, tenantId: ctx.tenantId }, 'createActionAction failed');
+    if (err instanceof ForbiddenError) {
+      return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
+    }
+    return { error: err?.message || 'Erro interno ao pactuar ação.', success: null };
+  }
+}
+
+export async function transitionActionStatusAction(
+  input: {
+    actionId: string;
+    currentStatus?: 'pactuada' | 'em_andamento' | 'concluida' | 'bloqueada';
+    nextStatus: 'pactuada' | 'em_andamento' | 'concluida' | 'bloqueada';
+    evolutionNotes?: string | null;
+  } | FormData
+) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  let rawInput: any = {};
+  if (input instanceof FormData) {
+    rawInput = {
+      actionId: input.get('actionId'),
+      currentStatus: input.get('currentStatus'),
+      nextStatus: input.get('nextStatus'),
+      evolutionNotes: input.get('evolutionNotes'),
+    };
+  } else {
+    rawInput = input;
+  }
+
+  const parsed = transitionActionInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? 'Dados de transição inválidos.',
+      success: null,
+    };
+  }
+
+  try {
+    const service = new RecordActionService(ctx);
+    const result = await service.transitionAction({
+      actionId: parsed.data.actionId,
+      nextStatus: parsed.data.nextStatus,
+      evolutionNotes: parsed.data.evolutionNotes,
+    });
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, actionId: parsed.data.actionId, tenantId: ctx.tenantId }, 'transitionActionStatusAction failed');
+    if (err instanceof ForbiddenError) {
+      return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
+    }
+    return { error: err?.message || 'Erro interno ao transicionar status da ação.', success: null };
+  }
+}
+
+
 
 

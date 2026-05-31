@@ -89,3 +89,13 @@ export const ptsSignals = pgTable('pts_signals', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export type PtsCase = typeof ptsCases.$inferSelect;
+export type NewPtsCase = typeof ptsCases.$inferInsert;
+export type PtsPlan = typeof ptsPlans.$inferSelect;
+export type NewPtsPlan = typeof ptsPlans.$inferInsert;
+export type PtsAction = typeof ptsActions.$inferSelect;
+export type NewPtsAction = typeof ptsActions.$inferInsert;
+export type PtsSignal = typeof ptsSignals.$inferSelect;
+export type NewPtsSignal = typeof ptsSignals.$inferInsert;
+
