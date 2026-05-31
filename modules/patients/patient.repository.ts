@@ -1,6 +1,8 @@
 import { and, count, desc, eq, ilike } from 'drizzle-orm';
 import { patients, type Patient, type NewPatient } from '@/lib/db/schema';
 import { BaseTenantRepository } from '@/repositories/base.repository';
+import type { TenantContext } from '@/lib/tenant-context';
+import { encrypt, generateHMAC } from '@/lib/crypto/field-cipher';
 import { buildFilters } from '@/lib/db/filters';
 import {
   getPaginationOffset,
@@ -15,18 +17,54 @@ type ListFilters = PaginationParams & {
 };
 
 export class PatientRepository extends BaseTenantRepository {
+  private readonly tx?: any;
+
+  constructor(ctx: TenantContext, tx?: any) {
+    super(ctx);
+    this.tx = tx;
+  }
+
+  protected override get db() {
+    return this.tx ?? super.db;
+  }
+
   async create(input: Omit<NewPatient, 'tenantId'>): Promise<Patient> {
+    const cpfEncrypted = encrypt(input.cpf);
+    const nisEncrypted = encrypt(input.nis);
+    const cnsEncrypted = encrypt(input.cns);
+    const cpfHashValue = generateHMAC(input.cpf);
+
     const [row] = await this.db
       .insert(patients)
-      .values({ ...input, tenantId: this.tenantId })
+      .values({
+        ...input,
+        cpf: cpfEncrypted,
+        nis: nisEncrypted,
+        cns: cnsEncrypted,
+        cpfHash: cpfHashValue,
+        tenantId: this.tenantId,
+      })
       .returning();
     return row;
   }
 
   async update(id: string, input: Partial<Omit<NewPatient, 'tenantId' | 'id'>>): Promise<Patient | undefined> {
+    const updates: Partial<NewPatient> = { ...input };
+
+    if (input.cpf !== undefined) {
+      updates.cpf = encrypt(input.cpf);
+      updates.cpfHash = generateHMAC(input.cpf);
+    }
+    if (input.nis !== undefined) {
+      updates.nis = encrypt(input.nis);
+    }
+    if (input.cns !== undefined) {
+      updates.cns = encrypt(input.cns);
+    }
+
     const [row] = await this.db
       .update(patients)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: new Date() })
       .where(and(eq(patients.id, id), eq(patients.tenantId, this.tenantId)))
       .returning();
     return row;

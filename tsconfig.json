@@ -21,7 +21,8 @@
     "paths": {
       "@/*": ["./*"],
       "@pts/domain": ["./packages/domain/src/index.ts"],
-      "@pts/adapters": ["./packages/adapters/src/index.ts"]
+      "@pts/adapters": ["./packages/adapters/src/index.ts"],
+      "@pts/adapters/*": ["./packages/adapters/src/*"]
     }
   },
   "include": [

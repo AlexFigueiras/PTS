@@ -9,6 +9,7 @@ import { ForbiddenError } from '@/lib/auth/authorization';
 import { IntersectoralTaskService } from './services/intersectoral-task.service';
 import { InitializeCaseService } from './services/initialize-case.service';
 import { RecordActionService } from './services/record-action.service';
+import { SignalService } from './services/signal.service';
 import { PtsRepository } from './pts.repository';
 import { intersectoralTaskInsertSchema, type TaskStatus } from './pts.dto';
 
@@ -321,6 +322,119 @@ export async function transitionActionStatusAction(
     }
     return { error: err?.message || 'Erro interno ao transicionar status da ação.', success: null };
   }
+}
+
+
+/* ================================================================== */
+/*  Motor de Sinalização Cruzada (Fase 2)                              */
+/* ================================================================== */
+
+const createSignalInputSchema = z.object({
+  caseId: z.string().uuid('ID do caso inválido.'),
+  needTypeId: z.string().min(1, 'Selecione um tipo de necessidade.'),
+  priority: z.enum(['imediata', 'pactuada']),
+  abstractReason: z
+    .string()
+    .min(3, 'O motivo deve ter ao menos 3 caracteres.')
+    .max(1000, 'O motivo é muito longo.'),
+});
+
+const signalIdSchema = z.object({ signalId: z.string().uuid('ID da sinalização inválido.') });
+
+const resolveSignalInputSchema = z.object({
+  signalId: z.string().uuid('ID da sinalização inválido.'),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
+const assignSignalInputSchema = z.object({
+  signalId: z.string().uuid('ID da sinalização inválido.'),
+  professionalId: z.string().uuid('ID do profissional inválido.'),
+});
+
+/**
+ * Helper zero-trust: resolve contexto, valida via Zod, invoca o serviço e
+ * revalida os caches relevantes. Nunca aceita identidade/escopo do cliente.
+ */
+async function runSignalAction<T>(
+  schema: z.ZodTypeAny,
+  rawInput: unknown,
+  run: (service: SignalService, data: any, ctx: NonNullable<Awaited<ReturnType<typeof getActiveTenantContext>>>) => Promise<T>,
+  logLabel: string,
+) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const parsed = schema.safeParse(rawInput);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const service = new SignalService(ctx);
+    const result = await run(service, parsed.data, ctx);
+
+    revalidateTenantResource(ctx.tenantId, 'pts_signals');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, tenantId: ctx.tenantId }, `${logLabel} failed`);
+    if (err instanceof ForbiddenError) {
+      return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
+    }
+    return { error: err?.message || 'Erro interno na sinalização.', success: null };
+  }
+}
+
+export async function createSignalAction(input: {
+  caseId: string;
+  needTypeId: string;
+  priority: 'imediata' | 'pactuada';
+  abstractReason: string;
+}) {
+  return runSignalAction(
+    createSignalInputSchema,
+    input,
+    (service, data) => service.createSignal(data),
+    'createSignalAction',
+  );
+}
+
+export async function confirmSignalAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.confirmSignal(d.signalId), 'confirmSignalAction');
+}
+
+export async function discardSignalAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.discardSignal(d.signalId), 'discardSignalAction');
+}
+
+export async function submitSignalForRtAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.submitForRtValidation(d.signalId), 'submitSignalForRtAction');
+}
+
+export async function validateSignalByRtAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.validateByRt(d.signalId), 'validateSignalByRtAction');
+}
+
+export async function receiveSignalAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.receiveSignal(d.signalId), 'receiveSignalAction');
+}
+
+export async function treatSignalAction(input: { signalId: string }) {
+  return runSignalAction(signalIdSchema, input, (s, d) => s.startTreatment(d.signalId), 'treatSignalAction');
+}
+
+export async function resolveSignalAction(input: { signalId: string; notes?: string | null }) {
+  return runSignalAction(resolveSignalInputSchema, input, (s, d) => s.resolveSignal(d.signalId, d.notes), 'resolveSignalAction');
+}
+
+export async function assignSignalProfessionalAction(input: { signalId: string; professionalId: string }) {
+  return runSignalAction(
+    assignSignalInputSchema,
+    input,
+    (s, d) => s.assignProfessional(d.signalId, d.professionalId),
+    'assignSignalProfessionalAction',
+  );
 }
 
 

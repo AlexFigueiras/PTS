@@ -5,6 +5,7 @@ import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { getDb, withTransactionContext } from '@/lib/db/client';
 import { patients, serviceUnits, ptsCases } from '@/lib/db/schema';
 import { PtsRepository } from '@/modules/pts/pts.repository';
+import { decrypt } from '@/lib/crypto/field-cipher';
 import { TaskPanel, type EnrichedTask } from '@/components/pts/task-panel';
 import type { TaskStatus } from '@/modules/pts/pts.dto';
 import { initializeCaseAction } from '@/modules/pts/actions';
@@ -106,7 +107,7 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
             id: task.id,
             patientId: task.patientId,
             patientName: patient?.fullName || 'Cidadão Desconhecido',
-            patientCpf: patient?.cpf || 'Sem documento',
+            patientCpf: decrypt(patient?.cpf) || 'Sem documento',
             status: task.status,
             priority: task.priority,
             description: task.description,
@@ -251,7 +252,7 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
                       </div>
                     </div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      CPF: <span className="text-slate-600">{c.patientCpf || 'Não informado'}</span>
+                      CPF: <span className="text-slate-600">{decrypt(c.patientCpf) || 'Não informado'}</span>
                     </p>
                     <p className="text-[10px] font-medium text-slate-400">
                       Identificado em: {new Date(c.createdAt).toLocaleDateString('pt-BR')}

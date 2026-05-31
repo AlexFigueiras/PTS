@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, asc } from 'drizzle-orm';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import type { TenantContext } from '@/lib/tenant-context';
 import { ptsActions, type PtsAction } from '@/lib/db/schema';
@@ -65,5 +65,13 @@ export class PtsActionRepository extends BaseTenantRepository {
       .where(and(eq(ptsActions.id, actionId), eq(ptsActions.tenantId, this.tenantId)))
       .limit(1);
     return row;
+  }
+
+  async findByPlanId(planId: string): Promise<PtsAction[]> {
+    return this.db
+      .select()
+      .from(ptsActions)
+      .where(and(eq(ptsActions.planId, planId), eq(ptsActions.tenantId, this.tenantId)))
+      .orderBy(asc(ptsActions.createdAt));
   }
 }

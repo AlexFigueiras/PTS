@@ -19,6 +19,7 @@ export const patients = pgTable(
     motherName: text('mother_name'),
     birthDate: date('birthDate'),
     cpf: text('cpf'),
+    cpfHash: text('cpf_hash'),
     // Identificadores sociais opcionais
     nis: text('nis'), // NIS / CadÚnico
     cns: text('cns'), // Cartão Nacional de Saúde
@@ -36,7 +37,7 @@ export const patients = pgTable(
   (t) => [
     index('patients_tenant_idx').on(t.tenantId),
     index('patients_tenant_name_idx').on(t.tenantId, t.fullName),
-    index('patients_tenant_cpf_idx').on(t.tenantId, t.cpf),
+    index('patients_tenant_cpf_hash_idx').on(t.tenantId, t.cpfHash),
   ],
 );
 

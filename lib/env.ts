@@ -17,6 +17,8 @@ const serverSchema = z.object({
   RESEND_API_KEY: emptyToUndefined,
   // AI Keys
   GEMINI_API_KEY: emptyToUndefined,
+  // Cifragem de PII
+  PTS_PII_ENCRYPTION_KEY: emptyToUndefined,
   // Feature flags — server-only
   RNDS_ENABLED: z.enum(['true', 'false']).optional().default('false').transform(v => v === 'true'),
 });

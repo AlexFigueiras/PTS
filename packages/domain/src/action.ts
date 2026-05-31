@@ -15,6 +15,17 @@ export function isActionStatus(value: unknown): value is ActionStatus {
 }
 
 /**
+ * Rótulos pt-BR acentuados para exibição dos status de Ação.
+ */
+export const ACTION_STATUS_LABELS: Record<ActionStatus, string> = {
+  pactuada: 'Pactuada',
+  em_andamento: 'Em Andamento',
+  concluida: 'Concluída',
+  bloqueada: 'Bloqueada',
+};
+
+
+/**
  * Máquina de estados estrutural da Ação.
  *
  * pactuada     -> em_andamento, bloqueada

@@ -207,7 +207,7 @@ export default async function TestDbPage() {
               rel="noopener noreferrer"
               className="w-full block text-center py-2.5 px-4 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold rounded-lg transition"
             >
-              Executar Migrações Pendentes (0012 + 0013)
+              Executar Migrações Pendentes (0012 à 0027)
             </a>
             <a
               href="/api/inspect"

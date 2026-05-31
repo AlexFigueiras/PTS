@@ -5,6 +5,7 @@ import { type BackgroundJob } from '@/lib/db/schema/background-jobs';
 import { getDb } from '@/lib/db/client';
 import { and, eq } from 'drizzle-orm';
 import { patients, profiles, serviceUnits, ptsResponses } from '@/lib/db/schema';
+import { decrypt, generateHMAC } from '@/lib/crypto/field-cipher';
 
 export class RndsQueueService extends BaseService {
   /**
@@ -49,9 +50,7 @@ export class RndsQueueService extends BaseService {
       const conditions = [eq(patients.tenantId, this.ctx.tenantId)];
 
       if (p.cpf) {
-        conditions.push(eq(patients.cpf, p.cpf.replace(/\D/g, '')));
-      } else if (p.cns) {
-        conditions.push(eq(patients.cns, p.cns.replace(/\D/g, '')));
+        conditions.push(eq(patients.cpfHash, generateHMAC(p.cpf.replace(/\D/g, ''))!));
       } else if (p.fullName) {
         conditions.push(eq(patients.fullName, p.fullName));
       }
@@ -69,8 +68,8 @@ export class RndsQueueService extends BaseService {
           fullName: freshPatient.fullName,
           birthDate: freshPatient.birthDate || p.birthDate || '1990-01-01',
           gender: (freshPatient.gender === 'female' || freshPatient.gender === 'F' ? 'F' : 'M'),
-          cpf: freshPatient.cpf || p.cpf || null,
-          cns: freshPatient.cns || p.cns || null,
+          cpf: decrypt(freshPatient.cpf) || p.cpf || null,
+          cns: decrypt(freshPatient.cns) || p.cns || null,
           motherName: freshPatient.motherName || p.motherName || null,
           fullAddress: freshPatient.fullAddress || p.fullAddress || null,
         };

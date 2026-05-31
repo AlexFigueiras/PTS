@@ -1,6 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { patients, type Patient } from '@/lib/db/schema';
 import { db } from '@/lib/db';
+import { encrypt, generateHMAC } from '@/lib/crypto/field-cipher';
 
 // ─────────────────────────────────────────────────────────────────────
 // Tipos de dados do CadÚnico / MDS
@@ -243,7 +244,7 @@ export class CadUnicoEtlWorker {
         const [patient] = await db
           .select({ id: patients.id })
           .from(patients)
-          .where(and(eq(patients.tenantId, this.tenantId), eq(patients.cpf, cleanCpf)))
+          .where(and(eq(patients.tenantId, this.tenantId), eq(patients.cpfHash, generateHMAC(cleanCpf)!)))
           .limit(1);
 
         if (patient) {
@@ -257,26 +258,9 @@ export class CadUnicoEtlWorker {
       }
     }
 
-    // ── Estratégia 2: Match exato por NIS (índice B-tree) ────────────
-    if (record.nis) {
-      const cleanNis = record.nis.replace(/\D/g, '');
-      if (cleanNis.length > 0) {
-        const [patient] = await db
-          .select({ id: patients.id })
-          .from(patients)
-          .where(and(eq(patients.tenantId, this.tenantId), eq(patients.nis, cleanNis)))
-          .limit(1);
-
-        if (patient) {
-          return {
-            record,
-            matchedPatientId: patient.id,
-            matchStrategy: 'nis',
-            confidence: 1.0,
-          };
-        }
-      }
-    }
+    // ── Estratégia 2: Match exato por NIS ────────────────────────────
+    // Nota: NIS está criptografado em repouso no banco; delegamos a vinculação
+    // ao Fuzzy Match (Estratégia 3) para garantir conformidade técnica.
 
     // ── Estratégia 3: Fuzzy Match delegado ao PostgreSQL (pg_trgm) ───
     const fuzzyResult = await this.fuzzyMatchInPostgres(record);
@@ -416,7 +400,7 @@ export class CadUnicoEtlWorker {
       .update(patients)
       .set({
         // Atualiza o NIS se presente no dump
-        ...(record.nis ? { nis: record.nis.replace(/\D/g, '') } : {}),
+        ...(record.nis ? { nis: encrypt(record.nis.replace(/\D/g, '')) } : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(patients.id, patientId), eq(patients.tenantId, this.tenantId)));

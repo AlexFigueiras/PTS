@@ -4,7 +4,7 @@
 > precise entender como o sistema funciona **hoje**. Mantenha este arquivo
 > atualizado a cada mudança arquitetural relevante.
 >
-> Última atualização: 2026-05-30.
+> Última atualização: 2026-05-31.
 
 ---
 
@@ -457,6 +457,17 @@ Envs: `RESEND_API_KEY`, `NEXT_PUBLIC_FROM_EMAIL` (opcional; default `BOSYN <supo
 
 ---
 
+## 12.B Política de Retenção e Expurgo (LGPD)
+
+Para garantir plena conformidade com os direitos do titular da LGPD (direito à exclusão e minimização), o sistema adota regras estritas de ciclo de vida de dados:
+
+- **Casos Ativos / Acompanhamentos**: Retenção contínua enquanto durar o acompanhamento intersetorial.
+- **Registros Deletados (soft-delete via `deleted_at`)**: Permanecem na lixeira/quarentena por um período de **30 dias** para possibilitar reaberturas acidentais. Após este prazo, o expurgador em background (`ExpurgoJobService`) realiza o expurgo físico irreversível (hard-delete) dos registros.
+- **Cidadãos em estado de `recusa`**: O cadastro territorial é mantido sob status `recusa` (radar inativo/dormente) para evitar que cadastros duplicados ocorram no território e para auditoria histórica. Contudo, se a recusa persistir inativa por mais de **180 dias**, as dimensões derivadas do caso e o histórico de sinalizações são automaticamente expurgados/anonimizados.
+
+---
+
+
 ## 13. Background Jobs (Filas Relacionais e Resiliência)
 
 > ⚠️ **RNDS é módulo CONGELADO / pós-contrato.** O plano §0 é categórico: o sistema **não envia dados ao governo federal** — integração federal (RNDS/MDS) é caminho futuro, só após contrato e credenciamento (plano, apêndice "Integração real"). Hoje está **neutralizada via flag `RNDS_ENABLED=false`** (server-only). **Não é regra de ouro nem invariante de arquitetura.** A infraestrutura de fila descrita abaixo (`background_jobs`, Outbox, Reaper, Notificações) **é real e em uso** — porém para consumidores vivos (e-mail, notificações in-app). O handler RNDS permanece congelado: não remover, não investir, não pode quebrar o build.
@@ -561,19 +572,19 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 
 | Fase | Tema (plano) | Status real |
 |---|---|---|
-| **0** | **Fundação** — monorepo, Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial, CI/lint, RLS de tenant | 🟡 Em fechamento |
-| **1** | **Núcleo PTS/PIA** — domínio Caso/Plano/Dimensão/Objetivo/Meta/Ação + FSM, CRUD+RBAC, onboarding cascata, UI dimensões read-only + metas/ações + caixa de sinalizações | 🟡 Parcial |
-| **2** | **Motor de Sinalização Cruzada** — catálogo RAPS+SUAS→necessidade, severidade graduada, roteamento ao componente certo, fila+distribuição, estados+auditoria | 🟡 Parcial |
-| **3** | **Ingestão simulada + IA (a demo)** — 2 fontes fictícias + endpoint adapter, normalização→Dimensão, IA deriva/sugere/sinaliza, 3 telas split, [opcional] minuta PDF | 🔴 Não iniciada |
-| **4** | **Segurança, LGPD e conformidade** (transversal) — base legal, minimização, cifragem, tokenização CPF/CNS, auditoria imutável, regra fixa de sensibilidade | 🟡 Contínua |
+| **0** | **Fundação** — monorepo, Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial, CI/lint, RLS de tenant | 🟢 Concluída |
+| **1** | **Núcleo PTS/PIA** — domínio Caso/Plano/Dimensão/Objetivo/Meta/Ação + FSM, CRUD+RBAC, onboarding cascata, UI dimensões read-only + metas/ações + caixa de sinalizações | 🟢 Concluída |
+| **2** | **Motor de Sinalização Cruzada** — catálogo RAPS+SUAS→necessidade, severidade graduada, roteamento ao componente certo, fila+distribuição, estados+auditoria | 🟢 Concluída |
+| **3** | **Ingestão simulada + IA (a demo)** — 2 fontes fictícias + endpoint adapter, normalização→Dimensão, IA deriva/sugere/sinaliza, 3 telas split, [opcional] minuta PDF | 🟢 Concluída |
+| **4** | **Segurança, LGPD e conformidade** (transversal) — base legal, minimização, cifragem, tokenização CPF/CNS, auditoria imutável, regra fixa de sensibilidade | 🟢 Concluída |
 
 ### 17.1 Status por fase (estado real do código)
 
-- **Fase 0 — 🟡 em fechamento.** ✅ Monorepo (NPM Workspaces, `@pts/domain`/`@pts/adapters`/`@pts/mobile`), Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial (mig. 0012/0013), higiene de repo, online-only. ⏳ Pendente: gate de CI/lint verde (TD-LINT-*), **RLS real** (TD-RLS-001), tokenização CPF/CNS (compartilhada com Fase 4).
-- **Fase 1 — 🟡 parcial.** ✅ PTS baseline multidomínio, CRUD+RBAC, onboarding cascata (Resend), UI de triagem/loop fechado, `IntersectoralTaskService` (FSM), unificação completa de dimensões e eixos legados (TD-DOMAIN-001 completo) no core e no app web, regras de sensibilidade LGPD, FSM de Ação/Sinalização no core de domínio. ⏳ Pendente: **PIA como 2º plano** (RM-PIA).
-- **Fase 2 — 🟡 parcial.** ✅ Fila de unidade + distribuição, estados+auditoria (FSM), motor de notificações/loop fechado. ⏳ Pendente: **catálogo RAPS+SUAS e roteamento por necessidade** (RM-RAPS), severidade graduada completa.
-- **Fase 3 — 🔴 não iniciada.** Adapter existe como **stub** (`@pts/adapters`) e há `ai-recommender` (Gemini sugere). Faltam: fontes fictícias, ingestão real→Dimensão, 3 telas split, minuta PDF (RM-PDF).
-- **Fase 4 — 🟡 contínua.** ✅ Auditoria, logging redatado, RLS defense-in-depth, anti-spoofing. ⏳ Pendente: cifragem de coluna (TD-002), tokenização IA (RM-TOKEN), modelo de sensibilidade em código (RM-VISIB, já documentado em §1.2).
+- **Fase 0 — 🟢 concluída.** ✅ Monorepo (NPM Workspaces, `@pts/domain`/`@pts/adapters`/`@pts/mobile`), Supabase+Next, multi-tenant, RBAC base, convites controlados, pivotagem intersetorial (mig. 0012/0013), higiene de repo, online-only. ✅ Gate de CI/lint verde, RLS real (`withTransactionContext` + `FORCE ROW LEVEL SECURITY`), tokenização CPF/CNS (compartilhada com Fase 4).
+- **Fase 1 — 🟢 concluída.** ✅ PTS baseline multidomínio, CRUD+RBAC, onboarding cascata (Resend), UI de triagem/loop fechado, `IntersectoralTaskService` (FSM), unificação completa de dimensões e eixos legados (TD-DOMAIN-001 completo) no core e no app web, regras de sensibilidade LGPD, FSM de Ação/Sinalização no core de domínio, e tela/visão consolidada de caso intersetorial com FSM de Ações (com `action-list.tsx` e `dimension-cards.tsx` read-only com minimização LGPD).
+- **Fase 2 — 🟢 concluída.** ✅ Catálogo RAPS+SUAS+Jurídico+Educação como source-of-truth em `@pts/domain` (`network-catalog.ts`) + tabelas de referência (`network_components`, `need_types`, `component_need_types`) com seed derivado (mig. 0023). ✅ Roteamento por necessidade → componente → unidade da rede (`service_units.component_id`). ✅ `SignalService` operando sobre `pts_signals` enriquecido (`source_unit_id`, `author_id`, `need_type_id`, `assigned_professional_id`, `rt_validator_id`, `resolved_at`) com FSM+gate do domínio, via `imediata` (colapso para `encaminhada`) e `pactuada` (validação RT), Transactional Outbox de notificação. ✅ `PtsSignalRepository`, 9 Server Actions zero-trust, UI de criação/lista no caso (`signal-form`/`signal-list`) e caixa de entrada no dashboard (`signal-inbox`). ⏳ Fora do escopo (Fase 3): gatilhos automáticos G1/G2/G3 e fan-out 1:N por IA.
+- **Fase 3 — 🟢 concluída.** ✅ Fontes fictícias (`source_health_records`, `source_social_records`, mig. 0024) com seed "dona Maria". ✅ Pseudonimização antes de qualquer chamada à IA (`packages/domain/src/pseudonymize.ts`). ✅ Adapters `HealthAdapter`/`SocialAdapter` implementando `DimensionAdapter` (`@pts/adapters`). ✅ Endpoint `POST /api/ingest` zero-trust orquestrando o pipeline completo. ✅ `DimensionDerivationService` (Gemini + fallback NLP, regra fixa de sensibilidade para Psíquico aplicada pelo sistema). ✅ Tabela `pts_dimensions` com `PtsDimensionRepository`. ✅ `SignalFanOutService` (1 relato→N sinalizações em estado `sugerida`, humano-no-loop). ✅ Gatilhos G1/G2/G3 como funções puras testáveis em `@pts/domain/triggers` + `TriggerDetectorService` (eleva `radar→observacao`, T5). ✅ 3 telas demo: `/demo/fonte-saude`, `/demo/fonte-assistencia`, `/demo/[patientId]` (split antes/depois). ✅ Formulário de entrada manual com banner de transição. ✅ Dimensões derivadas integradas na tela de Caso (`DerivedDimensionCards`). ⏳ Fora do escopo desta fase: minuta legal PDF (RM-PDF, opcional no plano), DPA/tier pago, integração municipal real.
+- **Fase 4 — 🟢 concluída.** ✅ Auditoria e logging declarativo (`withAudit` + `audit_logs`). ✅ Modelo fixo de sensibilidade LGPD em código e persistência (`sensitivity: 'abstracted'` para psíquico). ✅ Tabelas de consentimento (`patient_consents`, mig. 0025) com RLS, gates T1 de esfera ativa e interrupção T2 de caso em recusa. ✅ Tokenização de identificadores nominais via sequência segura e `TokenVaultService` (mig. 0026) prevenindo exposição a LLMs. ✅ Cifragem reversível AES-256-GCM para CPF/NIS/CNS com hashes HMAC-SHA256 determinísticos indexados (`cpf_hash`, mig. 0027) com script de backfill completo e seguro. ✅ Expurgo de dados deletados (`ExpurgoJobService`) em background para retenção física regulada. ✅ Proibição de warnings de linter na CI com `--max-warnings=0`.
 
 ### 17.2 Marcos entregues (historico)
 
@@ -590,6 +601,10 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-31 | FSM de Caso (`case_status`) no core do `@pts/domain` com transições automáticas T5 e guarda de dono mínimo (R3.2) |
 | 2026-05-31 | Correção Estrutural de RLS (`withTransactionContext`) + FORCE RLS + Criação das 4 tabelas core de PTS/PIA (`pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`) com 10 estados da FSM de Caso e RLS real |
 | 2026-05-31 | Alinhamento de RBAC por unidade (RLS de caso robusto com trâmite intersetorial via sinalizações), fila de observação na triagem com ação de assumir caso e testes integrados simplificados sem mocks |
+| 2026-05-31 | Conclusão da Fase 1 — Núcleo PTS/PIA: Implementação dos cards de dimensões intersetoriais, lista e pactuação de Ações, tela consolidada de Caso e navegação integrada com RLS ativo |
+| 2026-05-31 | Conclusão da Fase 2 — Motor de Sinalização Cruzada: catálogo RAPS/SUAS no `@pts/domain` (`network-catalog.ts`) + tabelas de referência e seed (mig. 0023), roteamento necessidade→componente→unidade, `SignalService`/`PtsSignalRepository` sobre `pts_signals` enriquecido com FSM+gate (vias imediata/pactuada) e Transactional Outbox, 9 Server Actions zero-trust e UI (`signal-form`, `signal-list`, `signal-inbox` no dashboard) |
+| 2026-05-31 | Conclusão da Fase 3 — Ingestão Simulada + IA: fontes fictícias (`source_health_records`/`source_social_records`, mig. 0024), seed "dona Maria", pseudonimização (`@pts/domain/pseudonymize`), adapters `HealthAdapter`/`SocialAdapter`, endpoint `POST /api/ingest`, `DimensionDerivationService` (Gemini + fallback NLP, regra fixa Psíquico), `pts_dimensions` + `PtsDimensionRepository`, fan-out 1→N sinalizações (`SignalFanOutService`), gatilhos G1/G2/G3 (`@pts/domain/triggers` + `TriggerDetectorService`), 3 telas demo (`/demo/fonte-saude`, `/demo/fonte-assistencia`, `/demo/[patientId]` split), formulário entrada manual, `DerivedDimensionCards` integrado na tela de Caso |
+| 2026-05-31 | Conclusão da Fase 4 — Segurança, LGPD e Conformidade: Base legal de consentimentos (`patient_consents`), sequenciador e tokenização de nomes com `TokenVaultService` para blindagem de LLMs, cifragem reversível AES-256-GCM dos campos CPF/NIS/CNS com hashes determinísticos indexados (`cpf_hash`) e backfill em lote, `ExpurgoJobService` para descarte físico atômico de soft-deleted, correção de ESLint warnings e gate de CI |
 
 
 

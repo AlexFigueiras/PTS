@@ -7,8 +7,10 @@ import { RndsQueueHandler } from '@/modules/rnds/handlers/rnds-queue.handler';
 import { RndsClinicalValidationError } from '@/modules/rnds/services/rnds.service';
 import { RndsInfrastructureError } from '@/modules/rnds/infra/rnds-client';
 import { profiles, patients, ptsResponses } from '@/lib/db/schema';
+import { generateHMAC } from '@/lib/crypto/field-cipher';
 import { parseJobErrorLog, ErrorParser } from '../utils/error-parser';
 import { NotificationService } from './notification.service';
+import { ExpurgoJobService } from './expurgo-job.service';
 
 export class JobProcessorService {
   /**
@@ -154,6 +156,12 @@ export class JobProcessorService {
         await RndsQueueHandler.handle(job.payload, ctx);
         break;
 
+      case 'expurgo': {
+        const expurgoService = new ExpurgoJobService(getDb());
+        await expurgoService.runExpurgo(ctx.tenantId);
+        break;
+      }
+
       default:
         throw new Error(`Nenhum handler registrado para a fila '${job.queueName}'.`);
     }
@@ -241,9 +249,7 @@ export class JobProcessorService {
         const conditions = [eq(patients.tenantId, job.tenantId)];
 
         if (p.cpf) {
-          conditions.push(eq(patients.cpf, p.cpf.replace(/\D/g, '')));
-        } else if (p.cns) {
-          conditions.push(eq(patients.cns, p.cns.replace(/\D/g, '')));
+          conditions.push(eq(patients.cpfHash, generateHMAC(p.cpf.replace(/\D/g, ''))!));
         } else if (p.fullName) {
           conditions.push(eq(patients.fullName, p.fullName));
         }

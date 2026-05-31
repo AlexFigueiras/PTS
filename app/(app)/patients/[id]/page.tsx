@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { withTransactionContext } from '@/lib/db/client';
 import { ForbiddenError } from '@/lib/auth/authorization';
 import { GetPatientService } from '@/modules/patients';
+import { PtsCaseRepository } from '@/modules/pts/repositories/pts-case.repository';
 import { PatientForm } from '@/modules/patients/components/patient-form';
 import { PatientStatusBadge } from '@/modules/patients/components/patient-status-badge';
 import { PatientFilesCard } from '@/modules/files/components/patient-files-card';
-import { ArrowLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { CASE_STATUS_LABELS, type CaseStatus } from '@pts/domain';
+import { ArrowLeft, ChevronRight, AlertTriangle, Briefcase } from 'lucide-react';
 import { loadPtsDocument } from './pts/actions';
 
 type Props = { params: Promise<{ id: string }> };
@@ -46,6 +49,15 @@ export default async function PatientPage({ params }: Props) {
   const isPastDue = doc?.nextReviewAt && new Date(doc.nextReviewAt) < new Date();
   const ptsLink = doc?.isLocked ? `/patients/${id}/pts/evolution` : `/patients/${id}/pts`;
   const ptsLabel = doc?.isLocked ? 'Evolução PTS' : 'Abrir PTS';
+
+  // Caso intersetorial ativo
+  const activeCase = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    const caseRepo = new PtsCaseRepository(ctx, tx);
+    return caseRepo.findActiveByPatientId(id);
+  });
+  const caseStatusLabel = activeCase
+    ? CASE_STATUS_LABELS[activeCase.status as CaseStatus] ?? activeCase.status
+    : null;
 
   return (
     <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">
@@ -92,7 +104,16 @@ export default async function PatientPage({ params }: Props) {
               </div>
             </div>
 
-            <div className="flex shrink-0 gap-4">
+            <div className="flex shrink-0 flex-wrap gap-3">
+              {activeCase && (
+                <Link
+                  href={`/patients/${id}/caso`}
+                  className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-[10px] font-black uppercase tracking-[0.15em] text-emerald-700 transition-all hover:scale-105 hover:bg-emerald-500/20 active:scale-95"
+                >
+                  <Briefcase size={14} />
+                  Caso {caseStatusLabel} <ChevronRight size={14} />
+                </Link>
+              )}
               <Link
                 href={ptsLink}
                 className="flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-primary-foreground shadow-[0_0_30px_rgba(var(--primary),0.2)] transition-all hover:scale-105 active:scale-95"

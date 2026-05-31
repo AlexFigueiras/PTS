@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, pgEnum, primaryKey, index } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 import { patients } from './patients';
 import { profiles } from './profiles';
@@ -81,27 +81,81 @@ export const ptsActions = pgTable('pts_actions', {
 });
 
 /**
+ * Catálogo de componentes da rede (RAPS/SUAS/Jurídico/Educação).
+ * Dados de referência globais — seed derivado de @pts/domain/network-catalog.
+ */
+export const networkComponents = pgTable('network_components', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  sphere: text('sphere').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Tipos de necessidade que um profissional pode sinalizar.
+ * Dados de referência globais — seed derivado de @pts/domain/network-catalog.
+ */
+export const needTypes = pgTable('need_types', {
+  id: text('id').primaryKey(),
+  label: text('label').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Join necessidade <-> componente da rede.
+ */
+export const componentNeedTypes = pgTable(
+  'component_need_types',
+  {
+    componentId: text('component_id')
+      .notNull()
+      .references(() => networkComponents.id, { onDelete: 'cascade' }),
+    needTypeId: text('need_type_id')
+      .notNull()
+      .references(() => needTypes.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.componentId, t.needTypeId] })],
+);
+
+/**
  * Tabela de Sinalizações Cruzadas (pts_signals):
  * Suporte a alertas e roteamento com prioridades e gate estritos de governança.
  * Tipado estritamente usando os unions de SignalStatus e SignalPriority de @pts/domain.
  */
-export const ptsSignals = pgTable('pts_signals', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  caseId: uuid('case_id')
-    .notNull()
-    .references(() => ptsCases.id, { onDelete: 'cascade' }),
-  sourceRecordId: uuid('source_record_id'),
-  destinationComponent: text('destination_component').notNull(),
-  destinationUnitId: uuid('destination_unit_id').references(() => serviceUnits.id, { onDelete: 'set null' }),
-  priority: text('priority').$type<SignalPriority>().notNull(),
-  status: text('status').$type<SignalStatus>().notNull(),
-  abstractReason: text('abstract_reason').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const ptsSignals = pgTable(
+  'pts_signals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    caseId: uuid('case_id')
+      .notNull()
+      .references(() => ptsCases.id, { onDelete: 'cascade' }),
+    sourceRecordId: uuid('source_record_id'),
+    sourceUnitId: uuid('source_unit_id').references(() => serviceUnits.id, { onDelete: 'set null' }),
+    authorId: uuid('author_id').references(() => profiles.id, { onDelete: 'set null' }),
+    needTypeId: text('need_type_id').references(() => needTypes.id, { onDelete: 'set null' }),
+    destinationComponent: text('destination_component').notNull(),
+    destinationUnitId: uuid('destination_unit_id').references(() => serviceUnits.id, { onDelete: 'set null' }),
+    assignedProfessionalId: uuid('assigned_professional_id').references(() => profiles.id, { onDelete: 'set null' }),
+    rtValidatorId: uuid('rt_validator_id').references(() => profiles.id, { onDelete: 'set null' }),
+    priority: text('priority').$type<SignalPriority>().notNull(),
+    status: text('status').$type<SignalStatus>().notNull(),
+    abstractReason: text('abstract_reason').notNull(),
+    resolutionNotes: text('resolution_notes'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_pts_signals_dest_unit').on(t.destinationUnitId, t.status),
+    index('idx_pts_signals_author').on(t.authorId),
+    index('idx_pts_signals_assigned').on(t.assignedProfessionalId),
+  ],
+);
 
 export type PtsCase = typeof ptsCases.$inferSelect;
 export type NewPtsCase = typeof ptsCases.$inferInsert;
@@ -111,4 +165,10 @@ export type PtsAction = typeof ptsActions.$inferSelect;
 export type NewPtsAction = typeof ptsActions.$inferInsert;
 export type PtsSignal = typeof ptsSignals.$inferSelect;
 export type NewPtsSignal = typeof ptsSignals.$inferInsert;
+export type NetworkComponent = typeof networkComponents.$inferSelect;
+export type NewNetworkComponent = typeof networkComponents.$inferInsert;
+export type NeedType = typeof needTypes.$inferSelect;
+export type NewNeedType = typeof needTypes.$inferInsert;
+export type ComponentNeedType = typeof componentNeedTypes.$inferSelect;
+export type NewComponentNeedType = typeof componentNeedTypes.$inferInsert;
 

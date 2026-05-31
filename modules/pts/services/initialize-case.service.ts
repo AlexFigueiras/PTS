@@ -77,12 +77,12 @@ const initializeCaseAudited = withAudit<InitializeCaseInput, InitializeCaseOutpu
 
       if (activeCase) {
         if (activeCase.status === 'observacao') {
-          // Acolhimento / Assumir Caso: transita de 'observacao' para 'radar' (RT associado)
+          // Acolhimento / Assumir Caso: transita de 'observacao' para 'acompanhamento' (RT associado)
           await tx
             .update(ptsCases)
-            .set({ status: 'radar', updatedAt: new Date() })
+            .set({ status: 'acompanhamento', updatedAt: new Date() })
             .where(eq(ptsCases.id, activeCase.id));
-          ptsCase = { ...activeCase, status: 'radar', updatedAt: new Date() };
+          ptsCase = { ...activeCase, status: 'acompanhamento', updatedAt: new Date() };
         } else {
           throw new Error('Cidadão já possui um caso intersetorial ativo neste município.');
         }

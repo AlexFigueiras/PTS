@@ -35,6 +35,9 @@ export const serviceUnits = pgTable(
     lon: doublePrecision('lon'),
     phone: text('phone'),
     cnes: text('cnes'),
+    // Componente da rede (RAPS/SUAS/Jurídico/Educação) que esta unidade representa.
+    // FK lógica para network_components.id — usado no roteamento de sinalizações.
+    componentId: text('component_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

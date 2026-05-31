@@ -1,5 +1,6 @@
 import type { Patient } from '@/lib/db/schema';
 import type { PatientDto } from './patient.dto';
+import { decrypt } from '@/lib/crypto/field-cipher';
 
 export function toPatientDto(row: Patient): PatientDto {
   return {
@@ -8,9 +9,9 @@ export function toPatientDto(row: Patient): PatientDto {
     socialName: row.socialName ?? null,
     motherName: row.motherName ?? null,
     birthDate: row.birthDate ?? null,
-    cpf: row.cpf ?? null,
-    nis: row.nis ?? null,
-    cns: row.cns ?? null,
+    cpf: decrypt(row.cpf) ?? null,
+    nis: decrypt(row.nis) ?? null,
+    cns: decrypt(row.cns) ?? null,
     gender: row.gender ?? null,
     phone: row.phone ?? null,
     email: row.email ?? null,

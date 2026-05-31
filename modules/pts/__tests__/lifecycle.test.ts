@@ -217,6 +217,51 @@ describe('PTS Case, Plan & Action Lifecycle Integration', () => {
       expect(result.plan.ownerId).toBe('user-456');
     });
 
+    it('deve acolher/assumir com sucesso um caso em status de observacao e transitar para acompanhamento', async () => {
+      mockDbSelect.mockReturnValueOnce({
+        from: vi.fn().mockReturnValueOnce({
+          where: vi.fn().mockReturnValueOnce({
+            limit: vi.fn().mockResolvedValueOnce([{ id: 'unit-health', type: 'HEALTH' }]),
+          }),
+        }),
+      });
+
+      mockDbSelect.mockReturnValueOnce({
+        from: vi.fn().mockReturnValueOnce({
+          where: vi.fn().mockReturnValueOnce({
+            limit: vi.fn().mockResolvedValueOnce([{ id: 'patient-789', fullName: 'Maria Silva' }]),
+          }),
+        }),
+      });
+
+      mockTxSelect.mockReturnValueOnce({
+        from: vi.fn().mockReturnValueOnce({
+          where: vi.fn().mockReturnValueOnce({
+            limit: vi.fn().mockResolvedValueOnce([{ id: 'case-observacao', patientId: 'patient-789', status: 'observacao' }]),
+          }),
+        }),
+      });
+
+      mockTxUpdate.mockReturnValueOnce({
+        set: vi.fn().mockReturnValueOnce({
+          where: vi.fn().mockResolvedValueOnce([{ id: 'case-observacao', status: 'acompanhamento' }]),
+        }),
+      });
+
+      mockTxInsert.mockReturnValueOnce({
+        values: vi.fn().mockReturnValueOnce({
+          returning: vi.fn().mockResolvedValueOnce([{ id: 'plan-xyz', caseId: 'case-observacao', type: 'PTS', ownerId: 'user-456' }]),
+        }),
+      });
+
+      const service = new InitializeCaseService(validHealthCtx);
+      const result = await service.execute({ patientId: 'patient-789' });
+
+      expect(result).toBeDefined();
+      expect(result.case.status).toBe('acompanhamento');
+      expect(mockTxUpdate).toHaveBeenCalled();
+    });
+
     it('deve falhar se já houver um caso ativo para o cidadão no tenant', async () => {
       mockDbSelect.mockReturnValueOnce({
         from: vi.fn().mockReturnValueOnce({

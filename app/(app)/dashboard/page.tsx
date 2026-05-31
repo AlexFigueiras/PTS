@@ -8,8 +8,9 @@ import { LayoutGrid, List } from 'lucide-react';
 import { getAuthUser } from '@/lib/auth/get-user';
 import { getDb, withTransactionContext } from '@/lib/db/client';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
-import { profiles } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { profiles, ptsSignals, ptsCases } from '@/lib/db/schema';
+import { and, eq, inArray, desc } from 'drizzle-orm';
+import { SignalInbox } from '@/components/pts/signal-inbox';
 
 export const metadata = { title: 'Dashboard | MentalGest' };
 
@@ -29,6 +30,33 @@ export default async function DashboardPage() {
     : null;
 
   const firstName = profile?.fullName?.split(' ')[0] ?? 'Profissional';
+
+  // Caixa de entrada de sinalizações direcionadas à unidade ativa (Fase 2)
+  const inboxSignals = ctx?.activeUnitId
+    ? await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+        return await tx
+          .select({
+            id: ptsSignals.id,
+            caseId: ptsSignals.caseId,
+            patientId: ptsCases.patientId,
+            status: ptsSignals.status,
+            priority: ptsSignals.priority,
+            needTypeId: ptsSignals.needTypeId,
+            abstractReason: ptsSignals.abstractReason,
+            createdAt: ptsSignals.createdAt,
+          })
+          .from(ptsSignals)
+          .innerJoin(ptsCases, eq(ptsCases.id, ptsSignals.caseId))
+          .where(
+            and(
+              eq(ptsSignals.tenantId, ctx.tenantId),
+              eq(ptsSignals.destinationUnitId, ctx.activeUnitId!),
+              inArray(ptsSignals.status, ['encaminhada', 'recebida', 'em_tratamento']),
+            ),
+          )
+          .orderBy(desc(ptsSignals.createdAt));
+      })
+    : [];
 
   return (
     <div className="min-h-full bg-background p-12 animate-reveal">
@@ -74,6 +102,7 @@ export default async function DashboardPage() {
 
           {/* Coluna Direita */}
           <div className="col-span-12 xl:col-span-3 space-y-10">
+            <SignalInbox signals={inboxSignals as any} />
             <ProfileCard fullName={profile?.fullName} />
             <PatientFiles />
           </div>

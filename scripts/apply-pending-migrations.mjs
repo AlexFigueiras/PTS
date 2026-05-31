@@ -26,6 +26,15 @@ const FILES = [
   'drizzle/migrations/0016_add_inbox_notifications.sql',
   'drizzle/migrations/0017_add_rls_notifications.sql',
   'drizzle/migrations/0018_add_deleted_at.sql',
+  'drizzle/migrations/0019_rls_domain_policies.sql',
+  'drizzle/migrations/0020_recreate_intersectoral_tasks.sql',
+  'drizzle/migrations/0021_peaceful_silver_fox.sql',
+  'drizzle/migrations/0022_adjust_cases_rls.sql',
+  'drizzle/migrations/0023_signal_engine.sql',
+  'drizzle/migrations/0024_demo_sources.sql',
+  'drizzle/migrations/0025_consent_recusa.sql',
+  'drizzle/migrations/0026_identifier_tokens.sql',
+  'drizzle/migrations/0027_cifragem_pii.sql',
 ];
 
 const sql = postgres(url, { prepare: false, max: 1, idle_timeout: 10, connect_timeout: 20 });
