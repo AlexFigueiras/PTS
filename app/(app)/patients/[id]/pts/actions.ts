@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq, and, desc } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
-import { getDb } from '@/lib/db/client';
+import { getDb, withTransactionContext } from '@/lib/db/client';
 import {
   ptsResponses,
   ptsEvolutions,
@@ -31,7 +31,7 @@ type Database = ReturnType<typeof getDb>;
  * controlado pelo seletor de contexto); cai para o vínculo primário.
  */
 async function resolveOriginUnit(
-  db: Database,
+  db: Database | any,
   ctx: TenantContext,
 ): Promise<{ unitId: string; unitType: ServiceUnitType } | null> {
   // Unidade ativa selecionada no header — fonte primária da rastreabilidade.
@@ -69,7 +69,6 @@ export async function savePtsDocument(
   const ctx = await getActiveTenantContext();
   if (!ctx) redirect('/login');
 
-  const db = getDb();
   const rndsEnabled = getServerEnv().RNDS_ENABLED;
 
   const scores = data.scores || {};
@@ -77,13 +76,12 @@ export async function savePtsDocument(
 
   // Clean up data before saving to 'data' field
   const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
-
-  // Rastreabilidade intersetorial: quem e de qual unidade gerou o PTS.
-  const originUnit = await resolveOriginUnit(db, ctx);
   const isCompleted = status === 'completed';
 
-  // Usamos db.transaction para garantir atomicidade ACID total (Transactional Outbox)
-  await db.transaction(async (tx) => {
+  await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    // Rastreabilidade intersetorial: quem e de qual unidade gerou o PTS.
+    const originUnit = await resolveOriginUnit(tx, ctx);
+
     const existing = await tx
       .select({ id: ptsResponses.id })
       .from(ptsResponses)
@@ -240,25 +238,25 @@ export async function loadPtsDocument(patientId: string) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return null;
 
-  const db = getDb();
+  return withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    const [doc] = await tx
+      .select()
+      .from(ptsResponses)
+      .where(and(eq(ptsResponses.patientId, patientId), eq(ptsResponses.tenantId, ctx.tenantId)))
+      .limit(1);
 
-  const [doc] = await db
-    .select()
-    .from(ptsResponses)
-    .where(and(eq(ptsResponses.patientId, patientId), eq(ptsResponses.tenantId, ctx.tenantId)))
-    .limit(1);
+    if (!doc) return null;
 
-  if (!doc) return null;
-
-  // Reconstruct the form data object
-  return {
-    ...doc,
-    data: {
-      ...(doc.data as Record<string, unknown>),
-      scores: doc.scores,
-      suggestedActions: doc.suggestedGoals,
-    },
-  };
+    // Reconstruct the form data object
+    return {
+      ...doc,
+      data: {
+        ...(doc.data as Record<string, unknown>),
+        scores: doc.scores,
+        suggestedActions: doc.suggestedGoals,
+      },
+    };
+  });
 }
 
 export async function generateAiSuggestions(formData: PtsSchema) {
@@ -280,8 +278,9 @@ export async function getPredefinedActions() {
   const ctx = await getActiveTenantContext();
   if (!ctx) return [];
 
-  const db = getDb();
-  return await db.select().from(predefinedActions);
+  return withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    return await tx.select().from(predefinedActions);
+  });
 }
 
 export async function createPtsEvolution(
@@ -293,17 +292,16 @@ export async function createPtsEvolution(
   const ctx = await getActiveTenantContext();
   if (!ctx) redirect('/login');
 
-  const db = getDb();
   const rndsEnabled = getServerEnv().RNDS_ENABLED;
   const scores = data.scores || {};
   const { scores: _, risks: __, suggestedActions: ___, ...formData } = data;
 
-  // Rastreabilidade intersetorial da evolução.
-  const originUnit = await resolveOriginUnit(db, ctx);
   const isCompleted = status === 'completed';
 
-  // Usamos db.transaction para garantir atomicidade ACID total (Transactional Outbox)
-  await db.transaction(async (tx) => {
+  await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    // Rastreabilidade intersetorial da evolução.
+    const originUnit = await resolveOriginUnit(tx, ctx);
+
     const evolutions = await tx
       .select({ version: ptsEvolutions.version })
       .from(ptsEvolutions)
@@ -430,11 +428,12 @@ export async function createPtsEvolution(
 export async function getPtsEvolutions(ptsId: string) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return [];
-  const db = getDb();
 
-  return await db
-    .select()
-    .from(ptsEvolutions)
-    .where(and(eq(ptsEvolutions.ptsId, ptsId), eq(ptsEvolutions.tenantId, ctx.tenantId)))
-    .orderBy(desc(ptsEvolutions.createdAt));
+  return withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    return await tx
+      .select()
+      .from(ptsEvolutions)
+      .where(and(eq(ptsEvolutions.ptsId, ptsId), eq(ptsEvolutions.tenantId, ctx.tenantId)))
+      .orderBy(desc(ptsEvolutions.createdAt));
+  });
 }
