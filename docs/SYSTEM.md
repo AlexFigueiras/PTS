@@ -585,6 +585,9 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-30 | Higiene de repositório (scripts ad-hoc, JSONs FHIR→docs/schemas/, remoção de offline-first, .env.example) · Migração para monorepo (NPM Workspaces) |
 | 2026-05-30 | Domínio puro de `@pts/domain` (Fase 1) — Mapeamento de eixos legados, sub-scores de Autonomia, regras de sensibilidade LGPD, FSM de Ação e FSM de Sinalização regulada com gate e testes unitários robustos |
 | 2026-05-30 | Infraestrutura relacional do PTS/PIA (`pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`), limpeza dos resíduos de sincronismo offline (TD-SYNC-001) e unificação do motor de IA e seus call sites para as 5 dimensões canônicas (TD-DOMAIN-001) |
+| 2026-05-30 | Implementação do comportamento lógico de Casos/Planos intersetoriais (`PtsCaseRepository`, `PtsPlanRepository`, `InitializeCaseService` com RBAC de fronteira intersetorial, Server Action `initializeCaseAction` e testes de integração de ciclo de vida `lifecycle.test.ts`) |
+| 2026-05-30 | Alinhamento do protótipo ao Plano Único Compartilhado (PTS unificado) e implementação completa do ciclo de vida de Ações (`PtsActionRepository`, `RecordActionService` com validação estrita da FSM do `@pts/domain` sob transação e Server Actions `createActionAction`/`transitionActionStatusAction`) |
+| 2026-05-31 | FSM de Caso (`case_status`) no core do `@pts/domain` com transições automáticas T5 e guarda de dono mínimo (R3.2) |
 
 
 > **Nota:** entregas datadas foram realizadas antes da adoção da numeração de fases do plano; acima estão **remapeadas** para as Fases 0–2 conforme o tema. A suíte Playwright (e2e) entra como parte do gate de qualidade da Fase 0/contínuo.
