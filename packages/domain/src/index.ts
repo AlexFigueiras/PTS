@@ -6,4 +6,6 @@ export * from './fsm';
 export * from './action';
 export * from './signal';
 export * from './case';
+export * from './field-mapping';
+export * from './scoring';
 
