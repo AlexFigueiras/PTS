@@ -73,12 +73,23 @@ const initializeCaseAudited = withAudit<InitializeCaseInput, InitializeCaseOutpu
 
       // Check for active case duplicate
       const activeCase = await caseRepo.findActiveByPatientId(input.patientId);
-      if (activeCase) {
-        throw new Error('Cidadão já possui um caso intersetorial ativo neste município.');
-      }
+      let ptsCase: PtsCase;
 
-      // Create Case
-      const ptsCase = await caseRepo.createCase(input.patientId, 'radar');
+      if (activeCase) {
+        if (activeCase.status === 'observacao') {
+          // Acolhimento / Assumir Caso: transita de 'observacao' para 'radar' (RT associado)
+          await tx
+            .update(ptsCases)
+            .set({ status: 'radar', updatedAt: new Date() })
+            .where(eq(ptsCases.id, activeCase.id));
+          ptsCase = { ...activeCase, status: 'radar', updatedAt: new Date() };
+        } else {
+          throw new Error('Cidadão já possui um caso intersetorial ativo neste município.');
+        }
+      } else {
+        // Create Case
+        ptsCase = await caseRepo.createCase(input.patientId, 'radar');
+      }
 
       // Create Plan setting professional as Reference Tech (RT)
       const reviewDate = input.mandatoryReviewDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
