@@ -2,9 +2,9 @@ import React from 'react';
 import { redirect } from 'next/navigation';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
-import { getDb } from '@/lib/db/client';
+import { getDb, withTransactionContext } from '@/lib/db/client';
 import { patients, serviceUnits } from '@/lib/db/schema';
-import { getTargetUnitQueueAction } from '@/modules/pts/actions';
+import { PtsRepository } from '@/modules/pts/pts.repository';
 import { TaskPanel, type EnrichedTask } from '@/components/pts/task-panel';
 import type { TaskStatus } from '@/modules/pts/pts.dto';
 import { Inbox, AlertCircle, Building2, HelpCircle } from 'lucide-react';
@@ -45,27 +45,97 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
     );
   }
 
-  // Busca o nome da unidade ativa para exibir um cabeçalho totalmente personalizado
-  const activeUnit = await getDb()
-    .select({ name: serviceUnits.name, type: serviceUnits.type })
-    .from(serviceUnits)
-    .where(and(eq(serviceUnits.id, ctx.activeUnitId), eq(serviceUnits.tenantId, ctx.tenantId)))
-    .limit(1)
-    .then((r) => r[0]);
-
   // Sanitização dos filtros da URL
   const statusFilter = (params.status || 'requested') as TaskStatus;
   const currentPage = Math.max(1, parseInt(params.page || '1'));
   const pageSize = Math.max(5, parseInt(params.pageSize || '10'));
 
-  // Dispara a Server Action para obter a fila bruta da unidade ativa
-  const queueResult = await getTargetUnitQueueAction({
-    status: statusFilter,
-    page: currentPage,
-    pageSize: pageSize,
-  });
+  let activeUnit;
+  let enrichedTasks: EnrichedTask[] = [];
+  let total = 0;
+  let totalPages = 1;
+  let errorMsg = null;
 
-  if (!queueResult.success || !queueResult.data) {
+  try {
+    const result = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      // 1. Busca o nome da unidade ativa para exibir um cabeçalho totalmente personalizado
+      const unitRow = await tx
+        .select({ name: serviceUnits.name, type: serviceUnits.type })
+        .from(serviceUnits)
+        .where(and(eq(serviceUnits.id, ctx.activeUnitId!), eq(serviceUnits.tenantId, ctx.tenantId)))
+        .limit(1)
+        .then((r: any[]) => r[0]);
+
+      // 2. Busca a fila bruta da unidade ativa usando o repositório transacional
+      const repo = new PtsRepository(ctx, tx);
+      const rawTasksResult = await repo.listTasksByTargetUnit(ctx.activeUnitId!, {
+        status: statusFilter,
+        page: currentPage,
+        pageSize: pageSize,
+      });
+
+      // 3. DTO + MAPPER: Enriquece os dados brutos de tarefas buscando pacientes e unidades em lote
+      let tasks: EnrichedTask[] = [];
+      if (rawTasksResult.data.length > 0) {
+        const patientIds = Array.from(new Set(rawTasksResult.data.map((t) => t.patientId)));
+        const sourceUnitIds = Array.from(new Set(rawTasksResult.data.map((t) => t.sourceUnitId)));
+
+        const [patientRows, unitRows] = await Promise.all([
+          patientIds.length > 0
+            ? tx
+                .select({ id: patients.id, fullName: patients.fullName, cpf: patients.cpf })
+                .from(patients)
+                .where(and(eq(patients.tenantId, ctx.tenantId), inArray(patients.id, patientIds)))
+            : Promise.resolve([]),
+          sourceUnitIds.length > 0
+            ? tx
+                .select({ id: serviceUnits.id, name: serviceUnits.name, type: serviceUnits.type })
+                .from(serviceUnits)
+                .where(and(eq(serviceUnits.tenantId, ctx.tenantId), inArray(serviceUnits.id, sourceUnitIds)))
+            : Promise.resolve([]),
+        ]);
+
+        tasks = rawTasksResult.data.map((task) => {
+          const patient = patientRows.find((p: any) => p.id === task.patientId);
+          const unit = unitRows.find((u: any) => u.id === task.sourceUnitId);
+          return {
+            id: task.id,
+            patientId: task.patientId,
+            patientName: patient?.fullName || 'Cidadão Desconhecido',
+            patientCpf: patient?.cpf || 'Sem documento',
+            status: task.status,
+            priority: task.priority,
+            description: task.description,
+            sourceUnitId: task.sourceUnitId,
+            sourceUnitName: unit?.name || 'Unidade não identificada',
+            sourceUnitType: unit?.type || 'OUTRA',
+            targetUnitId: task.targetUnitId,
+            requesterId: task.requesterId,
+            ownerId: task.ownerId,
+            history: task.history || [],
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt,
+          };
+        });
+      }
+
+      return {
+        activeUnit: unitRow,
+        enrichedTasks: tasks,
+        total: rawTasksResult.total,
+        totalPages: rawTasksResult.totalPages,
+      };
+    });
+
+    activeUnit = result.activeUnit;
+    enrichedTasks = result.enrichedTasks;
+    total = result.total;
+    totalPages = result.totalPages;
+  } catch (err: any) {
+    errorMsg = err?.message || 'Erro ao carregar a fila de entrada da unidade.';
+  }
+
+  if (errorMsg) {
     return (
       <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center">
         <div className="rounded-[2.5rem] border border-rose-200 bg-rose-500/[0.02] p-12 shadow-sm flex flex-col items-center justify-center">
@@ -76,59 +146,11 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
             Erro ao Carregar Fila
           </h2>
           <p className="text-sm font-medium text-rose-600/70 mt-3">
-            {queueResult.error || 'Não foi possível carregar a fila de encaminhamentos da unidade.'}
+            {errorMsg}
           </p>
         </div>
       </div>
     );
-  }
-
-  const { data: rawTasks, total, totalPages } = queueResult.data;
-
-  // DTO + MAPPER: Enriquece os dados brutos de tarefas buscando pacientes e unidades em lote
-  let enrichedTasks: EnrichedTask[] = [];
-
-  if (rawTasks.length > 0) {
-    const patientIds = Array.from(new Set(rawTasks.map((t) => t.patientId)));
-    const sourceUnitIds = Array.from(new Set(rawTasks.map((t) => t.sourceUnitId)));
-
-    const [patientRows, unitRows] = await Promise.all([
-      patientIds.length > 0
-        ? getDb()
-            .select({ id: patients.id, fullName: patients.fullName, cpf: patients.cpf })
-            .from(patients)
-            .where(and(eq(patients.tenantId, ctx.tenantId), inArray(patients.id, patientIds)))
-        : Promise.resolve([]),
-      sourceUnitIds.length > 0
-        ? getDb()
-            .select({ id: serviceUnits.id, name: serviceUnits.name, type: serviceUnits.type })
-            .from(serviceUnits)
-            .where(and(eq(serviceUnits.tenantId, ctx.tenantId), inArray(serviceUnits.id, sourceUnitIds)))
-        : Promise.resolve([]),
-    ]);
-
-    enrichedTasks = rawTasks.map((task) => {
-      const patient = patientRows.find((p) => p.id === task.patientId);
-      const unit = unitRows.find((u) => u.id === task.sourceUnitId);
-      return {
-        id: task.id,
-        patientId: task.patientId,
-        patientName: patient?.fullName || 'Cidadão Desconhecido',
-        patientCpf: patient?.cpf || 'Sem documento',
-        status: task.status,
-        priority: task.priority,
-        description: task.description,
-        sourceUnitId: task.sourceUnitId,
-        sourceUnitName: unit?.name || 'Unidade não identificada',
-        sourceUnitType: unit?.type || 'OUTRA',
-        targetUnitId: task.targetUnitId,
-        requesterId: task.requesterId,
-        ownerId: task.ownerId,
-        history: task.history || [],
-        createdAt: task.createdAt,
-        updatedAt: task.updatedAt,
-      };
-    });
   }
 
   return (

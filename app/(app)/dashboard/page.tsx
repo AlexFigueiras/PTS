@@ -6,7 +6,8 @@ import { ProfileCard } from './components/profile-card';
 import { PatientFiles } from './components/patient-files';
 import { LayoutGrid, List } from 'lucide-react';
 import { getAuthUser } from '@/lib/auth/get-user';
-import { getDb } from '@/lib/db/client';
+import { getDb, withTransactionContext } from '@/lib/db/client';
+import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { profiles } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -14,14 +15,17 @@ export const metadata = { title: 'Dashboard | MentalGest' };
 
 export default async function DashboardPage() {
   const user = await getAuthUser();
+  const ctx = await getActiveTenantContext();
   
-  const profile = user 
-    ? await getDb()
-        .select()
-        .from(profiles)
-        .where(eq(profiles.id, user.id))
-        .limit(1)
-        .then(r => r[0])
+  const profile = user && ctx
+    ? await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+        return await tx
+          .select()
+          .from(profiles)
+          .where(eq(profiles.id, user.id))
+          .limit(1)
+          .then((r: any[]) => r[0]);
+      })
     : null;
 
   const firstName = profile?.fullName?.split(' ')[0] ?? 'Profissional';
