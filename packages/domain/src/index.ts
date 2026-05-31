@@ -5,4 +5,5 @@ export * from './errors';
 export * from './fsm';
 export * from './action';
 export * from './signal';
+export * from './case';
 
