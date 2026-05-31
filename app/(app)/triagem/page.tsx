@@ -258,7 +258,10 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
                     </p>
                   </div>
                   <div className="flex items-center justify-end">
-                    <form action={initializeCaseAction}>
+                    <form action={async (formData) => {
+                      'use server';
+                      await initializeCaseAction(formData);
+                    }}>
                       <input type="hidden" name="patientId" value={c.patientId} />
                       <button
                         type="submit"

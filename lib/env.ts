@@ -1,19 +1,22 @@
 import { z } from 'zod';
 
+const emptyToUndefined = z.preprocess((val) => (val === '' ? undefined : val), z.string().min(1).optional());
+const emptyToUrlUndefined = z.preprocess((val) => (val === '' ? undefined : val), z.string().url().optional());
+
 const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
-  DATABASE_DIRECT_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  DATABASE_DIRECT_URL: emptyToUrlUndefined,
+  SUPABASE_SERVICE_ROLE_KEY: emptyToUndefined,
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   // Cloudflare R2 — server-only, NUNCA expor ao client
-  CLOUDFLARE_R2_ENDPOINT: z.string().url().optional(),
-  CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().min(1).optional(),
-  CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
-  CLOUDFLARE_R2_BUCKET_NAME: z.string().min(1).optional(),
+  CLOUDFLARE_R2_ENDPOINT: emptyToUrlUndefined,
+  CLOUDFLARE_R2_ACCESS_KEY_ID: emptyToUndefined,
+  CLOUDFLARE_R2_SECRET_ACCESS_KEY: emptyToUndefined,
+  CLOUDFLARE_R2_BUCKET_NAME: emptyToUndefined,
   // Resend (e-mail transacional) — server-only
-  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_API_KEY: emptyToUndefined,
   // AI Keys
-  GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEY: emptyToUndefined,
   // Feature flags — server-only
   RNDS_ENABLED: z.enum(['true', 'false']).optional().default('false').transform(v => v === 'true'),
 });

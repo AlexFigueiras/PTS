@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { withTransactionContext } from '@/lib/db/client';
-import { serviceUnits, patients, type PtsCase, type PtsPlan } from '@/lib/db/schema';
+import { serviceUnits, patients, ptsCases, type PtsCase, type PtsPlan } from '@/lib/db/schema';
 import { withAudit } from '@/lib/audit/with-audit';
 import { requireAnyRole, ForbiddenError } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';

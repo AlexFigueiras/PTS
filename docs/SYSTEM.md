@@ -589,6 +589,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-30 | Alinhamento do protótipo ao Plano Único Compartilhado (PTS unificado) e implementação completa do ciclo de vida de Ações (`PtsActionRepository`, `RecordActionService` com validação estrita da FSM do `@pts/domain` sob transação e Server Actions `createActionAction`/`transitionActionStatusAction`) |
 | 2026-05-31 | FSM de Caso (`case_status`) no core do `@pts/domain` com transições automáticas T5 e guarda de dono mínimo (R3.2) |
 | 2026-05-31 | Correção Estrutural de RLS (`withTransactionContext`) + FORCE RLS + Criação das 4 tabelas core de PTS/PIA (`pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`) com 10 estados da FSM de Caso e RLS real |
+| 2026-05-31 | Alinhamento de RBAC por unidade (RLS de caso robusto com trâmite intersetorial via sinalizações), fila de observação na triagem com ação de assumir caso e testes integrados simplificados sem mocks |
 
 
 
