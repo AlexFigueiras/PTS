@@ -1,5 +1,11 @@
 import type { PtsSchema } from '@/validations/pts-schema';
-import { DIMENSIONS, Dimension } from '@pts/domain';
+import {
+  DIMENSIONS,
+  Dimension,
+  getFieldDomain,
+  calculateDomainAverages,
+  FIELD_LABELS,
+} from '@pts/domain';
 
 export interface PtsAnalysis {
   improvementSuggestions: { field: string; label: string; score?: number }[];
@@ -14,106 +20,13 @@ export type PtsDomain = Dimension;
 
 export const PTS_DOMAINS = DIMENSIONS;
 
-/** Rótulos legíveis para as chaves de escore conhecidas. */
-export const FIELD_LABELS: Record<string, string> = {
-  psiquico: 'Domínio Psíquico',
-  saude: 'Domínio Saúde',
-  social: 'Domínio Social / Renda',
-  juridico: 'Domínio Jurídico / Direitos',
-  educacao: 'Domínio Educação / Trabalho',
-  'saude.autonomia': 'Domínio Autonomia (Saúde)',
-  autonomia: 'Domínio Autonomia / Cotidiano',
-  q15MotivationRating: 'Motivação para o Plano',
-  psSelfHarmThoughts: 'Sofrimento Psíquico',
-  psSleepDifficulty: 'Qualidade do Sono',
-  ssSocialBenefits: 'Acesso a Benefícios Sociais',
-  ssHealthAccess: 'Acesso à Saúde',
-  lgRightsViolation: 'Violação de Direitos',
-  edSchoolEnrollment: 'Vínculo Escolar',
-  toDailyIndependence: 'Independência no Cotidiano',
-
-  // Novos campos de alta fidelidade
-  efChronicDiseasesCount: 'Contador de Doenças Crônicas',
-  efContinuousMedsCount: 'Contador de Medicamentos Contínuos',
-  efEmergencyAdmissionsCount: 'Admissões de Emergência (12 meses)',
-  efKatzIndex: 'Índice de Independência de Katz',
-  ssIncomePerCapita: 'Renda Familiar Per Capita',
-  ssEbiaStatus: 'Segurança Alimentar (EBIA)',
-  ssCommunityVinc: 'Vínculos Comunitários (Ecomapa)',
-  ssSaneamentoAcesso: 'Acesso a Saneamento Básico',
-  srq20Score: 'Escore de Sofrimento Mental (SRQ-20)',
-  psCrisisCount: 'Crises Graves (CAPS/Urgência)',
-  psMedicationCompliance: 'Adesão à Farmacoterapia',
-  lgMissingDocuments: 'Ausência de Documentos Básicos',
-  lgActiveJudicialization: 'Processos de Judicialização Ativos',
-};
-
-/** Mapa explícito chave-de-escore → domínio. */
-export const FIELD_DOMAINS: Record<string, Dimension> = {
-  psiquico: 'psiquico',
-  saude: 'saude',
-  social: 'social',
-  juridico: 'juridico',
-  educacao: 'educacao',
-  'saude.autonomia': 'saude',
-  autonomia: 'saude',
-  q15MotivationRating: 'psiquico',
-  psSelfHarmThoughts: 'psiquico',
-  psSleepDifficulty: 'psiquico',
-  ssSocialBenefits: 'social',
-  ssHealthAccess: 'saude',
-  lgRightsViolation: 'juridico',
-  edSchoolEnrollment: 'educacao',
-  toDailyIndependence: 'saude',
-
-  // Novos campos
-  efChronicDiseasesCount: 'saude',
-  efContinuousMedsCount: 'saude',
-  efEmergencyAdmissionsCount: 'saude',
-  efKatzIndex: 'saude',
-  ssIncomePerCapita: 'social',
-  ssEbiaStatus: 'social',
-  ssCommunityVinc: 'social',
-  ssSaneamentoAcesso: 'social',
-  srq20Score: 'psiquico',
-  psCrisisCount: 'psiquico',
-  psMedicationCompliance: 'psiquico',
-  lgMissingDocuments: 'juridico',
-  lgActiveJudicialization: 'juridico',
-};
-
-export function getFieldDomain(field: string): Dimension {
-  if (FIELD_DOMAINS[field]) return FIELD_DOMAINS[field];
-  if (field.startsWith('ps')) return 'psiquico';
-  if (field.startsWith('ss')) return 'social';
-  if (field.startsWith('lg')) return 'juridico';
-  if (field.startsWith('ed')) return 'educacao';
-  if (field.startsWith('to')) return 'saude'; // Autonomia mapeada para Saúde
-  if (field.startsWith('ef') || field.startsWith('nt')) return 'saude';
-  return 'saude';
-}
-
-function emptyDomainRecord(): Record<Dimension, number> {
-  return { saude: 0, social: 0, psiquico: 0, juridico: 0, educacao: 0 };
-}
-
-export function calculateDomainAverages(scores: Record<string, number>): Record<Dimension, number> {
-  const sums = emptyDomainRecord();
-  const counts = emptyDomainRecord();
-
-  Object.entries(scores).forEach(([field, score]) => {
-    const domain = getFieldDomain(field);
-    sums[domain] += score;
-    counts[domain] += 1;
-  });
-
-  const avgs = emptyDomainRecord();
-  DIMENSIONS.forEach((d) => {
-    avgs[d] = counts[d] > 0 ? Number((sums[d] / counts[d]).toFixed(1)) : 0;
-  });
-
-  return avgs;
-}
+// Re-exporta chaves e funções públicas p/ preservar a retrocompatibilidade com callers
+export {
+  FIELD_LABELS,
+  FIELD_DOMAINS,
+  getFieldDomain,
+  calculateDomainAverages,
+} from '@pts/domain';
 
 export function analyzePtsState(data: PtsSchema): PtsAnalysis {
   const analysis: PtsAnalysis = {
