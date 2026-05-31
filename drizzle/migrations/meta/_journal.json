@@ -155,6 +155,13 @@
       "when": 1780253482798,
       "tag": "0021_peaceful_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1780253500000,
+      "tag": "0022_adjust_cases_rls",
+      "breakpoints": true
     }
   ]
 }
