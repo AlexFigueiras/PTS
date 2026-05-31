@@ -3,8 +3,21 @@ import { DimensionScore } from './legacy-axis';
 import { getFieldDomain, emptyDomainRecord } from './field-mapping';
 
 /**
+ * Helper interno para calcular a média arredondada com 1 casa decimal.
+ * Retorna undefined se a lista de valores estiver vazia.
+ */
+function average(values: number[]): number | undefined {
+  if (values.length === 0) {
+    return undefined;
+  }
+  const sum = values.reduce((acc, val) => acc + val, 0);
+  return Number((sum / values.length).toFixed(1));
+}
+
+/**
  * Calcula a média simples dos escores para cada uma das dimensões canônicas,
  * arredondado para uma casa decimal.
+ * Inclui todos os campos do domínio (incluindo os de autonomia).
  */
 export function calculateDomainAverages(scores: Record<string, number>): Record<Dimension, number> {
   const sums = emptyDomainRecord();
@@ -26,28 +39,31 @@ export function calculateDomainAverages(scores: Record<string, number>): Record<
 
 /**
  * Deriva as pontuações e sub-scores de autonomia para todas as dimensões do PTS.
- * A autonomia de cada dimensão é calculada apenas se houver campos de autonomia correspondentes.
+ * O score-base e a autonomia de cada dimensão são calculados de forma separada
+ * e independente para evitar contagem dupla de campos de autonomia.
  */
 export function deriveDimensionScores(scores: Record<string, number>): DimensionScore[] {
-  const avgs = calculateDomainAverages(scores);
-
   const isAutonomyField = (field: string) => {
     return field === 'saude.autonomia' || field === 'autonomia' || field.startsWith('to');
   };
 
   return DIMENSIONS.map((d) => {
-    const autonomyValues = Object.entries(scores)
-      .filter(([field]) => getFieldDomain(field) === d && isAutonomyField(field))
+    const dimensionFields = Object.entries(scores).filter(
+      ([field]) => getFieldDomain(field) === d
+    );
+
+    const baseValues = dimensionFields
+      .filter(([field]) => !isAutonomyField(field))
       .map(([_, val]) => val);
 
-    const autonomy = autonomyValues.length > 0
-      ? Number((autonomyValues.reduce((sum, val) => sum + val, 0) / autonomyValues.length).toFixed(1))
-      : undefined;
+    const autonomyValues = dimensionFields
+      .filter(([field]) => isAutonomyField(field))
+      .map(([_, val]) => val);
 
     return {
       dimension: d,
-      score: avgs[d],
-      autonomy,
+      score: average(baseValues) ?? 0,
+      autonomy: average(autonomyValues),
     };
   });
 }

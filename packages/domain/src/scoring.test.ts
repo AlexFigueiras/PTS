@@ -1,59 +1,127 @@
 import { describe, it, expect } from 'vitest';
 import { calculateDomainAverages, deriveDimensionScores } from './scoring';
+import { DIMENSIONS } from './dimensions';
 
 describe('scoring (domain puro)', () => {
   describe('calculateDomainAverages', () => {
-    it('calcula a média simples correta com arredondamento de 1 casa decimal', () => {
+    it('calcula a média simples com arredondamento de 1 casa decimal', () => {
       const scores = {
         // Psíquico: (3 + 4 + 1.5) / 3 = 2.833... -> 2.8
         psSelfHarmThoughts: 3,
         psSleepDifficulty: 4,
         q15MotivationRating: 1.5,
-
-        // Saúde: (2 + 3) / 2 = 2.5
-        efChronicDiseasesCount: 2,
-        toDailyIndependence: 3,
-
-        // Social: 1 / 1 = 1.0
-        ssSocialBenefits: 1,
       };
-
       const avgs = calculateDomainAverages(scores);
       expect(avgs.psiquico).toBe(2.8);
-      expect(avgs.saude).toBe(2.5);
-      expect(avgs.social).toBe(1.0);
-      expect(avgs.juridico).toBe(0); // Sem campos -> 0
-      expect(avgs.educacao).toBe(0); // Sem campos -> 0
+    });
+
+    it('inclui campos de autonomia no cálculo do domínio geral (preserva o contrato antigo)', () => {
+      const scores = {
+        // Saúde: tem campos base e de autonomia
+        efChronicDiseasesCount: 2, // base
+        autonomia: 3.5,            // autonomia
+        toDailyIndependence: 2.5,  // autonomia
+      };
+      // Total geral: (2 + 3.5 + 2.5) / 3 = 2.666... -> 2.7
+      const avgs = calculateDomainAverages(scores);
+      expect(avgs.saude).toBe(2.7);
+    });
+
+    it('retorna 0 para dimensão sem qualquer campo', () => {
+      const scores = {};
+      const avgs = calculateDomainAverages(scores);
+      expect(avgs.juridico).toBe(0);
+      expect(avgs.educacao).toBe(0);
     });
   });
 
   describe('deriveDimensionScores', () => {
-    it('deriva pontuações de dimensões e preenche sub-scores de autonomia corretamente', () => {
+    it('score-base exclui campos de autonomia e evita dupla contagem', () => {
       const scores = {
-        // Saúde: tem campos normais e campos de autonomia
-        efChronicDiseasesCount: 2, // Geral
-        autonomia: 3.5,            // Autonomia
-        toDailyIndependence: 2.5,  // Autonomia
-
-        // Psíquico: geral apenas
-        psSelfHarmThoughts: 3,
+        efChronicDiseasesCount: 2, // base (Saúde)
+        autonomia: 3.5,            // autonomia (Saúde)
+        toDailyIndependence: 2.5,  // autonomia (Saúde)
       };
 
       const dimensionScores = deriveDimensionScores(scores);
-
-      // Encontra Saúde
       const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
-      expect(saudeScore).toBeDefined();
-      // Média Saúde geral: (2 + 3.5 + 2.5) / 3 = 2.666... -> 2.7
-      expect(saudeScore?.score).toBe(2.7);
-      // Média Autonomia (apenas 'autonomia' e 'toDailyIndependence'): (3.5 + 2.5) / 2 = 3.0
-      expect(saudeScore?.autonomy).toBe(3.0);
 
-      // Encontra Psíquico
-      const psiquicoScore = dimensionScores.find((d) => d.dimension === 'psiquico');
-      expect(psiquicoScore).toBeDefined();
-      expect(psiquicoScore?.score).toBe(3.0);
-      expect(psiquicoScore?.autonomy).toBeUndefined(); // Sem campos de autonomia em psíquico
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.score).toBe(2.0);    // Apenas efChronicDiseasesCount
+      expect(saudeScore?.autonomy).toBe(3.0); // Média de 3.5 e 2.5
+    });
+
+    it('autonomy com campo único (autonomia) retorna o próprio valor do campo', () => {
+      const scores = {
+        autonomia: 3.5, // autonomia (Saúde)
+      };
+
+      const dimensionScores = deriveDimensionScores(scores);
+      const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
+
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.autonomy).toBe(3.5);
+    });
+
+    it('saude.autonomia participa do autonomy', () => {
+      const scores = {
+        'saude.autonomia': 4, // autonomia (Saúde)
+      };
+
+      const dimensionScores = deriveDimensionScores(scores);
+      const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
+
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.autonomy).toBe(4.0);
+    });
+
+    it('dimensão apenas com campo de autonomia retorna score = 0 e autonomy = média calculada', () => {
+      const scores = {
+        autonomia: 3.0,
+      };
+
+      const dimensionScores = deriveDimensionScores(scores);
+      const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
+
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.score).toBe(0);
+      expect(saudeScore?.autonomy).toBe(3.0);
+    });
+
+    it('dimensão totalmente vazia retorna score = 0 e autonomy = undefined', () => {
+      const scores = {};
+
+      const dimensionScores = deriveDimensionScores(scores);
+      const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
+
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.score).toBe(0);
+      expect(saudeScore?.autonomy).toBeUndefined();
+    });
+
+    it('dimensão apenas com campos base retorna autonomy = undefined e score = média deles', () => {
+      const scores = {
+        efChronicDiseasesCount: 2,
+        efContinuousMedsCount: 4,
+      };
+
+      const dimensionScores = deriveDimensionScores(scores);
+      const saudeScore = dimensionScores.find((d) => d.dimension === 'saude');
+
+      expect(saudeScore).toBeDefined();
+      expect(saudeScore?.score).toBe(3.0);
+      expect(saudeScore?.autonomy).toBeUndefined();
+    });
+
+    it('retorna uma entrada para CADA uma das DIMENSIONS canônicas', () => {
+      const scores = {};
+      const dimensionScores = deriveDimensionScores(scores);
+
+      expect(dimensionScores).toHaveLength(DIMENSIONS.length);
+      DIMENSIONS.forEach((d) => {
+        const found = dimensionScores.find((ds) => ds.dimension === d);
+        expect(found).toBeDefined();
+      });
     });
   });
 });
