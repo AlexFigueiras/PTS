@@ -1,4 +1,4 @@
-import { getAuthenticatedDb, type Database } from '@/lib/db/client';
+import { type Database } from '@/lib/db/client';
 import { type TenantContext, assertTenantContext } from '@/lib/tenant-context';
 
 /**
@@ -9,7 +9,12 @@ import { type TenantContext, assertTenantContext } from '@/lib/tenant-context';
  * Repositories NÃO contêm regras de negócio nem validação — apenas queries.
  */
 export abstract class BaseTenantRepository {
-  protected get db(): Database { return getAuthenticatedDb(this.tenantId); }
+  protected get db(): Database {
+    throw new Error(
+      'Direct database access outside an explicit transaction context (tx) is disabled for this repository. ' +
+      'Please instantiate the repository passing a tx transaction context inside withTransactionContext.'
+    );
+  }
   protected readonly ctx: TenantContext;
 
   constructor(ctx: TenantContext) {
@@ -21,3 +26,4 @@ export abstract class BaseTenantRepository {
     return this.ctx.tenantId;
   }
 }
+

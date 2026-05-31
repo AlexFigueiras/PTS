@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { getServerEnv } from '@/lib/env';
 import * as schema from './schema';
@@ -42,10 +43,28 @@ export function getSql() {
   return getClient().sql;
 }
 
+export async function withTransactionContext<T>(
+  userId: string,
+  tenantId: string,
+  callback: (tx: any) => Promise<T>
+): Promise<T> {
+  return getDb().transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT set_config('request.jwt.claims', json_build_object('sub', ${userId})::text, true)`
+    );
+    await tx.execute(
+      sql`SELECT set_config('request.current_tenant_id', ${tenantId}, true)`
+    );
+    return callback(tx);
+  });
+}
+
 export function getAuthenticatedDb(tenantId: string) {
-  // Retorna a conexão com o banco e garante registro do tenantId para o RLS real
-  return getClient().db;
+  throw new Error(
+    'getAuthenticatedDb is deprecated. Use withTransactionContext to safely execute operations under a tenant-authenticated transaction.'
+  );
 }
 
 export type Database = ReturnType<typeof getDb>;
+
 

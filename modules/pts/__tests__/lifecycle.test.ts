@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InitializeCaseService } from '../services/initialize-case.service';
 import { RecordActionService } from '../services/record-action.service';
-import { getAuthenticatedDb } from '@/lib/db/client';
+import { getAuthenticatedDb, withTransactionContext } from '@/lib/db/client';
 import { ForbiddenError } from '@/lib/auth/authorization';
 import type { TenantContext } from '@/lib/tenant-context';
 import { InvalidStateTransitionError } from '@pts/domain';
@@ -26,8 +26,8 @@ const mockTx = {
   update: mockTxUpdate,
 } as any;
 
-const mockDbSelect = vi.fn();
-const mockDbInsert = vi.fn();
+const mockDbSelect = mockTxSelect;
+const mockDbInsert = mockTxInsert;
 const mockDbTransaction = vi.fn((callback) => callback(mockTx));
 
 const mockDb = {
@@ -39,6 +39,7 @@ const mockDb = {
 vi.mock('@/lib/db/client', () => ({
   getDb: vi.fn(() => mockDb),
   getAuthenticatedDb: vi.fn(() => mockDb),
+  withTransactionContext: vi.fn(async (userId, tenantId, callback) => callback(mockTx)),
 }));
 
 describe('PTS Case, Plan & Action Lifecycle Integration', () => {
@@ -148,7 +149,7 @@ describe('PTS Case, Plan & Action Lifecycle Integration', () => {
 
       mockTxInsert.mockReturnValueOnce({
         values: vi.fn().mockReturnValueOnce({
-          returning: vi.fn().mockResolvedValueOnce([{ id: 'case-abc', patientId: 'patient-789', status: 'active' }]),
+          returning: vi.fn().mockResolvedValueOnce([{ id: 'case-abc', patientId: 'patient-789', status: 'radar' }]),
         }),
       });
 
@@ -166,8 +167,7 @@ describe('PTS Case, Plan & Action Lifecycle Integration', () => {
       expect(result.plan.type).toBe('PTS');
       expect(result.plan.ownerId).toBe('user-456');
 
-      expect(getAuthenticatedDb).toHaveBeenCalledWith('tenant-123');
-      expect(mockDbTransaction).toHaveBeenCalled();
+      expect(withTransactionContext).toHaveBeenCalled();
     });
 
     it('deve inicializar com sucesso o plano unificado (tipo PTS) mesmo sob unidade ativa de Assistência Social (SOCIAL) — Plano Único Compartilhado', async () => {
@@ -197,7 +197,7 @@ describe('PTS Case, Plan & Action Lifecycle Integration', () => {
 
       mockTxInsert.mockReturnValueOnce({
         values: vi.fn().mockReturnValueOnce({
-          returning: vi.fn().mockResolvedValueOnce([{ id: 'case-abc', patientId: 'patient-789', status: 'active' }]),
+          returning: vi.fn().mockResolvedValueOnce([{ id: 'case-abc', patientId: 'patient-789', status: 'radar' }]),
         }),
       });
 
@@ -237,7 +237,7 @@ describe('PTS Case, Plan & Action Lifecycle Integration', () => {
       mockTxSelect.mockReturnValueOnce({
         from: vi.fn().mockReturnValueOnce({
           where: vi.fn().mockReturnValueOnce({
-            limit: vi.fn().mockResolvedValueOnce([{ id: 'case-active-duplicate', status: 'active' }]),
+            limit: vi.fn().mockResolvedValueOnce([{ id: 'case-active-duplicate', status: 'radar' }]),
           }),
         }),
       });

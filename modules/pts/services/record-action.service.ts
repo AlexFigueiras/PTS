@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { getAuthenticatedDb } from '@/lib/db/client';
+import { withTransactionContext } from '@/lib/db/client';
 import { ptsActions, type PtsAction } from '@/lib/db/schema';
 import { withAudit } from '@/lib/audit/with-audit';
 import { requireAnyRole, ForbiddenError } from '@/lib/auth/authorization';
@@ -40,8 +40,7 @@ const createActionAudited = withAudit<CreateActionInput, PtsAction>(
       throw new ForbiddenError('Acesso negado: o profissional técnico precisa ter uma unidade ativa selecionada.');
     }
 
-    const dbClient = getAuthenticatedDb(ctx.tenantId);
-    return await dbClient.transaction(async (tx) => {
+    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
       const repo = new PtsActionRepository(ctx, tx);
       return await repo.createAction({
         planId: input.planId,
@@ -71,8 +70,7 @@ const transitionActionAudited = withAudit<TransitionActionInput, PtsAction>(
       throw new ForbiddenError('Acesso negado: o profissional técnico precisa ter uma unidade ativa selecionada.');
     }
 
-    const dbClient = getAuthenticatedDb(ctx.tenantId);
-    return await dbClient.transaction(async (tx) => {
+    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
       const repo = new PtsActionRepository(ctx, tx);
       const action = await repo.findById(input.actionId);
       if (!action) {
