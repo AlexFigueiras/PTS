@@ -239,9 +239,9 @@ groups · group_facilitators · group_memberships · group_sessions · group_att
 - Senão (signup normal) → cria `tenants`, `tenant_members` (role `owner`) e **marca o profile como ADMIN/ACTIVE** (o signup só é usado por Administrador Geral bootstrappando um município).
 
 ### 7.4 RLS
-Migração 0001 ativa RLS em todas as tabelas. O app usa a role `postgres` (bypassa RLS) — autorização é feita em código via `TenantContext`. RLS é **defense-in-depth** contra acesso direto via Supabase anon/authenticated keys.
-
-> **Desvio deliberado e documentado do plano §2.1.** O plano fixou "Sem ORM" (supabase-js direto, RLS nativo). A decisão consciente do projeto foi **manter Drizzle + postgres-js** (preserva o código que funciona e a type-safety) — não é desvio acidental nem deve ser revertido. A contrapartida acordada é **tornar o RLS real**: client request-scoped operando como role `authenticated` com propagação de claims por transação, em vez de conectar como `postgres`. Essa aplicação do RLS real está **pendente na Fase 0**. Até lá, o isolamento depende exclusivamente do `TenantContext` em código.
+Migração 0001 ativa RLS em todas as tabelas. O app usa a role `postgres` (bypassa RLS) por padrão. No entanto, para mitigar esse bypass sob superusuário e forçar as travas RLS reais, adotamos duas defesas:
+- **`FORCE ROW LEVEL SECURITY`**: Aplicado explicitamente nas tabelas de banco de dados (ex: `pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`) para que as políticas afetem o superusuário de forma impositiva.
+- **`withTransactionContext`**: Wrapper transacional em `lib/db/client.ts`. Ele encapsula queries de requisições autenticadas dentro de uma transação local, injetando as claims de JWT do Supabase (`request.jwt.claims`) com a claim `'sub'` correspondente ao `userId` e o `tenantId`. Isso simula nativamente a sessão do Supabase no Postgres, garantindo que as políticas e a função `get_my_tenant_ids()` funcionem com total segurança e paridade de RLS.
 
 ### 7.5 Estratégia de domínio clínico — Híbrida
 
@@ -588,6 +588,8 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-30 | Implementação do comportamento lógico de Casos/Planos intersetoriais (`PtsCaseRepository`, `PtsPlanRepository`, `InitializeCaseService` com RBAC de fronteira intersetorial, Server Action `initializeCaseAction` e testes de integração de ciclo de vida `lifecycle.test.ts`) |
 | 2026-05-30 | Alinhamento do protótipo ao Plano Único Compartilhado (PTS unificado) e implementação completa do ciclo de vida de Ações (`PtsActionRepository`, `RecordActionService` com validação estrita da FSM do `@pts/domain` sob transação e Server Actions `createActionAction`/`transitionActionStatusAction`) |
 | 2026-05-31 | FSM de Caso (`case_status`) no core do `@pts/domain` com transições automáticas T5 e guarda de dono mínimo (R3.2) |
+| 2026-05-31 | Correção Estrutural de RLS (`withTransactionContext`) + FORCE RLS + Criação das 4 tabelas core de PTS/PIA (`pts_cases`, `pts_plans`, `pts_actions`, `pts_signals`) com 10 estados da FSM de Caso e RLS real |
+
 
 
 > **Nota:** entregas datadas foram realizadas antes da adoção da numeração de fases do plano; acima estão **remapeadas** para as Fases 0–2 conforme o tema. A suíte Playwright (e2e) entra como parte do gate de qualidade da Fase 0/contínuo.

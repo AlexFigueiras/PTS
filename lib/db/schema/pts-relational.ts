@@ -1,9 +1,22 @@
-import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 import { patients } from './patients';
 import { profiles } from './profiles';
 import { serviceUnits } from './service-units';
-import type { ActionStatus, SignalStatus, SignalPriority } from '@pts/domain';
+import type { ActionStatus, SignalStatus, SignalPriority, CaseStatus } from '@pts/domain';
+
+export const caseStatusEnum = pgEnum('case_status', [
+  'radar',
+  'observacao',
+  'acompanhamento',
+  'pts_ativo',
+  'pia_ativo',
+  'alta',
+  'evasao',
+  'transferencia',
+  'obito',
+  'recusa',
+]);
 
 /**
  * Tabela de Casos (pts_cases):
@@ -17,7 +30,7 @@ export const ptsCases = pgTable('pts_cases', {
   patientId: uuid('patient_id')
     .notNull()
     .references(() => patients.id, { onDelete: 'cascade' }),
-  status: text('status').$type<'active' | 'closed'>().notNull().default('active'),
+  status: caseStatusEnum('status').$type<CaseStatus>().notNull().default('radar'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

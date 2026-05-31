@@ -1,7 +1,8 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import type { TenantContext } from '@/lib/tenant-context';
 import { ptsCases, type PtsCase } from '@/lib/db/schema';
+import type { CaseStatus } from '@pts/domain';
 
 export class PtsCaseRepository extends BaseTenantRepository {
   private readonly tx?: any;
@@ -15,7 +16,7 @@ export class PtsCaseRepository extends BaseTenantRepository {
     return this.tx ?? super.db;
   }
 
-  async createCase(patientId: string, status: 'active' | 'closed' = 'active'): Promise<PtsCase> {
+  async createCase(patientId: string, status: CaseStatus = 'radar'): Promise<PtsCase> {
     const [row] = await this.db
       .insert(ptsCases)
       .values({
@@ -44,10 +45,17 @@ export class PtsCaseRepository extends BaseTenantRepository {
         and(
           eq(ptsCases.patientId, patientId),
           eq(ptsCases.tenantId, this.tenantId),
-          eq(ptsCases.status, 'active')
+          inArray(ptsCases.status, [
+            'radar',
+            'observacao',
+            'acompanhamento',
+            'pts_ativo',
+            'pia_ativo',
+          ])
         )
       )
       .limit(1);
     return row;
   }
 }
+

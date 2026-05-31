@@ -148,6 +148,13 @@
       "when": 1779480932000,
       "tag": "0020_recreate_intersectoral_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780253482798,
+      "tag": "0021_peaceful_silver_fox",
+      "breakpoints": true
     }
   ]
 }
