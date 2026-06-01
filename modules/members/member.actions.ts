@@ -5,6 +5,7 @@ import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { ForbiddenError, requireRole } from '@/lib/auth/authorization';
 import { MemberRepository } from './member.repository';
 import { updateMemberRoleSchema, removeMemberSchema } from './member.dto';
+import { withTransactionContext } from '@/lib/db/client';
 
 export type MemberActionState = { error: string | null };
 
@@ -35,8 +36,11 @@ export async function updateMemberRoleAction(
   }
 
   try {
-    const repo = new MemberRepository(ctx);
-    await repo.updateRole(parsed.data.userId, parsed.data.role);
+    const success = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      const repo = new MemberRepository({ ...ctx, tx });
+      return await repo.updateRole(parsed.data.userId, parsed.data.role);
+    });
+    if (!success) return { error: 'Usuário não encontrado ou não pertence a este município.' };
     revalidatePath('/settings/team');
     return { error: null };
   } catch (err) {
@@ -60,8 +64,10 @@ export async function removeMemberFormAction(formData: FormData): Promise<void> 
   if (parsed.data.userId === ctx.userId) return;
 
   try {
-    const repo = new MemberRepository(ctx);
-    await repo.remove(parsed.data.userId);
+    await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      const repo = new MemberRepository({ ...ctx, tx });
+      await repo.remove(parsed.data.userId);
+    });
     revalidatePath('/settings/team');
   } catch {
     return;
