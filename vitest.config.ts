@@ -17,6 +17,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      '@pts/domain': path.resolve(__dirname, './packages/domain/src/index.ts'),
+      '@pts/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
     },
   },
 });

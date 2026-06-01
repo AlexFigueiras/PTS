@@ -9,13 +9,15 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Users
+  Users,
+  Inbox
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/patients', label: 'Cidadãos', icon: UsersRound },
+  { href: '/triagem', label: 'Triagem', icon: Inbox },
   { href: '/groups', label: 'Grupos', icon: Users },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];

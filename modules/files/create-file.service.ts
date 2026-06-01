@@ -5,6 +5,7 @@ import type { TenantContext } from '@/lib/tenant-context';
 import { FileRepository } from './file.repository';
 import { toFileDto } from './file.mapper';
 import type { CreateFileInput, FileDto } from './file.dto';
+import { withTransactionContext } from '@/lib/db/client';
 
 const createFileAudited = withAudit<CreateFileInput, FileDto>(
   {
@@ -26,18 +27,21 @@ const createFileAudited = withAudit<CreateFileInput, FileDto>(
       throw new Error('Acesso negado: arquivo não pertence a este tenant');
     }
 
-    const repo = new FileRepository(ctx);
-    const row = await repo.create({
-      entityType: input.entityType,
-      entityId: input.entityId,
-      storageKey: input.storageKey,
-      originalName: input.originalName,
-      mimeType: input.mimeType,
-      size: input.size,
-      uploadedBy: ctx.userId,
-    });
+    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      const txCtx = { ...ctx, tx };
+      const repo = new FileRepository(txCtx);
+      const row = await repo.create({
+        entityType: input.entityType,
+        entityId: input.entityId,
+        storageKey: input.storageKey,
+        originalName: input.originalName,
+        mimeType: input.mimeType,
+        size: input.size,
+        uploadedBy: ctx.userId,
+      });
 
-    return toFileDto(row);
+      return toFileDto(row);
+    });
   },
 );
 

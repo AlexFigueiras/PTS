@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';
 import type { TenantContext } from '@/lib/tenant-context';
 import { FileRepository } from './file.repository';
+import { withTransactionContext } from '@/lib/db/client';
 
 const deleteFileAudited = withAudit<string, void>(
   {
@@ -13,9 +14,12 @@ const deleteFileAudited = withAudit<string, void>(
   },
   async (ctx: TenantContext, fileId: string): Promise<void> => {
     requireRole(ctx, 'MANAGER');
-    const repo = new FileRepository(ctx);
-    const deleted = await repo.softDelete(fileId);
-    if (!deleted) throw new Error(`Arquivo ${fileId} não encontrado ou já removido`);
+    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      const txCtx = { ...ctx, tx };
+      const repo = new FileRepository(txCtx);
+      const deleted = await repo.softDelete(fileId);
+      if (!deleted) throw new Error(`Arquivo ${fileId} não encontrado ou já removido`);
+    });
   },
 );
 
