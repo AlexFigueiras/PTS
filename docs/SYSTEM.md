@@ -608,7 +608,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-31 | Estabilização e Correção do Pipeline da Vercel: Resolução definitiva de erros de tipagem no compilador (Next.js 16/React 19) no formulário de triagem (`initializeCaseFormAction`), tipagem explícita de eventos do mouse no componente `multi-select.tsx` e higienização do monorepo local |
 | 2026-06-01 | Estabilização de Infraestrutura: Adicionado casting explícito (`::text`) para os parâmetros SQL da transação em `withTransactionContext` para evitar erros de tipo sob o pooler estrito do Supabase em produção |
 | 2026-06-01 | Estabilização de RLS e Auditoria: Propagação de transação (`tx`) via `TenantContext` no getter `db` de `BaseTenantRepository` para garantir conformidade automática em todas as queries e mutações (`CreatePatientService`, `UpdatePatientService`, `GetPatientService` e repositório `AuditLogRepository`) sob o strict connection pooler de produção |
-| 2026-06-01 | Correção de RLS em Configurações & Seeding: Resolução de erro em tempo de renderização nas telas de Unidades e Equipe encapsulando consultas e repositórios no wrapper transacional `withTransactionContext` sob RLS ativo, e suporte a transações em seletores. Criação do script de seed de simulação de roteiro real (`seed-real-simulation.mjs`). |
+| 2026-06-01 | Correção de RLS em Configurações & Seeding: Resolução de erro em tempo de renderização nas telas e nas Server Actions de cadastro/edição/exclusão de Unidades e no fluxo de convites de Equipe (invite), encapsulando a execução dos serviços no wrapper transacional `withTransactionContext` sob RLS ativo. Criação do script de seed de simulação de roteiro real (`seed-real-simulation.mjs`). |
 
 
 

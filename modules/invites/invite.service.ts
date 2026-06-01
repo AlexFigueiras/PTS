@@ -56,7 +56,7 @@ export class SendProfessionalInviteService extends BaseService {
       throw new ForbiddenError('Gerentes só podem convidar Profissionais Técnicos.');
     }
 
-    const db = getDb();
+    const db = this.ctx.tx || getDb();
     const email = input.email.toLowerCase().trim();
 
     // A unidade alvo precisa pertencer ao tenant ativo.

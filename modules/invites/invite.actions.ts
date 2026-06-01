@@ -8,6 +8,7 @@ import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { ForbiddenError } from '@/lib/auth/authorization';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { SendProfessionalInviteService, ActivateAccountService } from './invite.service';
+import { withTransactionContext } from '@/lib/db/client';
 
 export type InviteActionState = { error: string | null; success: string | null };
 
@@ -48,7 +49,9 @@ export async function sendProfessionalInviteAction(
   }
 
   try {
-    const result = await new SendProfessionalInviteService(ctx).execute(parsed.data);
+    const result = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      return await new SendProfessionalInviteService({ ...ctx, tx }).execute(parsed.data);
+    });
     revalidatePath('/settings/team');
 
     const success =

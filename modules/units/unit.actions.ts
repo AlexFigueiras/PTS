@@ -9,6 +9,7 @@ import { createUnitSchema, updateUnitSchema } from './unit.dto';
 import { CreateUnitService } from './create-unit.service';
 import { UpdateUnitService } from './update-unit.service';
 import { DeleteUnitService } from './delete-unit.service';
+import { withTransactionContext } from '@/lib/db/client';
 
 export type SetActiveUnitState = { error: string | null };
 export type UnitActionState = { error: string | null; success: string | null };
@@ -67,7 +68,9 @@ export async function createUnitAction(
   }
 
   try {
-    await new CreateUnitService(ctx).execute(parsed.data);
+    await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      await new CreateUnitService({ ...ctx, tx }).execute(parsed.data);
+    });
     revalidatePath('/settings/units');
     return { error: null, success: 'Unidade criada com sucesso!' };
   } catch (err) {
@@ -104,7 +107,9 @@ export async function updateUnitAction(
   }
 
   try {
-    const updated = await new UpdateUnitService(ctx).execute(parsed.data);
+    const updated = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      return await new UpdateUnitService({ ...ctx, tx }).execute(parsed.data);
+    });
     if (!updated) {
       return { error: 'Unidade não encontrada ou não pertence a este município.', success: null };
     }
@@ -126,7 +131,9 @@ export async function deleteUnitAction(id: string): Promise<UnitActionState> {
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
 
   try {
-    const deleted = await new DeleteUnitService(ctx).execute(id);
+    const deleted = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+      return await new DeleteUnitService({ ...ctx, tx }).execute(id);
+    });
     if (!deleted) {
       return { error: 'Unidade não encontrada ou não pertence a este município.', success: null };
     }
