@@ -11,18 +11,22 @@ CREATE TABLE IF NOT EXISTS "identifier_tokens" (
 
 ALTER TABLE "identifier_tokens" ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "identifier_tokens_tenant_select" ON "identifier_tokens";
 CREATE POLICY "identifier_tokens_tenant_select" ON "identifier_tokens"
   FOR SELECT TO authenticated
   USING (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "identifier_tokens_tenant_insert" ON "identifier_tokens";
 CREATE POLICY "identifier_tokens_tenant_insert" ON "identifier_tokens"
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "identifier_tokens_tenant_update" ON "identifier_tokens";
 CREATE POLICY "identifier_tokens_tenant_update" ON "identifier_tokens"
   FOR UPDATE TO authenticated
   USING (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "identifier_tokens_tenant_delete" ON "identifier_tokens";
 CREATE POLICY "identifier_tokens_tenant_delete" ON "identifier_tokens"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));

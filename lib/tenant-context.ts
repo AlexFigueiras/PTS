@@ -14,6 +14,8 @@ export type TenantContext = {
   role: UserRole;
   /** Unidade de atuação ativa no multi-vínculo. Null se o usuário não tem unidade. */
   activeUnitId: string | null;
+  /** Transação ativa (drizzle transaction client) para RLS sob strict transaction pooler */
+  tx?: any;
 };
 
 export class TenantAccessError extends Error {

@@ -15,18 +15,22 @@ CREATE TABLE IF NOT EXISTS "patient_consents" (
 
 ALTER TABLE "patient_consents" ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "patient_consents_tenant_select" ON "patient_consents";
 CREATE POLICY "patient_consents_tenant_select" ON "patient_consents"
   FOR SELECT TO authenticated
   USING (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "patient_consents_tenant_insert" ON "patient_consents";
 CREATE POLICY "patient_consents_tenant_insert" ON "patient_consents"
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "patient_consents_tenant_update" ON "patient_consents";
 CREATE POLICY "patient_consents_tenant_update" ON "patient_consents"
   FOR UPDATE TO authenticated
   USING (tenant_id IN (SELECT get_my_tenant_ids()));
 
+DROP POLICY IF EXISTS "patient_consents_tenant_delete" ON "patient_consents";
 CREATE POLICY "patient_consents_tenant_delete" ON "patient_consents"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));

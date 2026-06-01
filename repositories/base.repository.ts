@@ -10,6 +10,9 @@ import { type TenantContext, assertTenantContext } from '@/lib/tenant-context';
  */
 export abstract class BaseTenantRepository {
   protected get db(): Database {
+    if (this.ctx.tx) {
+      return this.ctx.tx;
+    }
     throw new Error(
       'Direct database access outside an explicit transaction context (tx) is disabled for this repository. ' +
       'Please instantiate the repository passing a tx transaction context inside withTransactionContext.'

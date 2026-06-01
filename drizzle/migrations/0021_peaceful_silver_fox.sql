@@ -1,6 +1,6 @@
-CREATE TYPE "public"."case_status" AS ENUM('radar', 'observacao', 'acompanhamento', 'pts_ativo', 'pia_ativo', 'alta', 'evasao', 'transferencia', 'obito', 'recusa');
+DO $$ BEGIN CREATE TYPE "public"."case_status" AS ENUM('radar', 'observacao', 'acompanhamento', 'pts_ativo', 'pia_ativo', 'alta', 'evasao', 'transferencia', 'obito', 'recusa'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 --> statement-breakpoint
-CREATE TABLE "pts_cases" (
+CREATE TABLE IF NOT EXISTS "pts_cases" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"patient_id" uuid NOT NULL,
@@ -32,7 +32,7 @@ CREATE POLICY "pts_cases_tenant_delete" ON "pts_cases"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));
 --> statement-breakpoint
-CREATE TABLE "pts_plans" (
+CREATE TABLE IF NOT EXISTS "pts_plans" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"case_id" uuid NOT NULL,
@@ -67,7 +67,7 @@ CREATE POLICY "pts_plans_tenant_delete" ON "pts_plans"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));
 --> statement-breakpoint
-CREATE TABLE "pts_actions" (
+CREATE TABLE IF NOT EXISTS "pts_actions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"plan_id" uuid NOT NULL,
@@ -104,7 +104,7 @@ CREATE POLICY "pts_actions_tenant_delete" ON "pts_actions"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));
 --> statement-breakpoint
-CREATE TABLE "pts_signals" (
+CREATE TABLE IF NOT EXISTS "pts_signals" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"case_id" uuid NOT NULL,
@@ -141,15 +141,15 @@ CREATE POLICY "pts_signals_tenant_delete" ON "pts_signals"
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT get_my_admin_tenant_ids()));
 --> statement-breakpoint
-ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_plan_id_pts_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."pts_plans"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_responsible_unit_id_service_units_id_fk" FOREIGN KEY ("responsible_unit_id") REFERENCES "public"."service_units"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_assigned_professional_id_profiles_id_fk" FOREIGN KEY ("assigned_professional_id") REFERENCES "public"."profiles"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_cases" ADD CONSTRAINT "pts_cases_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_cases" ADD CONSTRAINT "pts_cases_patient_id_patients_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_case_id_pts_cases_id_fk" FOREIGN KEY ("case_id") REFERENCES "public"."pts_cases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_owner_id_profiles_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."profiles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_case_id_pts_cases_id_fk" FOREIGN KEY ("case_id") REFERENCES "public"."pts_cases"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_destination_unit_id_service_units_id_fk" FOREIGN KEY ("destination_unit_id") REFERENCES "public"."service_units"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_plan_id_pts_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."pts_plans"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_responsible_unit_id_service_units_id_fk" FOREIGN KEY ("responsible_unit_id") REFERENCES "public"."service_units"("id") ON DELETE restrict ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_actions" ADD CONSTRAINT "pts_actions_assigned_professional_id_profiles_id_fk" FOREIGN KEY ("assigned_professional_id") REFERENCES "public"."profiles"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_cases" ADD CONSTRAINT "pts_cases_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_cases" ADD CONSTRAINT "pts_cases_patient_id_patients_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_case_id_pts_cases_id_fk" FOREIGN KEY ("case_id") REFERENCES "public"."pts_cases"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_plans" ADD CONSTRAINT "pts_plans_owner_id_profiles_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."profiles"("id") ON DELETE restrict ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_case_id_pts_cases_id_fk" FOREIGN KEY ("case_id") REFERENCES "public"."pts_cases"("id") ON DELETE cascade ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN ALTER TABLE "pts_signals" ADD CONSTRAINT "pts_signals_destination_unit_id_service_units_id_fk" FOREIGN KEY ("destination_unit_id") REFERENCES "public"."service_units"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN null; END $$;

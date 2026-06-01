@@ -607,6 +607,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-31 | Conclusão da Fase 4 — Segurança, LGPD e Conformidade: Base legal de consentimentos (`patient_consents`), sequenciador e tokenização de nomes com `TokenVaultService` para blindagem de LLMs, cifragem reversível AES-256-GCM dos campos CPF/NIS/CNS com hashes determinísticos indexados (`cpf_hash`) e backfill em lote, `ExpurgoJobService` para descarte físico atômico de soft-deleted, correção de ESLint warnings e gate de CI |
 | 2026-05-31 | Estabilização e Correção do Pipeline da Vercel: Resolução definitiva de erros de tipagem no compilador (Next.js 16/React 19) no formulário de triagem (`initializeCaseFormAction`), tipagem explícita de eventos do mouse no componente `multi-select.tsx` e higienização do monorepo local |
 | 2026-06-01 | Estabilização de Infraestrutura: Adicionado casting explícito (`::text`) para os parâmetros SQL da transação em `withTransactionContext` para evitar erros de tipo sob o pooler estrito do Supabase em produção |
+| 2026-06-01 | Estabilização de RLS e Auditoria: Propagação de transação (`tx`) via `TenantContext` no getter `db` de `BaseTenantRepository` para garantir conformidade automática em todas as queries e mutações (`CreatePatientService`, `UpdatePatientService`, `GetPatientService` e repositório `AuditLogRepository`) sob o strict connection pooler de produção |
 
 
 

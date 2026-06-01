@@ -5,6 +5,7 @@ import type { TenantContext } from '@/lib/tenant-context';
 import { PatientRepository } from './patient.repository';
 import { toPatientDto } from './patient.mapper';
 import type { CreatePatientInput, PatientDto } from './patient.dto';
+import { withTransactionContext } from '@/lib/db/client';
 
 const createPatientAudited = withAudit<CreatePatientInput, PatientDto>(
   {
@@ -23,6 +24,9 @@ const createPatientAudited = withAudit<CreatePatientInput, PatientDto>(
 
 export class CreatePatientService extends BaseService {
   async execute(input: CreatePatientInput): Promise<PatientDto> {
-    return createPatientAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return createPatientAudited(txCtx, input);
+    });
   }
 }
