@@ -8,7 +8,7 @@ import { PtsRepository } from '@/modules/pts/pts.repository';
 import { decrypt } from '@/lib/crypto/field-cipher';
 import { TaskPanel, type EnrichedTask } from '@/components/pts/task-panel';
 import type { TaskStatus } from '@/modules/pts/pts.dto';
-import { initializeCaseAction } from '@/modules/pts/actions';
+import { initializeCaseFormAction } from '@/modules/pts/actions';
 import { Inbox, AlertCircle, Building2, HelpCircle } from 'lucide-react';
 
 interface TriagemPageProps {
@@ -259,10 +259,7 @@ export default async function TriagemPage({ searchParams }: TriagemPageProps) {
                     </p>
                   </div>
                   <div className="flex items-center justify-end">
-                    <form action={async (formData) => {
-                      'use server';
-                      await initializeCaseAction(formData);
-                    }}>
+                    <form action={initializeCaseFormAction}>
                       <input type="hidden" name="patientId" value={c.patientId} />
                       <button
                         type="submit"

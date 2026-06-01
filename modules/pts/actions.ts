@@ -200,6 +200,14 @@ export async function initializeCaseAction(
   }
 }
 
+/**
+ * Wrapper específico para compatibilidade com o atributo `action` do React 19/Next.js 16.
+ * Aceita FormData e retorna Promise<void> para satisfazer o compilador estrito de tipos do JSX.
+ */
+export async function initializeCaseFormAction(formData: FormData): Promise<void> {
+  await initializeCaseAction(formData);
+}
+
 const createActionInputSchema = z.object({
   planId: z.string().uuid('ID do plano inválido.'),
   responsibleUnitId: z.string().uuid('ID da unidade responsável inválido.'),
