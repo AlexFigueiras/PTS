@@ -6,6 +6,7 @@ import { RemoveMemberButton } from '@/modules/members/components/remove-member-b
 import { listTenantUnits, listUserUnits } from '@/modules/units/unit.queries';
 import { MemberRoleForm } from './member-role-form';
 import { InviteForm } from './invite-form';
+import { withTransactionContext } from '@/lib/db/client';
 
 function getStatusLabel(status: string): string {
   if (status === 'PENDING') return 'Pendente';
@@ -27,16 +28,22 @@ export default async function TeamPage() {
   const ctx = await getActiveTenantContext();
   if (!ctx) redirect('/login');
 
-  const members = await new MemberRepository(ctx).list();
+  const { members, units } = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    const members = await new MemberRepository({ ...ctx, tx }).list();
+    const canManage = hasRole(ctx.role, 'MANAGER');
+    const isAdmin = ctx.role === 'ADMIN';
+
+    const units = canManage
+      ? isAdmin
+        ? await listTenantUnits({ ...ctx, tx })
+        : await listUserUnits({ ...ctx, tx })
+      : [];
+
+    return { members, units };
+  });
+
   const canManage = hasRole(ctx.role, 'MANAGER');
   const isAdmin = ctx.role === 'ADMIN';
-
-  // Admin Geral convida para qualquer unidade; Gerente só para as suas.
-  const units = canManage
-    ? isAdmin
-      ? await listTenantUnits(ctx)
-      : await listUserUnits(ctx)
-    : [];
 
   return (
     <div className="space-y-6">

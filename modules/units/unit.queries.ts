@@ -17,7 +17,8 @@ export type UnitOption = {
  * "Local de Atuação Ativo" (multi-vínculo).
  */
 export async function listUserUnits(ctx: TenantContext): Promise<UnitOption[]> {
-  const rows = await getDb()
+  const db = ctx.tx || getDb();
+  const rows = await db
     .select({
       id: serviceUnits.id,
       name: serviceUnits.name,
@@ -42,7 +43,8 @@ export async function listUserUnits(ctx: TenantContext): Promise<UnitOption[]> {
  * Geral ao convidar Gerentes/Profissionais para qualquer unidade.
  */
 export async function listTenantUnits(ctx: TenantContext): Promise<UnitOption[]> {
-  const rows = await getDb()
+  const db = ctx.tx || getDb();
+  const rows = await db
     .select({
       id: serviceUnits.id,
       name: serviceUnits.name,
@@ -52,5 +54,5 @@ export async function listTenantUnits(ctx: TenantContext): Promise<UnitOption[]>
     .where(eq(serviceUnits.tenantId, ctx.tenantId))
     .orderBy(asc(serviceUnits.name));
 
-  return rows.map((r) => ({ ...r, isPrimary: false }));
+  return rows.map((r: any) => ({ ...r, isPrimary: false }));
 }

@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/auth/authorization';
 import { UnitRepository } from '@/modules/units/unit.repository';
 import { toUnitDto } from '@/modules/units/unit.mapper';
 import { UnitsManager } from './units-manager';
+import { withTransactionContext } from '@/lib/db/client';
 
 export const metadata = { title: 'Unidades intersetoriais' };
 
@@ -19,9 +20,11 @@ export default async function UnitsSettingsPage() {
   }
 
   // Busca a lista de unidades do município ordenadas por nome
-  const repo = new UnitRepository(ctx);
-  const rows = await repo.list();
-  const units = rows.map(toUnitDto);
+  const units = await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
+    const repo = new UnitRepository({ ...ctx, tx });
+    const rows = await repo.list();
+    return rows.map(toUnitDto);
+  });
 
   return (
     <div className="rounded-lg border p-6 bg-card/40 backdrop-blur-sm shadow-sm">
