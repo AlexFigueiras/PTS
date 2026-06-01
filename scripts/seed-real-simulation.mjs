@@ -73,12 +73,12 @@ async function createOrResetUser(email, fullName, role, jobTitle, registry = nul
     await supabase.from('profiles').delete().eq('id', existingProf.id);
   }
 
-  // 2. Criar novo usuário na autenticação
+  // 2. Criar novo usuário na autenticação (com invite_token para evitar gatilho de criação automática de tenant)
   const { data: createdUser, error: createErr } = await supabase.auth.admin.createUser({
     email: cleanEmail,
     password: DEFAULT_PASSWORD,
     email_confirm: true,
-    user_metadata: { full_name: fullName }
+    user_metadata: { full_name: fullName, invite_token: 'seeded' }
   });
 
   if (createErr || !createdUser.user) {
@@ -133,7 +133,44 @@ async function main() {
   console.log(`=== INICIANDO SEED DE SIMULAÇÃO REAL NO TENANT ${tenantId} ===\n`);
 
   // --- 0. LIMPEZA TOTAL DA BASE DE DADOS (PRISTINE RESET) ---
-  console.log('Limpando dados antigos de pacientes do tenant (limpeza total)...');
+  console.log('Verificando conflitos de CPF em outros tenants...');
+  const targetCpfs = ['000.000.000-00', '111.111.111-11'];
+  const { data: existingDupPatients } = await supabase
+    .from('patients')
+    .select('id')
+    .in('cpf', targetCpfs);
+  
+  if (existingDupPatients && existingDupPatients.length > 0) {
+    const dupIds = existingDupPatients.map(p => p.id);
+    console.log(`Limpando dependências de pacientes com CPFs duplicados em outros tenants: ${dupIds.join(', ')}`);
+    
+    // Buscar IDs dos casos e planos para evitar erros de integridade referencial
+    const { data: casesData } = await supabase.from('pts_cases').select('id').in('patient_id', dupIds);
+    const caseIds = casesData ? casesData.map(c => c.id) : [];
+    
+    const { data: plansData } = await supabase.from('pts_plans').select('id').in('patient_id', dupIds);
+    const planIds = plansData ? plansData.map(p => p.id) : [];
+
+    if (caseIds.length > 0) {
+      await supabase.from('pts_signals').delete().in('case_id', caseIds);
+    }
+    if (planIds.length > 0) {
+      await supabase.from('pts_actions').delete().in('plan_id', planIds);
+    }
+    await supabase.from('pts_plans').delete().in('patient_id', dupIds);
+    await supabase.from('pts_dimensions').delete().in('patient_id', dupIds);
+    await supabase.from('pts_evolutions').delete().in('patient_id', dupIds);
+    await supabase.from('pts_responses').delete().in('patient_id', dupIds);
+    await supabase.from('pts_documents').delete().in('patient_id', dupIds);
+    await supabase.from('patient_consents').delete().in('patient_id', dupIds);
+    await supabase.from('source_health_records').delete().in('patient_id', dupIds);
+    await supabase.from('source_social_records').delete().in('patient_id', dupIds);
+    await supabase.from('pts_cases').delete().in('patient_id', dupIds);
+    await supabase.from('patients').delete().in('id', dupIds);
+    console.log('✓ CPFs conflitantes removidos de todos os outros tenants.');
+  }
+
+  console.log('\nLimpando dados antigos de pacientes do tenant (limpeza total)...');
   await supabase.from('pts_signals').delete().eq('tenant_id', tenantId);
   await supabase.from('pts_actions').delete().eq('tenant_id', tenantId);
   await supabase.from('pts_plans').delete().eq('tenant_id', tenantId);
@@ -361,7 +398,7 @@ async function main() {
   console.log('\nSeeding Paciente 1: Dona Maria...');
   
   const mariaId = randomUUID();
-  await supabase.from('patients').insert({
+  const { error: mariaErr } = await supabase.from('patients').insert({
     id: mariaId,
     tenant_id: tenantId,
     fullName: 'Maria da Conceição Santos',
@@ -371,15 +408,17 @@ async function main() {
     full_address: 'Rua das Acácias, 142, Jardim Novo Horizonte',
     phone: '(11) 91234-5678',
   });
+  if (mariaErr) throw new Error(`Erro ao cadastrar Dona Maria: ${mariaErr.message}`);
 
   // Garantir caso ativo para Maria
   const caseMariaId = randomUUID();
-  await supabase.from('pts_cases').insert({
+  const { error: caseMariaErr } = await supabase.from('pts_cases').insert({
     id: caseMariaId,
     tenant_id: tenantId,
     patient_id: mariaId,
     status: 'pts_ativo',
   });
+  if (caseMariaErr) throw new Error(`Erro ao criar caso para Dona Maria: ${caseMariaErr.message}`);
 
   // Inserir registros de saúde
   const mariaHealth = [
@@ -408,7 +447,8 @@ async function main() {
       raw_text: 'Atendimento de urgência. Paciente Maria trazida por vizinha. Estado de agitação psicomotora com discurso desorganizado. Nega uso de substâncias. Administrado medicamento ansiolítico. Estabilizada. Encaminhada ao CAPS de referência. Terceira ocorrência em 18 meses.',
     }
   ];
-  await supabase.from('source_health_records').insert(mariaHealth);
+  const { error: mariaHealthErr } = await supabase.from('source_health_records').insert(mariaHealth);
+  if (mariaHealthErr) throw new Error(`Erro ao cadastrar registros de saúde de Dona Maria: ${mariaHealthErr.message}`);
 
   const mariaSocial = [
     {
@@ -436,7 +476,8 @@ async function main() {
       raw_text: 'NOVO EVENTO: Família perdeu o Bolsa Família. Benefício cancelado por ausência de atualização do CadÚnico. Maria em situação de vulnerabilidade alimentar grave. Sem renda exceto BPC-LOAS. Pagamento de aluguel novamente em risco. Risco de situação de rua em curto prazo se não houver intervenção. Encaminhamento urgente ao CAPS solicitado. Contato com Defensoria Pública para regularização habitacional iniciado.',
     }
   ];
-  await supabase.from('source_social_records').insert(mariaSocial);
+  const { error: mariaSocialErr } = await supabase.from('source_social_records').insert(mariaSocial);
+  if (mariaSocialErr) throw new Error(`Erro ao cadastrar registros sociais de Dona Maria: ${mariaSocialErr.message}`);
   console.log('✓ Registros de saúde e sociais criados para Dona Maria.');
 
 
@@ -444,7 +485,7 @@ async function main() {
   console.log('\nSeeding Paciente 2: Seu João (João da Silva)...');
 
   const joaoId = randomUUID();
-  await supabase.from('patients').insert({
+  const { error: joaoErr } = await supabase.from('patients').insert({
     id: joaoId,
     tenant_id: tenantId,
     fullName: 'João da Silva (Seu João)',
@@ -456,15 +497,17 @@ async function main() {
     nis: '123.45678.90-1',
     cns: '234.5678.9012.3456'
   });
+  if (joaoErr) throw new Error(`Erro ao cadastrar Seu João: ${joaoErr.message}`);
 
   // Garantir caso ativo para João em estado de "observacao"
   const caseJoaoId = randomUUID();
-  await supabase.from('pts_cases').insert({
+  const { error: caseJoaoErr } = await supabase.from('pts_cases').insert({
     id: caseJoaoId,
     tenant_id: tenantId,
     patient_id: joaoId,
     status: 'observacao', // Em triagem/observação
   });
+  if (caseJoaoErr) throw new Error(`Erro ao criar caso para Seu João: ${caseJoaoErr.message}`);
 
   // Inserir trajetórias de Seu João
   const joaoHealth = [
@@ -482,10 +525,11 @@ async function main() {
       patient_id: joaoId,
       recorded_at: new Date('2026-04-22').toISOString(),
       unit_label: 'UBS — Jardim Novo Horizonte',
-      raw_text: 'Consulta de retorno clínico geral de acompanhamento. HAS e Diabetes mellitus tipo 2 diagnosticadas em 2024. Paciente relata que suspendeu por conta própria o uso de metformina e enalapril há mais de 3 meses. Refere dores crônicas nos pés e episódios frequentes de tontura. Visivelmente descorado e com hálito etílico. Relatou que não vê utilidade em tomar os remédios pois "sua vida acabou". Sinais vitais: PA 165/100 mmHg, glicemia capilar de jejum 240 mg/dL. Encaminhado com urgência para reavaliação de receitas e agendamento de consulta de saúde mental no CAPS.',
+      raw_text: 'Consulta de retorno clínico geral de acompanhamento. HAS e Diabetes mellitus tipo 2 diagnosticadas in 2024. Paciente relata que suspendeu por conta própria o uso de metformina e enalapril há mais de 3 meses. Refere dores crônicas nos pés e episódios frequentes de tontura. Visivelmente descorado e com hálito etílico. Relatou que não vê utilidade em tomar os remédios pois "sua vida acabou". Sinais vitais: PA 165/100 mmHg, glicemia capilar de jejum 240 mg/dL. Encaminhado com urgência para reavaliação de receitas e agendamento de consulta de saúde mental no CAPS.',
     }
   ];
-  await supabase.from('source_health_records').insert(joaoHealth);
+  const { error: joaoHealthErr } = await supabase.from('source_health_records').insert(joaoHealth);
+  if (joaoHealthErr) throw new Error(`Erro ao cadastrar registros de saúde de Seu João: ${joaoHealthErr.message}`);
 
   const joaoSocial = [
     {
@@ -505,7 +549,8 @@ async function main() {
       raw_text: 'Encaminhado pelo CRAS devido a relato de violência intrafamiliar. A companheira de João compareceu ao serviço relatando que ele, sob efeito constante de álcool, tem episódios frequentes de agressividade verbal e destruição de objetos domésticos na presença dos filhos menores. Família com alto nível de estresse e risco de violência física. João recusa-se a participar dos encontros familiares e a buscar ajuda profissional. Solicitada articulação intersetorial urgente com a rede de saúde (CAPS) para tratamento de dependência química e suporte terapêutico familiar.',
     }
   ];
-  await supabase.from('source_social_records').insert(joaoSocial);
+  const { error: joaoSocialErr } = await supabase.from('source_social_records').insert(joaoSocial);
+  if (joaoSocialErr) throw new Error(`Erro ao cadastrar registros sociais de Seu João: ${joaoSocialErr.message}`);
   console.log('✓ Registros de saúde e sociais criados para Seu João.');
 
   // Criar 3 Sinalizações Cruzadas pré-definidas para Seu João para ilustrar a triagem funcionando de imediato!
@@ -553,7 +598,7 @@ async function main() {
 
   for (const sig of signals) {
     const { error } = await supabase.from('pts_signals').insert(sig);
-    if (error) console.warn(`Aviso sinalização: ${error.message}`);
+    if (error) throw new Error(`Erro ao cadastrar sinalização: ${error.message}`);
   }
   console.log(`✓ 3 Sinalizações Cruzadas criadas para a fila de Seu João.`);
 
