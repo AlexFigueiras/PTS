@@ -10,6 +10,16 @@ import {
 import { runIngestAction } from '@/modules/pts/actions/ingest.action';
 import type { Dimension } from '@pts/domain';
 
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return '';
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [_, year, month, day] = match;
+    return `${day}/${month}/${year}`;
+  }
+  return dateStr;
+}
+
 type DimensionData = {
   dimension: Dimension;
   label: string;
@@ -113,12 +123,8 @@ export function DemoPanelSplit({
                 <Zap size={18} className="text-primary" />
               </div>
               <div>
-                <h1 className="text-sm font-black uppercase italic tracking-tight text-foreground">
-                  Demo — Split Antes/Depois
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {patient.fullName} · Caso: {caseStatus ?? 'sem caso'}
-                </p>
+                <h1 className="text-sm font-black uppercase italic tracking-tight text-foreground">Demo — Split Antes/Depois</h1>
+                <p className="text-xs text-muted-foreground">{patient.fullName} · Caso: {caseStatus ?? 'sem caso'}</p>
               </div>
             </div>
 
@@ -167,9 +173,7 @@ export function DemoPanelSplit({
                   <div key={r.id} className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
                     <p className="mb-1 text-[10px] font-bold text-rose-600">{r.unitLabel}</p>
                     <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">{r.rawText}</p>
-                    <p className="mt-2 text-[10px] text-muted-foreground/50">
-                      {new Date(r.recordedAt).toLocaleDateString('pt-BR')}
-                    </p>
+                    <p className="mt-2 text-[10px] text-muted-foreground/50" suppressHydrationWarning>{formatDate(r.recordedAt)}</p>
                   </div>
                 ))}
                 {healthRecords.length === 0 && (
@@ -189,9 +193,7 @@ export function DemoPanelSplit({
                   <div key={r.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
                     <p className="mb-1 text-[10px] font-bold text-amber-600">{r.unitLabel}</p>
                     <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">{r.rawText}</p>
-                    <p className="mt-2 text-[10px] text-muted-foreground/50">
-                      {new Date(r.recordedAt).toLocaleDateString('pt-BR')}
-                    </p>
+                    <p className="mt-2 text-[10px] text-muted-foreground/50" suppressHydrationWarning>{formatDate(r.recordedAt)}</p>
                   </div>
                 ))}
                 {socialRecords.length === 0 && (
@@ -255,9 +257,7 @@ export function DemoPanelSplit({
                               {RISK_LABELS[payload.risco]}
                             </span>
                             {derivedAt && (
-                              <span className="text-[9px] text-muted-foreground/50">
-                                {new Date(derivedAt).toLocaleDateString('pt-BR')}
-                              </span>
+                              <span className="text-[9px] text-muted-foreground/50" suppressHydrationWarning>{formatDate(derivedAt)}</span>
                             )}
                           </div>
                         </>
