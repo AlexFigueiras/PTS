@@ -609,8 +609,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-06-01 | Estabilização de Infraestrutura: Adicionado casting explícito (`::text`) para os parâmetros SQL da transação em `withTransactionContext` para evitar erros de tipo sob o pooler estrito do Supabase em produção |
 | 2026-06-01 | Estabilização de RLS e Auditoria: Propagação de transação (`tx`) via `TenantContext` no getter `db` de `BaseTenantRepository` para garantir conformidade automática em todas as queries e mutações (`CreatePatientService`, `UpdatePatientService`, `GetPatientService` e repositório `AuditLogRepository`) sob o strict connection pooler de produção |
 | 2026-06-01 | Correção de RLS em Configurações & Seeding: Resolução de erro em tempo de renderização nas telas e nas Server Actions de cadastro/edição/exclusão de Unidades e no fluxo de convites de Equipe (invite), encapsulando a execução dos serviços no wrapper transacional `withTransactionContext` sob RLS ativo. Criação do script de seed de simulação de roteiro real (`seed-real-simulation.mjs`). |
-
-
+| 2026-06-01 | **Dashboards por Papel (RBAC)**: Substituição completa do dashboard genérico legado (`SalaryChart`, `DutyHourChart`, `GenderChart`, `UpcomingAppointments`) por três painéis específicos: **ADMIN** (KPIs executivos, Radar das 5 Dimensões municipais, Bar Chart por esfera intersetorial, Índice de Resolutividade); **MANAGER** (SignalInbox em destaque, KPIs de triagem, Bar Chart de carga por profissional); **PROFESSIONAL** (lista de ações atribuídas, grid de casos sob RT, timeline de eventos). Switch dinâmico em `app/(app)/dashboard/page.tsx` por `profiles.role`. Dados reais do banco via `withTransactionContext`. Zero erros TypeScript. |
 
 > **Nota:** entregas datadas foram realizadas antes da adoção da numeração de fases do plano; acima estão **remapeadas** para as Fases 0–2 conforme o tema. A suíte Playwright (e2e) entra como parte do gate de qualidade da Fase 0/contínuo.
 
