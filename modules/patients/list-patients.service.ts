@@ -41,7 +41,7 @@ export class ListPatientsService extends BaseService {
         .where(inArray(ptsResponses.patientId, patientIds));
 
       const ptsMap = new Map<string, typeof ptsResponses.$inferSelect>();
-      ptsList.forEach((pts) => {
+      ptsList.forEach((pts: typeof ptsResponses.$inferSelect) => {
         ptsMap.set(pts.patientId, pts);
       });
 
