@@ -2,6 +2,10 @@
  * Seed real simulation: Seeding units, complete professional hierarchy (RBAC),
  * and two patients (Dona Maria & Seu João) with deep, realistic multi-sector trajectories.
  *
+ * This version performs a COMPLETE reset of all old mock/testing patients, cases, plans,
+ * actions, signals, dimensions, consents, and units for the target tenant ID to ensure
+ * an absolutely pristine simulation environment.
+ *
  * Password for all accounts: Senha123!
  *
  * Usage:
@@ -128,6 +132,35 @@ async function createOrResetUser(email, fullName, role, jobTitle, registry = nul
 async function main() {
   console.log(`=== INICIANDO SEED DE SIMULAÇÃO REAL NO TENANT ${tenantId} ===\n`);
 
+  // --- 0. LIMPEZA TOTAL DA BASE DE DADOS (PRISTINE RESET) ---
+  console.log('Limpando dados antigos de pacientes do tenant (limpeza total)...');
+  await supabase.from('pts_signals').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_actions').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_plans').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_dimensions').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_evolutions').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_responses').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_documents').delete().eq('tenant_id', tenantId);
+  await supabase.from('patient_consents').delete().eq('tenant_id', tenantId);
+  await supabase.from('source_health_records').delete().eq('tenant_id', tenantId);
+  await supabase.from('source_social_records').delete().eq('tenant_id', tenantId);
+  await supabase.from('pts_cases').delete().eq('tenant_id', tenantId);
+  await supabase.from('patients').delete().eq('tenant_id', tenantId);
+  console.log('✓ Base de dados de pacientes e planos limpa.');
+
+  console.log('\nLimpando unidades de serviço antigas do tenant...');
+  const unitIds = [
+    'c0de1111-e234-4567-89ab-cdef01234567',
+    'c0de2222-e234-4567-89ab-cdef01234567',
+    'c0de3333-e234-4567-89ab-cdef01234567',
+    'c0de4444-e234-4567-89ab-cdef01234567',
+    'c0de5555-e234-4567-89ab-cdef01234567'
+  ];
+  await supabase.from('professionals_to_units').delete().in('unit_id', unitIds);
+  await supabase.from('service_units').delete().eq('tenant_id', tenantId);
+  console.log('✓ Unidades e seus vínculos limpos.');
+
+
   // --- 1. CRIAR AS UNIDADES DA REDE ---
   const units = [
     {
@@ -160,7 +193,7 @@ async function main() {
       name: 'UBS — Jardim Novo Horizonte',
       type: 'HEALTH',
       component_id: 'atencao_basica',
-      full_address: 'Rua das Acácias, 150, Jardim Novo Horizonte',
+      full_address: 'Rua das Acesias, 150, Jardim Novo Horizonte',
     },
     {
       id: 'c0de5555-e234-4567-89ab-cdef01234567',
@@ -172,7 +205,7 @@ async function main() {
     }
   ];
 
-  console.log('Seeding service units...');
+  console.log('\nSeeding service units...');
   for (const unit of units) {
     const { error } = await supabase
       .from('service_units')
@@ -327,53 +360,26 @@ async function main() {
   // --- 3. PACIENTE 1: DONA MARIA (PTS ATIVO) ---
   console.log('\nSeeding Paciente 1: Dona Maria...');
   
-  // Buscar se já existe
-  const { data: mariaExist } = await supabase
-    .from('patients')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .ilike('fullName', '%Maria da Conceição%')
-    .maybeSingle();
-
-  let mariaId = mariaExist?.id;
-  if (!mariaId) {
-    mariaId = randomUUID();
-    await supabase.from('patients').insert({
-      id: mariaId,
-      tenant_id: tenantId,
-      fullName: 'Maria da Conceição Santos',
-      cpf: '000.000.000-00',
-      birthDate: '1972-03-14',
-      gender: 'feminino',
-      full_address: 'Rua das Acácias, 142, Jardim Novo Horizonte',
-      phone: '(11) 91234-5678',
-    });
-  }
+  const mariaId = randomUUID();
+  await supabase.from('patients').insert({
+    id: mariaId,
+    tenant_id: tenantId,
+    fullName: 'Maria da Conceição Santos',
+    cpf: '000.000.000-00',
+    birthDate: '1972-03-14',
+    gender: 'feminino',
+    full_address: 'Rua das Acácias, 142, Jardim Novo Horizonte',
+    phone: '(11) 91234-5678',
+  });
 
   // Garantir caso ativo para Maria
-  const { data: caseMariaExist } = await supabase
-    .from('pts_cases')
-    .select('id')
-    .eq('patient_id', mariaId)
-    .maybeSingle();
-
-  let caseMariaId = caseMariaExist?.id;
-  if (!caseMariaId) {
-    caseMariaId = randomUUID();
-    await supabase.from('pts_cases').insert({
-      id: caseMariaId,
-      tenant_id: tenantId,
-      patient_id: mariaId,
-      status: 'pts_ativo',
-    });
-  } else {
-    // Resetar status
-    await supabase.from('pts_cases').update({ status: 'pts_ativo' }).eq('id', caseMariaId);
-  }
-
-  // Limpar registros anteriores
-  await supabase.from('source_health_records').delete().eq('patient_id', mariaId);
-  await supabase.from('source_social_records').delete().eq('patient_id', mariaId);
+  const caseMariaId = randomUUID();
+  await supabase.from('pts_cases').insert({
+    id: caseMariaId,
+    tenant_id: tenantId,
+    patient_id: mariaId,
+    status: 'pts_ativo',
+  });
 
   // Inserir registros de saúde
   const mariaHealth = [
@@ -437,56 +443,28 @@ async function main() {
   // --- 4. PACIENTE 2: SEU JOÃO (EM OBSERVAÇÃO/TRIAGEM) ---
   console.log('\nSeeding Paciente 2: Seu João (João da Silva)...');
 
-  // Buscar se já existe
-  const { data: joaoExist } = await supabase
-    .from('patients')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .ilike('fullName', '%João da Silva%')
-    .maybeSingle();
-
-  let joaoId = joaoExist?.id;
-  if (!joaoId) {
-    joaoId = randomUUID();
-    await supabase.from('patients').insert({
-      id: joaoId,
-      tenant_id: tenantId,
-      fullName: 'João da Silva (Seu João)',
-      cpf: '111.111.111-11',
-      birthDate: '1983-08-20',
-      gender: 'masculino',
-      full_address: 'Rua dos Coqueiros, 25, Jardim Novo Horizonte',
-      phone: '(11) 98888-7777',
-      nis: '123.45678.90-1',
-      cns: '234.5678.9012.3456'
-    });
-  }
+  const joaoId = randomUUID();
+  await supabase.from('patients').insert({
+    id: joaoId,
+    tenant_id: tenantId,
+    fullName: 'João da Silva (Seu João)',
+    cpf: '111.111.111-11',
+    birthDate: '1983-08-20',
+    gender: 'masculino',
+    full_address: 'Rua dos Coqueiros, 25, Jardim Novo Horizonte',
+    phone: '(11) 98888-7777',
+    nis: '123.45678.90-1',
+    cns: '234.5678.9012.3456'
+  });
 
   // Garantir caso ativo para João em estado de "observacao"
-  const { data: caseJoaoExist } = await supabase
-    .from('pts_cases')
-    .select('id')
-    .eq('patient_id', joaoId)
-    .maybeSingle();
-
-  let caseJoaoId = caseJoaoExist?.id;
-  if (!caseJoaoId) {
-    caseJoaoId = randomUUID();
-    await supabase.from('pts_cases').insert({
-      id: caseJoaoId,
-      tenant_id: tenantId,
-      patient_id: joaoId,
-      status: 'observacao', // Em triagem/observação
-    });
-  } else {
-    // Garantir status
-    await supabase.from('pts_cases').update({ status: 'observacao' }).eq('id', caseJoaoId);
-  }
-
-  // Limpar registros anteriores de João
-  await supabase.from('source_health_records').delete().eq('patient_id', joaoId);
-  await supabase.from('source_social_records').delete().eq('patient_id', joaoId);
-  await supabase.from('pts_signals').delete().eq('case_id', caseJoaoId);
+  const caseJoaoId = randomUUID();
+  await supabase.from('pts_cases').insert({
+    id: caseJoaoId,
+    tenant_id: tenantId,
+    patient_id: joaoId,
+    status: 'observacao', // Em triagem/observação
+  });
 
   // Inserir trajetórias de Seu João
   const joaoHealth = [
@@ -551,7 +529,7 @@ async function main() {
       case_id: caseJoaoId,
       source_unit_id: 'c0de4444-e234-4567-89ab-cdef01234567', // UBS
       author_id: prof1UbsId, // Dr. Eduardo
-      need_type_id: 'abandono_treatment', // abandono_tratamento no banco
+      need_type_id: 'abandono_tratamento',
       destination_component: 'atencao_basica',
       destination_unit_id: 'c0de4444-e234-4567-89ab-cdef01234567', // UBS
       priority: 'pactuada',
@@ -572,9 +550,6 @@ async function main() {
       abstract_reason: 'Risco iminente de violência intrafamiliar física e psicológica sob efeito de álcool na presença de filhos adolescentes. Necessário acompanhamento do PAEFI.',
     }
   ];
-
-  // Tratar a necessidade 'abandono_treatment' para ser exatamente 'abandono_tratamento' conforme o catálogo
-  signals[1].need_type_id = 'abandono_tratamento';
 
   for (const sig of signals) {
     const { error } = await supabase.from('pts_signals').insert(sig);
