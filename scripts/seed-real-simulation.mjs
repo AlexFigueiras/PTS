@@ -590,6 +590,7 @@ async function main() {
       need_type_id: 'violacao_direitos',
       destination_component: 'creas_paefi',
       destination_unit_id: 'c0de3333-e234-4567-89ab-cdef01234567', // CREAS
+      assigned_professional_id: prof2CreasId, // Fabiana assume na ponta (popula dashboard do profissional/gerente CREAS)
       priority: 'imediata',
       status: 'encaminhada', // Imediata cai direto como encaminhada na fila do CREAS!
       abstract_reason: 'Risco iminente de violência intrafamiliar física e psicológica sob efeito de álcool na presença de filhos adolescentes. Necessário acompanhamento do PAEFI.',
@@ -601,6 +602,220 @@ async function main() {
     if (error) throw new Error(`Erro ao cadastrar sinalização: ${error.message}`);
   }
   console.log(`✓ 3 Sinalizações Cruzadas criadas para a fila de Seu João.`);
+
+  // --- 5. ENRIQUECIMENTO DA DONA MARIA: PTS ATIVO COMPLETO ---
+  // Objetivo: as telas do roteiro (Caso, PTS de 4 metas, dashboards e painel do
+  // gestor) deixam de aparecer vazias. A Maria é o "caso estabelecido" — já vem
+  // pronta. (O Seu João continua sendo a revelação ao vivo do botão "Recalcular
+  // com IA" na tela /demo, por isso NÃO pré-derivamos as dimensões dele.)
+  console.log('\nEnriquecendo Dona Maria (PTS ativo completo)...');
+
+  const CAPS = 'c0de1111-e234-4567-89ab-cdef01234567';
+  const CRAS = 'c0de2222-e234-4567-89ab-cdef01234567';
+  const CREAS = 'c0de3333-e234-4567-89ab-cdef01234567';
+  const UBS = 'c0de4444-e234-4567-89ab-cdef01234567';
+  const UPA = 'c0de5555-e234-4567-89ab-cdef01234567';
+  const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString();
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
+
+  // 5.1. Baseline multidomínio (pts_responses) — escala 0-4 (maior = melhor).
+  const mariaPtsId = randomUUID();
+  const mariaScores = { saude: 2.0, social: 1.5, psiquico: 1.5, juridico: 2.0, educacao: 3.0 };
+  const { error: mariaRespErr } = await supabase.from('pts_responses').insert({
+    id: mariaPtsId,
+    tenant_id: tenantId,
+    patient_id: mariaId,
+    professional_id: prof1CapsId, // Ana Flávia (RT do caso)
+    unit_id: CAPS,
+    unit_type: 'HEALTH',
+    status: 'published',
+    version: 1,
+    is_locked: true,
+    review_period_days: 30,
+    next_review_at: daysFromNow(30),
+    scores: mariaScores,
+    data: { resumo: 'Mulher de 51 anos, transtorno afetivo bipolar I, mora só, BPC-LOAS, risco habitacional e alimentar.' },
+    suggested_goals: [],
+  });
+  if (mariaRespErr) throw new Error(`Erro ao criar baseline PTS de Dona Maria: ${mariaRespErr.message}`);
+
+  // 5.2. Evolução publicada (alimenta o radar de dimensões do dashboard ADMIN).
+  const { error: mariaEvoErr } = await supabase.from('pts_evolutions').insert({
+    id: randomUUID(),
+    pts_id: mariaPtsId,
+    tenant_id: tenantId,
+    patient_id: mariaId,
+    professional_id: prof1CapsId,
+    unit_id: CAPS,
+    unit_type: 'HEALTH',
+    version: 2,
+    status: 'published',
+    scores: { saude: 2.0, social: 1.5, psiquico: 2.0, juridico: 2.5, educacao: 3.0 },
+    data: { nota: 'Reavaliação após pactuação intersetorial; leve melhora psíquica, social ainda crítica.' },
+  });
+  if (mariaEvoErr) throw new Error(`Erro ao criar evolução de Dona Maria: ${mariaEvoErr.message}`);
+
+  // 5.3. Dimensões derivadas (pts_dimensions) — Psíquico SEMPRE abstraído (regra fixa LGPD).
+  const mariaSourceRef = { source: 'health', recordIds: [], derivedAt: new Date().toISOString() };
+  const mariaDimensions = [
+    {
+      dimension: 'saude',
+      sensitivity: 'normal',
+      payload: {
+        estado: 'Doenças crônicas (HAS e diabetes) com adesão irregular; histórico de 3 internações de urgência em 18 meses.',
+        fragilidades: ['Adesão medicamentosa irregular', 'Reinternações recorrentes na UPA', 'Acompanhamento clínico descontínuo'],
+        potencialidades: ['Vínculo ativo com o CAPS', 'Acompanhamento clínico iniciado na UBS'],
+        risco: 'alto',
+      },
+    },
+    {
+      dimension: 'social',
+      sensitivity: 'normal',
+      payload: {
+        estado: 'Perda do Bolsa Família por CadÚnico bloqueado; insegurança alimentar grave e risco iminente de despejo.',
+        fragilidades: ['Renda apenas do BPC-LOAS', 'CadÚnico desatualizado/bloqueado', 'Aluguel em atraso — risco de situação de rua', 'Ausência de rede de apoio local'],
+        potencialidades: ['Acompanhamento ativo pelo PAIF/CRAS', 'Elegível à reativação de benefícios'],
+        risco: 'critico',
+      },
+    },
+    {
+      dimension: 'psiquico',
+      sensitivity: 'abstracted',
+      payload: {
+        estado: 'Quadro de saúde mental que demanda acompanhamento especializado contínuo.',
+        fragilidades: ['Episódios de instabilidade que exigem suporte do CAPS', 'Isolamento social progressivo'],
+        potencialidades: ['Resposta positiva ao acompanhamento terapêutico'],
+        risco: 'alto',
+      },
+    },
+    {
+      dimension: 'juridico',
+      sensitivity: 'normal',
+      payload: {
+        estado: 'Risco de despejo por inadimplência habitacional; necessidade de defesa de direitos.',
+        fragilidades: ['Ameaça de despejo', 'Sem assistência jurídica prévia'],
+        potencialidades: ['Articulação com Defensoria/CREAS iniciada'],
+        risco: 'alto',
+      },
+    },
+    {
+      dimension: 'educacao',
+      sensitivity: 'normal',
+      payload: {
+        estado: 'Sem demanda educacional ativa; foco em reinserção e convivência comunitária.',
+        fragilidades: ['Baixa participação em atividades de convivência'],
+        potencialidades: ['Potencial de reinserção via Centros de Convivência'],
+        risco: 'baixo',
+      },
+    },
+  ];
+  for (const dim of mariaDimensions) {
+    const { error } = await supabase.from('pts_dimensions').insert({
+      id: randomUUID(),
+      tenant_id: tenantId,
+      case_id: caseMariaId,
+      dimension: dim.dimension,
+      payload: dim.payload,
+      sensitivity: dim.sensitivity,
+      source_ref: mariaSourceRef,
+      version_hash: randomUUID().slice(0, 16),
+    });
+    if (error) throw new Error(`Erro ao criar dimensão ${dim.dimension} de Dona Maria: ${error.message}`);
+  }
+
+  // 5.4. Plano PTS (dono = RT da Saúde, Ana Flávia do CAPS).
+  const mariaPlanId = randomUUID();
+  const { error: mariaPlanErr } = await supabase.from('pts_plans').insert({
+    id: mariaPlanId,
+    tenant_id: tenantId,
+    case_id: caseMariaId,
+    type: 'PTS',
+    owner_id: prof1CapsId,
+  });
+  if (mariaPlanErr) throw new Error(`Erro ao criar plano PTS de Dona Maria: ${mariaPlanErr.message}`);
+
+  // 5.5. As 4 metas/ações intersetoriais do roteiro (cada uma com unidade + profissional).
+  const mariaActions = [
+    {
+      responsible_unit_id: CAPS,
+      assigned_professional_id: prof1CapsId, // Ana Flávia (Psicóloga CAPS)
+      status: 'em_andamento',
+      deadline: daysFromNow(30),
+      description: 'Saúde (CAPS II): acompanhamento terapêutico e estabilização psíquica — sessões quinzenais e ajuste de farmacoterapia.',
+    },
+    {
+      responsible_unit_id: UBS,
+      assigned_professional_id: prof2UbsId, // Juliana Rocha (Enfermeira UBS)
+      status: 'pactuada',
+      deadline: daysFromNow(45),
+      description: 'Saúde (UBS): revisão das receitas de diabetes/HAS e visitas mensais da enfermagem da família.',
+    },
+    {
+      responsible_unit_id: CRAS,
+      assigned_professional_id: prof1CrasId, // Carla Silva (Assistente Social CRAS)
+      status: 'em_andamento',
+      deadline: daysFromNow(15),
+      description: 'Assistência (CRAS): atualização urgente do CadÚnico bloqueado e reativação do Bolsa Família — sem renda e sob risco de despejo.',
+    },
+    {
+      responsible_unit_id: CREAS,
+      assigned_professional_id: prof1CreasId, // Patrícia Lima (Advogada CREAS / Defensoria)
+      status: 'pactuada',
+      deadline: daysFromNow(20),
+      description: 'Jurídico/Direitos (Defensoria via CREAS): defesa contra o despejo por aluguel atrasado e articulação de garantia habitacional.',
+    },
+  ];
+  for (const act of mariaActions) {
+    const { error } = await supabase.from('pts_actions').insert({
+      id: randomUUID(),
+      tenant_id: tenantId,
+      plan_id: mariaPlanId,
+      responsible_unit_id: act.responsible_unit_id,
+      assigned_professional_id: act.assigned_professional_id,
+      deadline: act.deadline,
+      status: act.status,
+      description: act.description,
+    });
+    if (error) throw new Error(`Erro ao criar ação do PTS de Dona Maria: ${error.message}`);
+  }
+
+  // 5.6. Sinalizações cruzadas da Maria: histórico resolvido (alimenta KPIs de
+  // resolutividade e "economia estimada" do dashboard ADMIN) + 2 ativas (alimentam
+  // as caixas de sinalização dos gerentes de CRAS e CREAS).
+  const mariaSignals = [
+    // Histórico resolvido (loop fechado) — 6 sinalizações
+    { need: 'uso_substancias', comp: 'caps', dest: CAPS, src: UPA, author: prof1UpaId, assigned: prof1CapsId, priority: 'pactuada', status: 'resolvida', age: 120, reason: 'Estabilização de crise e reengajamento no acompanhamento do CAPS após internação de urgência.' },
+    { need: 'abandono_tratamento', comp: 'atencao_basica', dest: UBS, src: UBS, author: prof1UbsId, assigned: prof2UbsId, priority: 'pactuada', status: 'resolvida', age: 100, reason: 'Busca ativa e retomada do tratamento clínico de HAS/diabetes.' },
+    { need: 'uso_substancias', comp: 'caps', dest: CAPS, src: CAPS, author: prof1CapsId, assigned: prof1CapsId, priority: 'pactuada', status: 'resolvida', age: 80, reason: 'Reavaliação medicamentosa concluída em conjunto com a psiquiatria.' },
+    { need: 'violacao_direitos', comp: 'cras_paif', dest: CRAS, src: CRAS, author: prof1CrasId, assigned: prof1CrasId, priority: 'pactuada', status: 'resolvida', age: 60, reason: 'Concessão de cesta básica emergencial e referenciamento ao PAIF.' },
+    { need: 'abandono_tratamento', comp: 'atencao_basica', dest: UBS, src: UBS, author: prof2UbsId, assigned: prof2UbsId, priority: 'pactuada', status: 'resolvida', age: 40, reason: 'Visita domiciliar de enfermagem realizada; sinais vitais reavaliados.' },
+    { need: 'uso_substancias', comp: 'caps', dest: CAPS, src: UPA, author: prof1UpaId, assigned: prof1CapsId, priority: 'imediata', status: 'resolvida', age: 30, reason: 'Acolhimento pós-urgência articulado entre UPA e CAPS de referência.' },
+    // Ativas (aparecem nas caixas de sinalização dos gerentes)
+    { need: 'violacao_direitos', comp: 'cras_paif', dest: CRAS, src: CRAS, author: prof1CrasId, assigned: prof1CrasId, priority: 'pactuada', status: 'em_tratamento', age: 8, reason: 'Insegurança alimentar grave após cancelamento do Bolsa Família; regularização do CadÚnico em andamento.' },
+    { need: 'violacao_direitos', comp: 'creas_paefi', dest: CREAS, src: CRAS, author: prof1CrasId, assigned: prof1CreasId, priority: 'imediata', status: 'encaminhada', age: 3, reason: 'Risco iminente de despejo; necessária defesa jurídica e garantia habitacional.' },
+  ];
+  for (const sig of mariaSignals) {
+    const isResolved = sig.status === 'resolvida';
+    const { error } = await supabase.from('pts_signals').insert({
+      id: randomUUID(),
+      tenant_id: tenantId,
+      case_id: caseMariaId,
+      source_unit_id: sig.src,
+      author_id: sig.author,
+      need_type_id: sig.need,
+      destination_component: sig.comp,
+      destination_unit_id: sig.dest,
+      assigned_professional_id: sig.assigned,
+      priority: sig.priority,
+      status: sig.status,
+      abstract_reason: sig.reason,
+      resolution_notes: isResolved ? 'Encaminhamento concluído e caso evoluído no loop fechado.' : null,
+      resolved_at: isResolved ? daysAgo(sig.age - 5) : null,
+      created_at: daysAgo(sig.age),
+    });
+    if (error) throw new Error(`Erro ao criar sinalização da Dona Maria: ${error.message}`);
+  }
+  console.log('✓ Dona Maria enriquecida: baseline, evolução, 5 dimensões, plano PTS, 4 metas e 8 sinalizações.');
 
   console.log('\n======================================================');
   console.log('🎉 SEED COMPLETO E PRONTO PARA A SIMULAÇÃO REAL! 🎉');
@@ -617,7 +832,18 @@ async function main() {
   console.log('5. Médico UBS (PROFESSIONAL): medico.ubs@exemplo.com | Senha: Senha123!');
   console.log('6. Assistente Social CREAS (PROFESSIONAL): social.creas@exemplo.com | Senha: Senha123!');
   console.log('------------------------------------------------------');
-  console.log('\nPróximo Passo: Proponha ao usuário o guia detalhado do roteiro de uso real!');
+  console.log('\nROTEIRO DE TELAS (apresentação ao prefeito):');
+  console.log('------------------------------------------------------');
+  console.log(`CENÁRIO 1 — Seu João (revelação ao vivo da IA):`);
+  console.log(`  • Abrir  /demo/${joaoId}  e clicar em "Recalcular com IA" (gera dimensões + alertas ao vivo).`);
+  console.log(`  • Depois /patients/${joaoId}/caso  → seção "Sinalizações Cruzadas".`);
+  console.log(`  • Logar como gerente.creas@exemplo.com → Dashboard → "Caixa de Sinalizações" (alerta do João).`);
+  console.log(`CENÁRIO 2 — Dona Maria (PTS intersetorial já montado):`);
+  console.log(`  • Abrir  /patients/${mariaId}/caso  → status PTS Ativo + 5 Dimensões + 4 Ações Pactuadas.`);
+  console.log(`  • (NÃO use /triagem para a Maria — ela é pts_ativo, não aparece na fila de observação.)`);
+  console.log(`PAINEL DO GESTOR — logar como gestor.municipio@exemplo.com → Dashboard ADMIN`);
+  console.log(`  (resolutividade, economia estimada e radar das 5 dimensões já populados).`);
+  console.log('------------------------------------------------------');
 }
 
 main().catch((err) => {
