@@ -4,7 +4,7 @@
 > precise entender como o sistema funciona **hoje**. Mantenha este arquivo
 > atualizado a cada mudança arquitetural relevante.
 >
-> Última atualização: 2026-05-31.
+> Última atualização: 2026-06-01.
 
 ---
 
@@ -606,6 +606,7 @@ Para **aplicar uma nova migração**: edite `scripts/apply-pending-migrations.mj
 | 2026-05-31 | Conclusão da Fase 3 — Ingestão Simulada + IA: fontes fictícias (`source_health_records`/`source_social_records`, mig. 0024), seed "dona Maria", pseudonimização (`@pts/domain/pseudonymize`), adapters `HealthAdapter`/`SocialAdapter`, endpoint `POST /api/ingest`, `DimensionDerivationService` (Gemini + fallback NLP, regra fixa Psíquico), `pts_dimensions` + `PtsDimensionRepository`, fan-out 1→N sinalizações (`SignalFanOutService`), gatilhos G1/G2/G3 (`@pts/domain/triggers` + `TriggerDetectorService`), 3 telas demo (`/demo/fonte-saude`, `/demo/fonte-assistencia`, `/demo/[patientId]` split), formulário entrada manual, `DerivedDimensionCards` integrado na tela de Caso |
 | 2026-05-31 | Conclusão da Fase 4 — Segurança, LGPD e Conformidade: Base legal de consentimentos (`patient_consents`), sequenciador e tokenização de nomes com `TokenVaultService` para blindagem de LLMs, cifragem reversível AES-256-GCM dos campos CPF/NIS/CNS com hashes determinísticos indexados (`cpf_hash`) e backfill em lote, `ExpurgoJobService` para descarte físico atômico de soft-deleted, correção de ESLint warnings e gate de CI |
 | 2026-05-31 | Estabilização e Correção do Pipeline da Vercel: Resolução definitiva de erros de tipagem no compilador (Next.js 16/React 19) no formulário de triagem (`initializeCaseFormAction`), tipagem explícita de eventos do mouse no componente `multi-select.tsx` e higienização do monorepo local |
+| 2026-06-01 | Estabilização de Infraestrutura: Adicionado casting explícito (`::text`) para os parâmetros SQL da transação em `withTransactionContext` para evitar erros de tipo sob o pooler estrito do Supabase em produção |
 
 
 

@@ -50,10 +50,10 @@ export async function withTransactionContext<T>(
 ): Promise<T> {
   return getDb().transaction(async (tx) => {
     await tx.execute(
-      sql`SELECT set_config('request.jwt.claims', json_build_object('sub', ${userId})::text, true)`
+      sql`SELECT set_config('request.jwt.claims', json_build_object('sub', ${userId}::text)::text, true)`
     );
     await tx.execute(
-      sql`SELECT set_config('request.current_tenant_id', ${tenantId}, true)`
+      sql`SELECT set_config('request.current_tenant_id', ${tenantId}::text, true)`
     );
     return callback(tx);
   });
