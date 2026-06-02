@@ -39,6 +39,7 @@ const NLP_TAG_TO_NEED: Record<string, NeedTypeId[]> = {
   'B-SDOH_FOOD': ['vulnerabilidade_social_familiar'],
   'B-SUBSTANCE_USE': ['uso_substancias'],
   'B-LEGAL_VIOLENCE': ['violacao_direitos', 'medida_protetiva'],
+  'B-CLINICAL_COMORBIDITY': ['comorbidade_clinica'],
 };
 
 /**
@@ -65,6 +66,7 @@ function abstractReason(needTypeId: string, dimension: string): string {
     medida_protetiva: 'Necessidade de proteção jurídica identificada.',
     perda_beneficio: 'Perda de benefício social — risco de vulnerabilidade alimentar e habitacional.',
     isolamento_social: 'Isolamento social — necessidade de reinserção comunitária.',
+    comorbidade_clinica: 'Comorbidade clínica crônica (diabetes/hipertensão) necessitando de acompanhamento pela Atenção Básica/eSF.',
   };
   return labels[needTypeId] ?? `Necessidade de coordenação identificada na dimensão ${dimension}.`;
 }

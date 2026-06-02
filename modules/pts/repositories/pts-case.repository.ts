@@ -57,5 +57,23 @@ export class PtsCaseRepository extends BaseTenantRepository {
       .limit(1);
     return row;
   }
+
+  async archiveCase(caseId: string): Promise<PtsCase | undefined> {
+    const [row] = await this.db
+      .update(ptsCases)
+      .set({ arquivado: true, updatedAt: new Date() })
+      .where(and(eq(ptsCases.id, caseId), eq(ptsCases.tenantId, this.tenantId)))
+      .returning();
+    return row;
+  }
+
+  async updateStatus(caseId: string, status: CaseStatus): Promise<PtsCase | undefined> {
+    const [row] = await this.db
+      .update(ptsCases)
+      .set({ status, updatedAt: new Date() })
+      .where(and(eq(ptsCases.id, caseId), eq(ptsCases.tenantId, this.tenantId)))
+      .returning();
+    return row;
+  }
 }
 

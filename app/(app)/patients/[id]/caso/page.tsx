@@ -1,27 +1,32 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
-import { ArrowLeft, AlertTriangle, Activity, ClipboardList, Radio } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Activity, ClipboardList, Radio, BarChart2, FileText } from 'lucide-react';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { withTransactionContext } from '@/lib/db/client';
-import { ptsResponses, serviceUnits } from '@/lib/db/schema';
+import { ptsResponses, serviceUnits, tenantMembers, profiles } from '@/lib/db/schema';
 import { GetPatientService } from '@/modules/patients';
 import { PtsCaseRepository } from '@/modules/pts/repositories/pts-case.repository';
 import { PtsPlanRepository } from '@/modules/pts/repositories/pts-plan.repository';
 import { PtsActionRepository } from '@/modules/pts/repositories/pts-action.repository';
 import { PtsSignalRepository } from '@/modules/pts/repositories/pts-signal.repository';
+import { PtsEncontroRepository } from '@/modules/pts/repositories/pts-encontro.repository';
 import { DimensionCards } from '@/components/pts/dimension-cards';
 import { DerivedDimensionCards } from '@/components/pts/derived-dimension-cards';
 import { ActionList } from '@/components/pts/action-list';
 import { SignalList } from '@/components/pts/signal-list';
 import { ManualDimensionForm } from '@/components/pts/demo/manual-dimension-form';
+import { IntensityPanel } from '@/components/pts/intensity-panel';
+import { ParticipationAndEncontros } from '@/components/pts/participation-and-encontros';
 import { PtsDimensionRepository } from '@/modules/pts/repositories/pts-dimension.repository';
+import { cn } from '@/lib/utils';
 import {
   CASE_STATUS_LABELS,
   calculateDomainAverages,
   DIMENSIONS,
   type CaseStatus,
   type Dimension,
+  type NivelIntensidade,
 } from '@pts/domain';
 
 type Props = { params: Promise<{ id: string }> };
@@ -107,7 +112,7 @@ export default async function CasoIntersetorialPage({ params }: Props) {
   }
 
   // --- Plano e Ações e Scores e Sinalizações (tudo em uma transação RLS) ---
-  const { plans, actions, scores, units, signals, derivedDims } = await withTransactionContext(
+  const { plans, actions, scores, units, signals, derivedDims, encontros, professionals } = await withTransactionContext(
     ctx.userId,
     ctx.tenantId,
     async (tx) => {
@@ -115,6 +120,7 @@ export default async function CasoIntersetorialPage({ params }: Props) {
       const actionRepo = new PtsActionRepository(ctx, tx);
       const signalRepo = new PtsSignalRepository(ctx, tx);
       const dimRepo = new PtsDimensionRepository(ctx, tx);
+      const encontroRepo = new PtsEncontroRepository(ctx, tx);
 
       // Planos do caso (geralmente 1 PTS, pode ter PIA no futuro)
       const foundPlans = await planRepo.findByCaseId(activeCase.id);
@@ -123,6 +129,11 @@ export default async function CasoIntersetorialPage({ params }: Props) {
       // Ações do plano ativo
       const foundActions = activePlan
         ? await actionRepo.findByPlanId(activePlan.id)
+        : [];
+
+      // Encontros do plano ativo
+      const foundEncontros = activePlan
+        ? await encontroRepo.findByPlanId(activePlan.id)
         : [];
 
       // Scores de dimensão do PTS baseline
@@ -142,6 +153,16 @@ export default async function CasoIntersetorialPage({ params }: Props) {
         .select({ id: serviceUnits.id, name: serviceUnits.name })
         .from(serviceUnits)
         .where(eq(serviceUnits.tenantId, ctx.tenantId));
+
+      // Profissionais do tenant para seleção em encontros
+      const professionalsList = await tx
+        .select({
+          id: tenantMembers.userId,
+          fullName: profiles.fullName,
+        })
+        .from(tenantMembers)
+        .innerJoin(profiles, eq(tenantMembers.userId, profiles.id))
+        .where(eq(tenantMembers.tenantId, ctx.tenantId));
 
       // Sinalizações cruzadas do caso (Fase 2)
       const foundSignals = await signalRepo.findByCaseId(activeCase.id);
@@ -165,6 +186,8 @@ export default async function CasoIntersetorialPage({ params }: Props) {
         units: tenantUnits,
         signals: foundSignals,
         derivedDims: latestDims,
+        encontros: foundEncontros,
+        professionals: professionalsList,
       };
     },
   );
@@ -174,6 +197,8 @@ export default async function CasoIntersetorialPage({ params }: Props) {
 
   const statusLabel = CASE_STATUS_LABELS[activeCase.status as CaseStatus] ?? activeCase.status;
   const statusColor = CASE_STATUS_COLORS[activeCase.status as CaseStatus] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+
+  const isRt = activePlan?.ownerId === ctx.userId;
 
   return (
     <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">
@@ -191,7 +216,7 @@ export default async function CasoIntersetorialPage({ params }: Props) {
 
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div className="space-y-3">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-3xl font-black uppercase italic tracking-tight text-foreground md:text-4xl">
                   Caso Intersetorial
                 </h1>
@@ -200,6 +225,26 @@ export default async function CasoIntersetorialPage({ params }: Props) {
                 >
                   {statusLabel}
                 </span>
+                {activePlan && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-[10px] font-black uppercase tracking-widest',
+                      activePlan.participacaoUsuario
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-100 text-amber-700 border-amber-200 animate-pulse'
+                    )}
+                  >
+                    {activePlan.participacaoUsuario
+                      ? `Participação: ${
+                          activePlan.participacaoUsuario === 'presente'
+                            ? 'Presente'
+                            : activePlan.participacaoUsuario === 'representado_familia'
+                            ? 'Família'
+                            : 'Disp. Justificada'
+                        }`
+                      : 'Participação Pendente'}
+                  </span>
+                )}
               </div>
 
               <p className="text-sm text-muted-foreground">
@@ -216,14 +261,55 @@ export default async function CasoIntersetorialPage({ params }: Props) {
               </p>
             </div>
 
-            <Link
-              href={`/patients/${patientId}/pts`}
-              className="flex shrink-0 items-center gap-3 rounded-2xl border border-border bg-background px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground transition-all hover:border-primary/40 hover:text-primary active:scale-95"
-            >
-              <ClipboardList size={14} /> Ver PTS Baseline
-            </Link>
+            <div className="flex shrink-0 flex-wrap gap-3">
+              <Link
+                href={`/patients/${patientId}/documento`}
+                className="flex shrink-0 items-center gap-3 rounded-2xl border border-border bg-background px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground transition-all hover:border-primary/40 hover:text-primary active:scale-95"
+              >
+                <FileText size={14} /> Documento Legal
+              </Link>
+              <Link
+                href={`/patients/${patientId}/pts`}
+                className="flex shrink-0 items-center gap-3 rounded-2xl border border-border bg-background px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground transition-all hover:border-primary/40 hover:text-primary active:scale-95"
+              >
+                <ClipboardList size={14} /> Ver PTS Baseline
+              </Link>
+            </div>
           </div>
         </div>
+
+        {/* Nível de Intensidade do Cuidado (Bloco 3 / §5.8) */}
+        {activePlan && (
+          <section>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="inline-flex rounded-xl bg-primary/10 p-2">
+                <BarChart2 size={16} className="text-primary" />
+              </div>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 italic">
+                Intensidade do Cuidado
+              </h2>
+            </div>
+            <IntensityPanel
+              planId={activePlan.id}
+              currentNivel={(activePlan.nivelIntensidade as NivelIntensidade) ?? 'intensivo'}
+              isRt={isRt}
+              arquivado={activeCase.arquivado ?? false}
+            />
+          </section>
+        )}
+
+        {/* Participação do Usuário e Reuniões de Rede (Bloco 4) */}
+        {activePlan && (
+          <ParticipationAndEncontros
+            planId={activePlan.id}
+            caseId={activeCase.id}
+            caseStatus={activeCase.status}
+            currentParticipation={activePlan.participacaoUsuario}
+            currentJustificativa={activePlan.participacaoJustificativa}
+            encontros={encontros}
+            professionals={professionals}
+          />
+        )}
 
         {/* Dimensões Derivadas (Fase 3 — IA) */}
         {derivedDims.some((d) => d.payload !== null) && (

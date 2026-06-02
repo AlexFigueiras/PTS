@@ -206,6 +206,11 @@ export const NEED_TYPES = [
     label: 'Isolamento Social',
     description: 'Pessoa sem rede de apoio ou convivência',
   },
+  {
+    id: 'comorbidade_clinica',
+    label: 'Comorbidade Clínica',
+    description: 'Diabetes, hipertensão, condição orgânica em paciente psíquico',
+  },
 ] as const satisfies readonly NeedType[];
 
 export type NeedTypeId = (typeof NEED_TYPES)[number]['id'];
@@ -228,6 +233,7 @@ export const COMPONENT_NEED_MAP: Record<NeedTypeId, readonly NetworkComponentId[
   perda_beneficio: ['cras_paif'],
   uso_substancias: ['caps', 'atencao_basica'],
   isolamento_social: ['cras_paif', 'reabilitacao_psicossocial'],
+  comorbidade_clinica: ['atencao_basica'],
 };
 
 /**

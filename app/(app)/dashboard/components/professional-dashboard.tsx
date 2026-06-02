@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle2, AlertTriangle, FolderOpen, Calendar, ArrowUpRight, Clock, Zap } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, FolderOpen, Calendar, ArrowUpRight, Clock, Zap, Activity } from 'lucide-react';
+import { NIVEL_INTENSIDADE_LABELS, type NivelIntensidade } from '@pts/domain';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export type MyCaseCard = {
   caseId: string;
   caseStatus: string;
   lastUpdateAt: Date | string;
+  nivelIntensidade?: NivelIntensidade | null;
+  arquivado?: boolean;
 };
 
 export type FeedEvent = {
@@ -183,6 +186,50 @@ function ActionList({ actions }: { actions: AssignedAction[] }) {
   );
 }
 
+const NIVEL_BADGE: Record<string, string> = {
+  intensivo:            'bg-rose-100 text-rose-700',
+  manutencao_semestral: 'bg-amber-100 text-amber-700',
+  manutencao_anual:     'bg-sky-100 text-sky-700',
+  alta_continuidade:    'bg-emerald-100 text-emerald-700',
+};
+
+function CaseCard({ c }: { c: MyCaseCard }) {
+  const color = CASE_STATUS_COLORS[c.caseStatus] ?? '#6b7280';
+  const label = CASE_STATUS_LABELS[c.caseStatus] ?? c.caseStatus;
+  const nivelLabel = c.nivelIntensidade ? NIVEL_INTENSIDADE_LABELS[c.nivelIntensidade] : null;
+  const nivelStyle = c.nivelIntensidade ? (NIVEL_BADGE[c.nivelIntensidade] ?? '') : '';
+
+  return (
+    <Link
+      href={`/patients/${c.patientId}/caso`}
+      className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-md"
+    >
+      <div
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
+        style={{ background: color }}
+      >
+        {c.patientName.split(' ').slice(0, 2).map((n) => n[0]).join('')}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+          {c.patientName}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>
+            {label}
+          </p>
+          {nivelLabel && (
+            <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${nivelStyle}`}>
+              {nivelLabel}
+            </span>
+          )}
+        </div>
+      </div>
+      <ArrowUpRight size={14} className="shrink-0 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+    </Link>
+  );
+}
+
 function CaseGrid({ cases }: { cases: MyCaseCard[] }) {
   if (cases.length === 0) {
     return (
@@ -192,35 +239,51 @@ function CaseGrid({ cases }: { cases: MyCaseCard[] }) {
     );
   }
 
+  const intensiveCases = cases.filter((c) => !c.arquivado && c.nivelIntensidade === 'intensivo');
+  const manutencaoCases = cases.filter(
+    (c) => !c.arquivado && c.nivelIntensidade !== 'intensivo' && c.nivelIntensidade !== 'alta_continuidade',
+  );
+  // cases with no nivel info (legacy / no plan) go to intensive view
+  const unknownCases = cases.filter((c) => !c.arquivado && !c.nivelIntensidade);
+  const allIntensive = [...intensiveCases, ...unknownCases];
+
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {cases.map((c) => {
-        const color = CASE_STATUS_COLORS[c.caseStatus] ?? '#6b7280';
-        const label = CASE_STATUS_LABELS[c.caseStatus] ?? c.caseStatus;
-        return (
-          <Link
-            key={c.patientId}
-            href={`/patients/${c.patientId}/caso`}
-            className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-md"
-          >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white"
-              style={{ background: color }}
-            >
-              {c.patientName.split(' ').slice(0, 2).map((n) => n[0]).join('')}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                {c.patientName}
-              </p>
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>
-                {label}
-              </p>
-            </div>
-            <ArrowUpRight size={14} className="shrink-0 text-muted-foreground/30 group-hover:text-primary transition-colors" />
-          </Link>
-        );
-      })}
+    <div className="space-y-4">
+      {/* Fila intensiva — cuidado prioritário */}
+      {allIntensive.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-700">
+              Intensivo — {allIntensive.length}
+            </span>
+            <span className="text-[10px] text-muted-foreground/60">Reavaliação mensal</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {allIntensive.map((c) => <CaseCard key={c.patientId} c={c} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Fila de manutenção — desafogo */}
+      {manutencaoCases.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded-md bg-sky-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-sky-700">
+              Manutenção — {manutencaoCases.length}
+            </span>
+            <span className="text-[10px] text-muted-foreground/60">Cuidado estabilizado</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 opacity-80">
+            {manutencaoCases.map((c) => <CaseCard key={c.patientId} c={c} />)}
+          </div>
+        </div>
+      )}
+
+      {allIntensive.length === 0 && manutencaoCases.length === 0 && (
+        <p className="rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center text-sm text-muted-foreground">
+          Nenhum caso sob sua referência técnica.
+        </p>
+      )}
     </div>
   );
 }

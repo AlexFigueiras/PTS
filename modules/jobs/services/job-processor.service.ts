@@ -11,6 +11,7 @@ import { generateHMAC } from '@/lib/crypto/field-cipher';
 import { parseJobErrorLog, ErrorParser } from '../utils/error-parser';
 import { NotificationService } from './notification.service';
 import { ExpurgoJobService } from './expurgo-job.service';
+import { runNonComplianceCheck } from '@/modules/pts/services/non-compliance-alert.service';
 
 export class JobProcessorService {
   /**
@@ -159,6 +160,11 @@ export class JobProcessorService {
       case 'expurgo': {
         const expurgoService = new ExpurgoJobService(getDb());
         await expurgoService.runExpurgo(ctx.tenantId);
+        break;
+      }
+
+      case 'non_compliance_check': {
+        await runNonComplianceCheck(ctx.tenantId);
         break;
       }
 

@@ -68,10 +68,19 @@ export async function deriveDimensions(input: DeriveDimensionsInput): Promise<De
 
           INSTRUÇÕES POR DIMENSÃO:
           1. Saúde: Avaliar condições físicas, doenças crônicas, acesso a remédios, autonomia geral e autocuidado.
+             - REGRA DE ROTEAMENTO CLÍNICO: comorbidade clínica (diabetes, hipertensão, condição orgânica) em paciente psíquico deve ser direcionada para Atenção Básica / eSF (vaga clínica), e NÃO para CAPS (vaga psiquiátrica).
           2. Social: Avaliar renda, moradia, saneamento básico, relações familiares e acesso a benefícios.
           3. Psíquico: Avaliar sofrimento mental, ideação, uso de substâncias de forma empática e respeitosa.
           4. Jurídico: Avaliar proteção a direitos, violações, medidas protetivas judiciais ou conflitos legais.
           5. Educação: Avaliar escolaridade, capacitação profissional, inserção no trabalho ou exclusão escolar.
+
+          REGRA DE SELETIVIDADE DE PTS (CRITÉRIO DE CRITICIDADE):
+          - A indicação de abertura de PTS é um processo de alta complexidade e não deve ser recomendada para todos os casos.
+          - Avalie e indique a abertura de PTS estritamente para casos críticos que apresentem:
+            a) Reinternações frequentes ou recentes (ex: múltiplas passagens pela UPA/emergência).
+            b) Caso clínico ou social "travado" (onde intervenções rotineiras de uma única esfera falharam recorrentemente).
+            c) Risco iminente (ex: risco severo de autoextermínio, situação recente ou risco iminente de rua, extrema vulnerabilidade sociofamiliar acumulada).
+          - Caso o cidadão apresente quadro estável ou de rotina, informe explicitamente nas observações que o caso não necessita de abertura de PTS e deve seguir o acompanhamento rotineiro.
 
           REGRA FIXA LGPD DE SENSIBILIDADE (PSÍQUICO):
           - Na dimensão Psíquico, NUNCA inclua diagnósticos literais crus (ex: "esquizofrenia refratária"),

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import type { TenantContext } from '@/lib/tenant-context';
 import { ptsPlans, type PtsPlan } from '@/lib/db/schema';
+import type { NivelIntensidade } from '@pts/domain';
 
 export class PtsPlanRepository extends BaseTenantRepository {
   private readonly tx?: any;
@@ -52,5 +53,31 @@ export class PtsPlanRepository extends BaseTenantRepository {
       .select()
       .from(ptsPlans)
       .where(and(eq(ptsPlans.caseId, caseId), eq(ptsPlans.tenantId, this.tenantId)));
+  }
+
+  async updateNivelIntensidade(planId: string, nivel: NivelIntensidade): Promise<PtsPlan | undefined> {
+    const [row] = await this.db
+      .update(ptsPlans)
+      .set({ nivelIntensidade: nivel, updatedAt: new Date() })
+      .where(and(eq(ptsPlans.id, planId), eq(ptsPlans.tenantId, this.tenantId)))
+      .returning();
+    return row;
+  }
+
+  async updateParticipation(
+    planId: string,
+    participacao: 'presente' | 'representado_familia' | 'dispensado_por_incapacidade',
+    justificativa: string | null
+  ): Promise<PtsPlan | undefined> {
+    const [row] = await this.db
+      .update(ptsPlans)
+      .set({
+        participacaoUsuario: participacao,
+        participacaoJustificativa: justificativa,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(ptsPlans.id, planId), eq(ptsPlans.tenantId, this.tenantId)))
+      .returning();
+    return row;
   }
 }

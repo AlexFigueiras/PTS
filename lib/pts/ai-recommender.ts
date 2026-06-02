@@ -63,7 +63,7 @@ export async function getClinicalAiSuggestions(formData: PtsSchema) {
         ${catalogContext}
 
         INSTRUCTIONS:
-        - All output texts (justifications, goals, factors) MUST be in Portuguese (Brazil).
+        - All text outputs (justifications, goals, factors) MUST be in Portuguese (Brazil).
         - Identify clear Potentialities (Fatores Protetivos) and Fragilities (Riscos Críticos)
           across all domains: Psíquico, Saúde, Social, Jurídico, Educação and Autonomia.
         - Select up to 5 actions from the catalog with a justification for each
@@ -72,6 +72,8 @@ export async function getClinicalAiSuggestions(formData: PtsSchema) {
           - A: Low risk, stable.
           - E: High intersectoral risk, urgent articulated intervention needed.
         - Suggest Strategic Goals for Short, Medium, and Long term.
+        - CLINICAL ROUTING RULE: any clinical comorbidity (diabetes, hypertension, organic condition) in a psychic patient MUST be routed/addressed to the Family Health Strategy / Basic Health Unit (Atenção Básica/eSF - local clinic) for clinical follow-up, and NOT to the CAPS (psychiatric).
+        - PTS SELECTIVITY RULE: Suggest/approve PTS strategies and structured goals ONLY if the patient data indicates a critical case (frequent emergency admissions/readmissions, "stuck" clinical/social progress despite single-sector efforts, or imminent risk like severe self-harm, housing eviction/situation of street, or food insecurity). If the case is stable, specify in the goals that routine follow-up is sufficient and PTS is not indicated.
       `,
     });
 

@@ -35,6 +35,11 @@ const FILES = [
   'drizzle/migrations/0025_consent_recusa.sql',
   'drizzle/migrations/0026_identifier_tokens.sql',
   'drizzle/migrations/0027_cifragem_pii.sql',
+  'drizzle/migrations/0028_action_temporal_cycle.sql',
+  'drizzle/migrations/0029_signal_subtype_noncompliance.sql',
+  'drizzle/migrations/0030_plan_intensity_level.sql',
+  'drizzle/migrations/0031_user_protagonism.sql',
+  'drizzle/migrations/0032_clinical_comorbidity.sql',
 ];
 
 const sql = postgres(url, { prepare: false, max: 1, idle_timeout: 10, connect_timeout: 20 });

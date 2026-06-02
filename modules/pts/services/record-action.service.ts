@@ -1,4 +1,3 @@
-import { and, eq } from 'drizzle-orm';
 import { withTransactionContext } from '@/lib/db/client';
 import { ptsActions, type PtsAction } from '@/lib/db/schema';
 import { withAudit } from '@/lib/audit/with-audit';
@@ -6,7 +5,7 @@ import { requireAnyRole, ForbiddenError } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';
 import type { TenantContext } from '@/lib/tenant-context';
 import { PtsActionRepository } from '../repositories/pts-action.repository';
-import { assertActionTransition, type ActionStatus } from '@pts/domain';
+import { assertActionTransition, type ActionStatus, type FrequenciaTipo, type HorizonteTipo, type AceiteUsuario } from '@pts/domain';
 
 export type CreateActionInput = {
   planId: string;
@@ -14,6 +13,15 @@ export type CreateActionInput = {
   assignedProfessionalId?: string | null;
   deadline: Date;
   description: string;
+  // Campos temporais obrigatórios ao pactuar (§5.6)
+  dataInicio?: string | null;
+  prazofim?: string | null;
+  frequenciaTipo?: FrequenciaTipo | null;
+  frequenciaDetalhe?: string | null;
+  proximoRetorno?: string | null;
+  dataProximaReavaliacao?: string | null;
+  horizonteTipo?: HorizonteTipo | null;
+  aceiteUsuario?: AceiteUsuario | null;
 };
 
 export type TransitionActionInput = {
@@ -31,6 +39,9 @@ const createActionAudited = withAudit<CreateActionInput, PtsAction>(
       planId: input.planId,
       responsibleUnitId: input.responsibleUnitId,
       assignedProfessionalId: input.assignedProfessionalId,
+      prazofim: input.prazofim,
+      frequenciaTipo: input.frequenciaTipo,
+      dataProximaReavaliacao: input.dataProximaReavaliacao,
     }),
   },
   async (ctx: TenantContext, input: CreateActionInput): Promise<PtsAction> => {
@@ -42,13 +53,26 @@ const createActionAudited = withAudit<CreateActionInput, PtsAction>(
 
     return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
       const repo = new PtsActionRepository(ctx, tx);
+      const isRefused = input.aceiteUsuario === 'recusa' || input.aceiteUsuario === 'repactuar';
+      const status = isRefused ? 'bloqueada' : 'pactuada';
+      const notes = isRefused ? 'Repactuação pendente' : null;
+
       return await repo.createAction({
         planId: input.planId,
         responsibleUnitId: input.responsibleUnitId,
         assignedProfessionalId: input.assignedProfessionalId || null,
         deadline: input.deadline,
-        status: 'pactuada',
+        status,
         description: input.description,
+        dataInicio: input.dataInicio,
+        prazofim: input.prazofim,
+        frequenciaTipo: input.frequenciaTipo,
+        frequenciaDetalhe: input.frequenciaDetalhe,
+        proximoRetorno: input.proximoRetorno,
+        dataProximaReavaliacao: input.dataProximaReavaliacao,
+        horizonteTipo: input.horizonteTipo,
+        aceiteUsuario: input.aceiteUsuario,
+        evolutionNotes: notes,
       });
     });
   }
@@ -77,7 +101,13 @@ const transitionActionAudited = withAudit<TransitionActionInput, PtsAction>(
         throw new Error('Ação pactuada não encontrada ou fora do escopo deste município.');
       }
 
-      // Validação de Transição Estrita usando FSM do @pts/domain
+      if (
+        (action.aceiteUsuario === 'recusa' || action.aceiteUsuario === 'repactuar') &&
+        (input.nextStatus === 'pactuada' || input.nextStatus === 'em_andamento')
+      ) {
+        throw new Error('Ação bloqueada: o aceite do usuário é recusa ou pendente de repactuação.');
+      }
+
       assertActionTransition(action.status, input.nextStatus);
 
       const updated = await repo.updateActionStatus(input.actionId, input.nextStatus, input.evolutionNotes);

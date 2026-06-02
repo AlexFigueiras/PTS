@@ -8,6 +8,9 @@
 import { TransitionMap, assertTransition } from './fsm';
 import { UnauthorizedTransitionError } from './errors';
 
+export const SIGNAL_SUBTYPE_VALUES = ['alerta_descumprimento', 'busca_ativa_sugerida'] as const;
+export type SignalSubtype = (typeof SIGNAL_SUBTYPE_VALUES)[number];
+
 export const SIGNAL_STATUSES = [
   'sugerida',
   'confirmada_pelo_autor',

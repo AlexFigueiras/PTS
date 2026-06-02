@@ -11,4 +11,5 @@ export * from './field-mapping';
 export * from './scoring';
 export * from './pseudonymize';
 export * from './triggers';
+export * from './temporal-action';
 

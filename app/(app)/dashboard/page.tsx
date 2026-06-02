@@ -12,7 +12,8 @@ import {
   professionalsToUnits,
   ptsEvolutions,
 } from '@/lib/db/schema';
-import { and, eq, inArray, desc, count, avg, sql } from 'drizzle-orm';
+import { and, eq, inArray, desc, count, sql } from 'drizzle-orm';
+import type { NivelIntensidade } from '@pts/domain';
 import type { AdminDashboardData } from './components/admin-dashboard';
 import type { ManagerDashboardData } from './components/manager-dashboard';
 import type { ProfessionalDashboardData } from './components/professional-dashboard';
@@ -281,9 +282,12 @@ async function fetchProfessionalData(
         caseId: ptsCases.id,
         caseStatus: ptsCases.status,
         updatedAt: ptsCases.updatedAt,
+        arquivado: ptsCases.arquivado,
+        nivelIntensidade: ptsPlans.nivelIntensidade,
       })
       .from(ptsSignals)
       .innerJoin(ptsCases, eq(ptsCases.id, ptsSignals.caseId))
+      .leftJoin(ptsPlans, and(eq(ptsPlans.caseId, ptsCases.id), eq(ptsPlans.tenantId, tenantId)))
       .where(
         and(
           eq(ptsSignals.tenantId, tenantId),
@@ -291,7 +295,7 @@ async function fetchProfessionalData(
           inArray(ptsCases.status, ['observacao', 'acompanhamento', 'pts_ativo', 'pia_ativo']),
         ),
       )
-      .groupBy(ptsCases.id, ptsCases.patientId, ptsCases.status, ptsCases.updatedAt)
+      .groupBy(ptsCases.id, ptsCases.patientId, ptsCases.status, ptsCases.updatedAt, ptsCases.arquivado, ptsPlans.nivelIntensidade)
       .limit(20);
 
     const rtPatientIds = [...new Set(rtCaseRows.map((r: { patientId: string | null }) => r.patientId))].filter(Boolean);
@@ -311,13 +315,15 @@ async function fetchProfessionalData(
       return val != null ? val : 'Cidadão';
     };
 
-    type RtCaseRow = { patientId: string | null; caseId: string; caseStatus: string; updatedAt: Date };
+    type RtCaseRow = { patientId: string | null; caseId: string; caseStatus: string; updatedAt: Date; arquivado: boolean | null; nivelIntensidade: string | null };
     const myCases = (rtCaseRows as RtCaseRow[]).map((r) => ({
       patientId: r.patientId ?? '',
       patientName: getPatientName(rtPatientMap, r.patientId),
       caseId: r.caseId,
       caseStatus: r.caseStatus,
       lastUpdateAt: r.updatedAt,
+      nivelIntensidade: (r.nivelIntensidade as NivelIntensidade | null) ?? null,
+      arquivado: r.arquivado ?? false,
     }));
 
     const myCasesCount = myCases.length;

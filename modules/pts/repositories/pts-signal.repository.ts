@@ -2,7 +2,7 @@ import { and, eq, inArray, desc } from 'drizzle-orm';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import type { TenantContext } from '@/lib/tenant-context';
 import { ptsSignals, ptsPlans, type PtsSignal } from '@/lib/db/schema';
-import type { SignalStatus, SignalPriority } from '@pts/domain';
+import type { SignalStatus, SignalPriority, SignalSubtype } from '@pts/domain';
 
 /**
  * Estados em que uma sinalização aguarda ação da unidade destino — base da
@@ -19,6 +19,8 @@ export type CreateSignalData = {
   destinationUnitId: string | null;
   priority: SignalPriority;
   abstractReason: string;
+  signalSubtype?: SignalSubtype | null;
+  sourceRecordId?: string | null;
 };
 
 export type UpdateSignalStatusExtras = {
@@ -48,11 +50,13 @@ export class PtsSignalRepository extends BaseTenantRepository {
         caseId: data.caseId,
         authorId: data.authorId,
         sourceUnitId: data.sourceUnitId,
+        sourceRecordId: data.sourceRecordId ?? null,
         needTypeId: data.needTypeId,
         destinationComponent: data.destinationComponent,
         destinationUnitId: data.destinationUnitId,
         priority: data.priority,
         status: 'sugerida',
+        signalSubtype: data.signalSubtype ?? null,
         abstractReason: data.abstractReason,
       })
       .returning();
@@ -114,6 +118,7 @@ export class PtsSignalRepository extends BaseTenantRepository {
         rtValidatorId: ptsSignals.rtValidatorId,
         priority: ptsSignals.priority,
         status: ptsSignals.status,
+        signalSubtype: ptsSignals.signalSubtype,
         abstractReason: ptsSignals.abstractReason,
         resolutionNotes: ptsSignals.resolutionNotes,
         resolvedAt: ptsSignals.resolvedAt,

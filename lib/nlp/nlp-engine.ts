@@ -1,4 +1,4 @@
-export type SDohTag = 'B-MENTAL_HEALTH' | 'B-SDOH_HOUSING' | 'B-SDOH_FOOD' | 'B-SUBSTANCE_USE' | 'B-LEGAL_VIOLENCE';
+export type SDohTag = 'B-MENTAL_HEALTH' | 'B-SDOH_HOUSING' | 'B-SDOH_FOOD' | 'B-SUBSTANCE_USE' | 'B-LEGAL_VIOLENCE' | 'B-CLINICAL_COMORBIDITY';
 
 export interface NlpEntity {
   tag: SDohTag;
@@ -40,6 +40,13 @@ const NLP_VOCABULARY: { tag: SDohTag; label: string; patterns: RegExp[] }[] = [
     label: 'Questão Judicial / Violência',
     patterns: [
       /\b(?:violênc|agress|políc|justiç|process|preso|cadeia|pena|judicial|ameaç|espanc|lei\s+maria\s+da\s+penha)\w*/gi
+    ]
+  },
+  {
+    tag: 'B-CLINICAL_COMORBIDITY',
+    label: 'Comorbidade Clínica',
+    patterns: [
+      /\b(?:diabetes|glicem|hipertens|pressao|cardiac|clinica|organica|glicose)\w*/gi
     ]
   }
 ];

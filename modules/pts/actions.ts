@@ -9,9 +9,16 @@ import { ForbiddenError } from '@/lib/auth/authorization';
 import { IntersectoralTaskService } from './services/intersectoral-task.service';
 import { InitializeCaseService } from './services/initialize-case.service';
 import { RecordActionService } from './services/record-action.service';
+import { ReavaliacaoService } from './services/reavaliacao.service';
 import { SignalService } from './services/signal.service';
+import { IntensityLevelService } from './services/intensity-level.service';
+import { CaseStatusService } from './services/case-status.service';
+import { EncontroService } from './services/encontro.service';
 import { PtsRepository } from './pts.repository';
+import { PtsPlanRepository } from './repositories/pts-plan.repository';
+import { PtsEncontroRepository } from './repositories/pts-encontro.repository';
 import { intersectoralTaskInsertSchema, type TaskStatus } from './pts.dto';
+import { NIVEL_INTENSIDADE_VALORES } from '@pts/domain';
 
 
 
@@ -208,15 +215,59 @@ export async function initializeCaseFormAction(formData: FormData): Promise<void
   await initializeCaseAction(formData);
 }
 
-const createActionInputSchema = z.object({
-  planId: z.string().uuid('ID do plano inválido.'),
-  responsibleUnitId: z.string().uuid('ID da unidade responsável inválido.'),
-  assignedProfessionalId: z.string().uuid().optional().nullable(),
-  deadline: z.preprocess(
-    (arg) => (typeof arg === 'string' && arg ? new Date(arg) : arg),
-    z.date({ message: 'Prazo limite deve ser uma data válida.' })
-  ),
-  description: z.string().min(3, 'A descrição da ação deve ter ao menos 3 caracteres.').max(1000),
+// Mensagem educativa do §5.6: bloqueio sem prazo/frequência/reavaliação.
+const PACTUAR_GATE_MSG =
+  'Toda ação pactuada precisa de prazo, frequência e data de reavaliação — sem isso vira rol de atividades, não PTS.';
+
+const dateString = z.preprocess(
+  (arg) => (typeof arg === 'string' && arg ? arg : arg),
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida (use AAAA-MM-DD).')
+);
+
+const createActionInputSchema = z
+  .object({
+    planId: z.string().uuid('ID do plano inválido.'),
+    responsibleUnitId: z.string().uuid('ID da unidade responsável inválido.'),
+    assignedProfessionalId: z.string().uuid().optional().nullable(),
+    deadline: z.preprocess(
+      (arg) => (typeof arg === 'string' && arg ? new Date(arg) : arg),
+      z.date({ message: 'Prazo limite deve ser uma data válida.' })
+    ),
+    description: z.string().min(3, 'A descrição da ação deve ter ao menos 3 caracteres.').max(1000),
+    // Campos temporais obrigatórios ao pactuar (§5.6)
+    dataInicio: dateString.optional().nullable(),
+    prazofim: dateString.optional().nullable(),
+    frequenciaTipo: z
+      .enum(['semanal', 'quinzenal', 'mensal', 'bimestral', 'trimestral', 'outro'])
+      .optional()
+      .nullable(),
+    frequenciaDetalhe: z.string().max(200).optional().nullable(),
+    proximoRetorno: dateString.optional().nullable(),
+    dataProximaReavaliacao: dateString.optional().nullable(),
+    horizonteTipo: z.enum(['curto_prazo', 'medio_prazo', 'longo_prazo']).optional().nullable(),
+    aceiteUsuario: z.enum(['aceita', 'recusa', 'repactuar']).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    // Gate §5.6: ao pactuar, os três campos temporais são obrigatórios.
+    if (!data.prazofim) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PACTUAR_GATE_MSG, path: ['prazofim'] });
+    }
+    if (!data.frequenciaTipo) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PACTUAR_GATE_MSG, path: ['frequenciaTipo'] });
+    }
+    if (!data.dataProximaReavaliacao) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PACTUAR_GATE_MSG, path: ['dataProximaReavaliacao'] });
+    }
+  });
+
+const createReavaliacaoInputSchema = z.object({
+  acaoId: z.string().uuid('ID da ação inválido.'),
+  data: dateString,
+  resultado: z.enum(['cumpriu', 'cumpriu_parcial', 'nao_cumpriu']),
+  nota: z.string().max(2000).optional().nullable(),
+  proximaAcao: z.enum(['continuar', 'repactuar', 'encerrar', 'escalar']),
+  // Se proximaAcao = continuar, nova data de reavaliação é obrigatória
+  novaDataReavaliacao: dateString.optional().nullable(),
 });
 
 const transitionActionInputSchema = z.object({
@@ -233,6 +284,14 @@ export async function createActionAction(
     assignedProfessionalId?: string | null;
     deadline: Date | string;
     description: string;
+    dataInicio?: string | null;
+    prazofim?: string | null;
+    frequenciaTipo?: string | null;
+    frequenciaDetalhe?: string | null;
+    proximoRetorno?: string | null;
+    dataProximaReavaliacao?: string | null;
+    horizonteTipo?: string | null;
+    aceiteUsuario?: string | null;
   } | FormData
 ) {
   const ctx = await getActiveTenantContext();
@@ -248,6 +307,14 @@ export async function createActionAction(
       assignedProfessionalId: input.get('assignedProfessionalId'),
       deadline: input.get('deadline'),
       description: input.get('description'),
+      dataInicio: input.get('dataInicio'),
+      prazofim: input.get('prazofim'),
+      frequenciaTipo: input.get('frequenciaTipo'),
+      frequenciaDetalhe: input.get('frequenciaDetalhe'),
+      proximoRetorno: input.get('proximoRetorno'),
+      dataProximaReavaliacao: input.get('dataProximaReavaliacao'),
+      horizonteTipo: input.get('horizonteTipo'),
+      aceiteUsuario: input.get('aceiteUsuario'),
     };
   } else {
     rawInput = input;
@@ -275,6 +342,44 @@ export async function createActionAction(
       return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
     }
     return { error: err?.message || 'Erro interno ao pactuar ação.', success: null };
+  }
+}
+
+export async function createReavaliacaoAction(input: {
+  acaoId: string;
+  data: string;
+  resultado: string;
+  nota?: string | null;
+  proximaAcao: string;
+  novaDataReavaliacao?: string | null;
+}) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  const parsed = createReavaliacaoInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? 'Dados de reavaliação inválidos.',
+      success: null,
+    };
+  }
+
+  try {
+    const service = new ReavaliacaoService(ctx);
+    const result = await service.createReavaliacao(parsed.data);
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, acaoId: parsed.data.acaoId, tenantId: ctx.tenantId }, 'createReavaliacaoAction failed');
+    if (err instanceof ForbiddenError) {
+      return { error: 'Acesso negado: permissão insuficiente ou unidade não selecionada.', success: null };
+    }
+    return { error: err?.message || 'Erro interno ao registrar reavaliação.', success: null };
   }
 }
 
@@ -332,6 +437,28 @@ export async function transitionActionStatusAction(
   }
 }
 
+
+export async function listReavaliacoesAction(acaoId: string) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) {
+    return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  const acaoIdParsed = z.string().uuid().safeParse(acaoId);
+  if (!acaoIdParsed.success) {
+    return { error: 'ID de ação inválido.', success: null };
+  }
+
+  try {
+    const { PtsReavaliacaoRepository } = await import('./repositories/pts-reavaliacao.repository');
+    const repo = new PtsReavaliacaoRepository(ctx);
+    const rows = await repo.findByAcaoId(acaoIdParsed.data);
+    return { error: null, success: rows };
+  } catch (err: any) {
+    getLogger().error({ err, acaoId, tenantId: ctx.tenantId }, 'listReavaliacoesAction failed');
+    return { error: err?.message || 'Erro ao listar reavaliações.', success: null };
+  }
+}
 
 /* ================================================================== */
 /*  Motor de Sinalização Cruzada (Fase 2)                              */
@@ -445,6 +572,234 @@ export async function assignSignalProfessionalAction(input: { signalId: string; 
   );
 }
 
+/* ================================================================== */
+/*  Classificação de risco por horizonte temporal (Bloco 3 / §5.8)    */
+/* ================================================================== */
 
+const transitionNivelInputSchema = z.object({
+  planId: z.string().uuid('ID do plano inválido.'),
+  toNivel: z.enum([...NIVEL_INTENSIDADE_VALORES] as [string, ...string[]]),
+});
 
+/**
+ * Confirma a transição de nível de intensidade do cuidado.
+ * Só o RT do plano pode executar. Ao atingir alta_continuidade, o caso é arquivado.
+ */
+export async function transitionNivelIntensidadeAction(input: {
+  planId: string;
+  toNivel: string;
+}) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
 
+  const parsed = transitionNivelInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const service = new IntensityLevelService(ctx);
+    const result = await service.transitionNivel({
+      planId: parsed.data.planId,
+      toNivel: parsed.data.toNivel as any,
+    });
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planId: parsed.data.planId, tenantId: ctx.tenantId }, 'transitionNivelIntensidadeAction failed');
+    if (err instanceof ForbiddenError) {
+      return { error: err.message, success: null };
+    }
+    return { error: err?.message || 'Erro ao transicionar nível de intensidade.', success: null };
+  }
+}
+
+/**
+ * Verifica se o plano é elegível para sugestão de transição (todas as metas concluídas)
+ * e, se sim, cria uma sinalização sugerida para o RT confirmar.
+ */
+export async function suggestNivelTransitionAction(input: { planId: string }) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const planIdParsed = z.string().uuid().safeParse(input.planId);
+  if (!planIdParsed.success) return { error: 'ID do plano inválido.', success: null };
+
+  try {
+    const service = new IntensityLevelService(ctx);
+    const suggested = await service.suggestTransitionIfEligible(planIdParsed.data);
+
+    if (suggested) {
+      revalidateTenantResource(ctx.tenantId, 'pts_signals');
+      revalidatePath('/dashboard');
+    }
+
+    return { error: null, success: { suggested } };
+  } catch (err: any) {
+    getLogger().error({ err, planId: input.planId, tenantId: ctx.tenantId }, 'suggestNivelTransitionAction failed');
+    return { error: err?.message || 'Erro ao verificar elegibilidade de transição.', success: null };
+  }
+}
+
+/* ================================================================== */
+/*  Protagonismo do Usuário & Encontros (Bloco 4)                      */
+/* ================================================================== */
+
+const updatePlanParticipationInputSchema = z
+  .object({
+    planId: z.string().uuid('ID do plano inválido.'),
+    participacaoUsuario: z.enum(['presente', 'representado_familia', 'dispensado_por_incapacidade']),
+    participacaoJustificativa: z.string().optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.participacaoUsuario === 'dispensado_por_incapacidade' &&
+      (!data.participacaoJustificativa || data.participacaoJustificativa.trim() === '')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A justificativa é obrigatória para dispensa por incapacidade.',
+        path: ['participacaoJustificativa'],
+      });
+    }
+  });
+
+export async function updatePlanParticipationAction(input: {
+  planId: string;
+  participacaoUsuario: 'presente' | 'representado_familia' | 'dispensado_por_incapacidade';
+  participacaoJustificativa?: string | null;
+}) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const parsed = updatePlanParticipationInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const repo = new PtsPlanRepository(ctx);
+    const result = await repo.updateParticipation(
+      parsed.data.planId,
+      parsed.data.participacaoUsuario,
+      parsed.data.participacaoJustificativa ?? null
+    );
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planId: input.planId, tenantId: ctx.tenantId }, 'updatePlanParticipationAction failed');
+    return { error: err?.message || 'Erro ao atualizar participação do usuário.', success: null };
+  }
+}
+
+const transitionCaseStatusInputSchema = z.object({
+  caseId: z.string().uuid('ID do caso inválido.'),
+  nextStatus: z.string().min(1),
+});
+
+export async function transitionCaseStatusAction(input: {
+  caseId: string;
+  nextStatus: string;
+}) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const parsed = transitionCaseStatusInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const service = new CaseStatusService(ctx);
+    const result = await service.transitionCaseStatus({
+      caseId: parsed.data.caseId,
+      nextStatus: parsed.data.nextStatus as any,
+    });
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, caseId: input.caseId, tenantId: ctx.tenantId }, 'transitionCaseStatusAction failed');
+    return { error: err?.message || 'Erro ao transicionar status do caso.', success: null };
+  }
+}
+
+const createEncontroInputSchema = z
+  .object({
+    planoId: z.string().uuid('ID do plano inválido.'),
+    tipo: z.enum(['articulacao_rede', 'reuniao_pts']),
+    data: z.string().min(1, 'A data é obrigatória.'),
+    participantes: z.array(z.string().uuid()).min(1, 'Selecione ao menos um participante.'),
+    usuarioPresente: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tipo === 'reuniao_pts' && !data.usuarioPresente) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Reunião de PTS exige a presença do usuário.',
+        path: ['usuarioPresente'],
+      });
+    }
+  });
+
+export async function createEncontroAction(input: {
+  planoId: string;
+  tipo: 'articulacao_rede' | 'reuniao_pts';
+  data: string;
+  participantes: string[];
+  usuarioPresente: boolean;
+}) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const parsed = createEncontroInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const service = new EncontroService(ctx);
+    const result = await service.createEncontro({
+      planoId: parsed.data.planoId,
+      tipo: parsed.data.tipo,
+      data: parsed.data.data,
+      participantes: parsed.data.participantes,
+      usuarioPresente: parsed.data.usuarioPresente,
+    });
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planoId: input.planoId, tenantId: ctx.tenantId }, 'createEncontroAction failed');
+    return { error: err?.message || 'Erro ao registrar encontro.', success: null };
+  }
+}
+
+export async function listEncontrosAction(planId: string) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const planIdParsed = z.string().uuid().safeParse(planId);
+  if (!planIdParsed.success) {
+    return { error: 'ID do plano inválido.', success: null };
+  }
+
+  try {
+    const repo = new PtsEncontroRepository(ctx);
+    const result = await repo.findByPlanId(planIdParsed.data);
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planId, tenantId: ctx.tenantId }, 'listEncontrosAction failed');
+    return { error: err?.message || 'Erro ao listar encontros.', success: null };
+  }
+}
