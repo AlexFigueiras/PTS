@@ -1,4 +1,4 @@
-import type { UserRole } from '@/lib/db/schema';
+import type { UserRole, PlanTier } from '@/lib/db/schema';
 import type { TenantContext } from '@/lib/tenant-context';
 
 /**
@@ -11,7 +11,7 @@ import type { TenantContext } from '@/lib/tenant-context';
  *
  * Hierarquia estrita: ADMIN > MANAGER > PROFESSIONAL.
  */
-export type { UserRole };
+export type { UserRole, PlanTier };
 
 export const ROLE_HIERARCHY: UserRole[] = ['PROFESSIONAL', 'MANAGER', 'ADMIN'];
 
@@ -55,5 +55,52 @@ export function requireAnyRole(ctx: TenantContext, allowedRoles: UserRole[]): vo
   const allowed = allowedRoles.some((role) => hasRole(ctx.role, role));
   if (!allowed) {
     throw new ForbiddenError();
+  }
+}
+
+/* ================================================================== */
+/*  Entitlement por tier de produto (Básico vs Premium)                */
+/* ================================================================== */
+
+/**
+ * Hierarquia de tiers do município (tenant). BASICO < PREMIUM.
+ *
+ * Básico  = monitoramento + sinalizações/encaminhamentos (caso até `acompanhamento`).
+ * Premium = desbloqueia o ciclo PTS/PIA (ativar plano, RT, encontros, metas, reavaliações).
+ */
+export const PLAN_TIER_HIERARCHY: PlanTier[] = ['BASICO', 'PREMIUM'];
+
+export const PLAN_TIER_LABELS: Record<PlanTier, string> = {
+  BASICO: 'Básico',
+  PREMIUM: 'Premium',
+};
+
+export class TierError extends Error {
+  constructor(message = 'Recurso disponível apenas no plano Premium do município.') {
+    super(message);
+    this.name = 'TierError';
+  }
+}
+
+/**
+ * Retorna true se o tier do contexto atende ao mínimo exigido.
+ *
+ * Fail-closed: um `planTier` ausente (contextos de worker/teste que não o
+ * populam) é tratado como `BASICO` — o menor privilégio. Entitlement nunca
+ * "abre" por omissão.
+ */
+export function hasTier(ctx: TenantContext, minimumTier: PlanTier): boolean {
+  const tier = ctx.planTier ?? 'BASICO';
+  return PLAN_TIER_HIERARCHY.indexOf(tier) >= PLAN_TIER_HIERARCHY.indexOf(minimumTier);
+}
+
+/**
+ * Lança TierError se o município não possuir ao menos `minimumTier`.
+ *
+ * Uso: requireTier(ctx, 'PREMIUM') — trava o ciclo PTS/PIA para tenants Básico.
+ */
+export function requireTier(ctx: TenantContext, minimumTier: PlanTier): void {
+  if (!hasTier(ctx, minimumTier)) {
+    throw new TierError();
   }
 }

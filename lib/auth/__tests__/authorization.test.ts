@@ -5,12 +5,21 @@ import {
   requireAnyRole,
   ForbiddenError,
   ROLE_HIERARCHY,
+  hasTier,
+  requireTier,
+  TierError,
+  PLAN_TIER_HIERARCHY,
   type UserRole,
+  type PlanTier,
 } from '../authorization';
 import type { TenantContext } from '@/lib/tenant-context';
 
 function ctx(role: UserRole): TenantContext {
   return { tenantId: 'tenant-1', userId: 'user-1', role, activeUnitId: null };
+}
+
+function tierCtx(planTier?: PlanTier): TenantContext {
+  return { tenantId: 'tenant-1', userId: 'user-1', role: 'PROFESSIONAL', planTier, activeUnitId: null };
 }
 
 describe('ROLE_HIERARCHY', () => {
@@ -98,5 +107,44 @@ describe('regras de governança intersetorial', () => {
     for (const role of ROLE_HIERARCHY) {
       expect(() => requireRole(ctx(role), 'PROFESSIONAL')).not.toThrow();
     }
+  });
+});
+
+describe('PLAN_TIER_HIERARCHY', () => {
+  it('tem 2 tiers em ordem crescente de capacidade', () => {
+    expect(PLAN_TIER_HIERARCHY).toEqual(['BASICO', 'PREMIUM']);
+  });
+});
+
+describe('hasTier', () => {
+  it('PREMIUM atende BASICO e PREMIUM', () => {
+    expect(hasTier(tierCtx('PREMIUM'), 'BASICO')).toBe(true);
+    expect(hasTier(tierCtx('PREMIUM'), 'PREMIUM')).toBe(true);
+  });
+
+  it('BASICO atende só BASICO', () => {
+    expect(hasTier(tierCtx('BASICO'), 'BASICO')).toBe(true);
+    expect(hasTier(tierCtx('BASICO'), 'PREMIUM')).toBe(false);
+  });
+
+  it('tier ausente é tratado como BASICO (fail-closed)', () => {
+    expect(hasTier(tierCtx(undefined), 'BASICO')).toBe(true);
+    expect(hasTier(tierCtx(undefined), 'PREMIUM')).toBe(false);
+  });
+});
+
+describe('requireTier', () => {
+  it('não lança quando o tier do município atende', () => {
+    expect(() => requireTier(tierCtx('PREMIUM'), 'PREMIUM')).not.toThrow();
+    expect(() => requireTier(tierCtx('PREMIUM'), 'BASICO')).not.toThrow();
+    expect(() => requireTier(tierCtx('BASICO'), 'BASICO')).not.toThrow();
+  });
+
+  it('lança TierError quando o município Básico exige Premium (gate do ciclo PTS/PIA)', () => {
+    expect(() => requireTier(tierCtx('BASICO'), 'PREMIUM')).toThrow(TierError);
+  });
+
+  it('fail-closed: tier ausente exigindo Premium lança TierError', () => {
+    expect(() => requireTier(tierCtx(undefined), 'PREMIUM')).toThrow(TierError);
   });
 });

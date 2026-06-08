@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { and, desc, eq } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
-import { tenantMembers, profiles, professionalsToUnits, serviceUnits } from '@/lib/db/schema';
+import { tenantMembers, profiles, professionalsToUnits, serviceUnits, tenants } from '@/lib/db/schema';
 import { TenantAccessError, type TenantContext } from '@/lib/tenant-context';
 import { getAuthUser, requireAuthUser } from './get-user';
 
@@ -43,9 +43,10 @@ export const getTenantContext = cache(async (tenantId: string): Promise<TenantCo
   const user = await requireAuthUser();
 
   const [row] = await getDb()
-    .select({ role: profiles.role })
+    .select({ role: profiles.role, planTier: tenants.planTier })
     .from(tenantMembers)
     .innerJoin(profiles, eq(tenantMembers.userId, profiles.id))
+    .innerJoin(tenants, eq(tenantMembers.tenantId, tenants.id))
     .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, user.id)))
     .limit(1);
 
@@ -55,7 +56,7 @@ export const getTenantContext = cache(async (tenantId: string): Promise<TenantCo
 
   const activeUnitId = await resolveActiveUnitId(user.id, tenantId);
 
-  return { tenantId, userId: user.id, role: row.role, activeUnitId };
+  return { tenantId, userId: user.id, role: row.role, planTier: row.planTier, activeUnitId };
 });
 
 /**

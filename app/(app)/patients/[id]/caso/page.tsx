@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { ArrowLeft, AlertTriangle, Activity, ClipboardList, Radio, BarChart2, FileText } from 'lucide-react';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
+import { hasTier } from '@/lib/auth/authorization';
 import { withTransactionContext } from '@/lib/db/client';
 import { ptsResponses, serviceUnits, tenantMembers, profiles } from '@/lib/db/schema';
 import { GetPatientService } from '@/modules/patients';
@@ -199,6 +200,9 @@ export default async function CasoIntersetorialPage({ params }: Props) {
   const statusColor = CASE_STATUS_COLORS[activeCase.status as CaseStatus] ?? 'bg-slate-100 text-slate-700 border-slate-200';
 
   const isRt = activePlan?.ownerId === ctx.userId;
+  // Gating de produto: o ciclo PTS/PIA (intensidade, participação/encontros, metas pactuadas)
+  // é desbloqueado no plano Premium do município. Básico mantém monitoramento + sinalizações.
+  const isPremium = hasTier(ctx, 'PREMIUM');
 
   return (
     <div className="min-h-full bg-background/50 text-foreground selection:bg-primary/20">
@@ -278,8 +282,22 @@ export default async function CasoIntersetorialPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Nível de Intensidade do Cuidado (Bloco 3 / §5.8) */}
-        {activePlan && (
+        {/* Ciclo PTS/PIA é recurso do plano Premium do município */}
+        {!isPremium && (
+          <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center shadow-diffusion">
+            <h2 className="mb-2 text-sm font-black uppercase tracking-widest text-amber-700">
+              Ciclo PTS/PIA — recurso Premium
+            </h2>
+            <p className="text-sm text-amber-800/80">
+              Este município opera no plano Básico: monitoramento, dimensões e sinalizações
+              intersetoriais. A ativação de PTS/PIA (técnico de referência, encontros, metas
+              pactuadas e reavaliações) é habilitada no plano Premium.
+            </p>
+          </div>
+        )}
+
+        {/* Nível de Intensidade do Cuidado (Bloco 3 / §5.8) — Premium */}
+        {isPremium && activePlan && (
           <section>
             <div className="mb-4 flex items-center gap-3">
               <div className="inline-flex rounded-xl bg-primary/10 p-2">
@@ -298,8 +316,8 @@ export default async function CasoIntersetorialPage({ params }: Props) {
           </section>
         )}
 
-        {/* Participação do Usuário e Reuniões de Rede (Bloco 4) */}
-        {activePlan && (
+        {/* Participação do Usuário e Reuniões de Rede (Bloco 4) — Premium */}
+        {isPremium && activePlan && (
           <ParticipationAndEncontros
             planId={activePlan.id}
             caseId={activeCase.id}
@@ -344,7 +362,8 @@ export default async function CasoIntersetorialPage({ params }: Props) {
           <ManualDimensionForm caseId={activeCase.id} />
         </section>
 
-        {/* Ações Pactuadas */}
+        {/* Ações Pactuadas (Premium) */}
+        {isPremium && (
         <section>
           <div className="mb-4 flex items-center gap-3">
             <div className="inline-flex rounded-xl bg-primary/10 p-2">
@@ -370,6 +389,7 @@ export default async function CasoIntersetorialPage({ params }: Props) {
             activeUnitId={ctx.activeUnitId}
           />
         </section>
+        )}
 
         {/* Sinalizações Cruzadas */}
         <section>

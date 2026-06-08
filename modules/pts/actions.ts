@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
 import { revalidateTenantResource } from '@/lib/cache';
 import { getLogger } from '@/lib/logger';
-import { ForbiddenError } from '@/lib/auth/authorization';
+import { ForbiddenError, hasTier } from '@/lib/auth/authorization';
 import { IntersectoralTaskService } from './services/intersectoral-task.service';
 import { InitializeCaseService } from './services/initialize-case.service';
 import { RecordActionService } from './services/record-action.service';
@@ -299,6 +299,10 @@ export async function createActionAction(
     return { error: 'Sessão expirada. Faça login novamente.', success: null };
   }
 
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
+  }
+
   let rawInput: any = {};
   if (input instanceof FormData) {
     rawInput = {
@@ -356,6 +360,10 @@ export async function createReavaliacaoAction(input: {
   const ctx = await getActiveTenantContext();
   if (!ctx) {
     return { error: 'Sessão expirada. Faça login novamente.', success: null };
+  }
+
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
   }
 
   const parsed = createReavaliacaoInputSchema.safeParse(input);
@@ -592,6 +600,10 @@ export async function transitionNivelIntensidadeAction(input: {
   const ctx = await getActiveTenantContext();
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
 
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
+  }
+
   const parsed = transitionNivelInputSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
@@ -624,6 +636,10 @@ export async function transitionNivelIntensidadeAction(input: {
 export async function suggestNivelTransitionAction(input: { planId: string }) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
+  }
 
   const planIdParsed = z.string().uuid().safeParse(input.planId);
   if (!planIdParsed.success) return { error: 'ID do plano inválido.', success: null };
@@ -674,6 +690,10 @@ export async function updatePlanParticipationAction(input: {
 }) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
+  }
 
   const parsed = updatePlanParticipationInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -759,6 +779,10 @@ export async function createEncontroAction(input: {
 }) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  if (!hasTier(ctx, 'PREMIUM')) {
+    return { error: 'O ciclo PTS/PIA está disponível apenas no plano Premium do município.', success: null };
+  }
 
   const parsed = createEncontroInputSchema.safeParse(input);
   if (!parsed.success) {

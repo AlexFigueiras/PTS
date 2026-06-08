@@ -1,6 +1,6 @@
 import { withTransactionContext } from '@/lib/db/client';
 import { withAudit } from '@/lib/audit/with-audit';
-import { requireAnyRole, ForbiddenError } from '@/lib/auth/authorization';
+import { requireAnyRole, requireTier, ForbiddenError } from '@/lib/auth/authorization';
 import { BaseService } from '@/services/base.service';
 import type { TenantContext } from '@/lib/tenant-context';
 import type { PtsCase } from '@/lib/db/schema';
@@ -46,6 +46,11 @@ const transitionCaseStatusAudited = withAudit<TransitionCaseStatusInput, PtsCase
 
     // Gate de ativação do Plano
     if (input.nextStatus === 'pts_ativo' || input.nextStatus === 'pia_ativo') {
+      // Gate de TIER (Básico vs Premium): o ciclo PTS/PIA só é desbloqueado no
+      // plano Premium do município. A fronteira é exatamente a ativação do plano
+      // — em Básico o caso opera apenas até `acompanhamento` + sinalizações.
+      requireTier(ctx, 'PREMIUM');
+
       const plan = plans.find((p) => p.type === 'PTS') ?? plans[0];
       if (!plan) {
         throw new Error('Plano terapêutico associado ao caso não encontrado.');

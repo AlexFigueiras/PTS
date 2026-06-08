@@ -40,6 +40,7 @@ const FILES = [
   'drizzle/migrations/0030_plan_intensity_level.sql',
   'drizzle/migrations/0031_user_protagonism.sql',
   'drizzle/migrations/0032_clinical_comorbidity.sql',
+  'drizzle/migrations/0033_plan_tier.sql',
 ];
 
 const sql = postgres(url, { prepare: false, max: 1, idle_timeout: 10, connect_timeout: 20 });

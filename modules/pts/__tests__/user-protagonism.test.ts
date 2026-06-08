@@ -145,6 +145,8 @@ describe('User Protagonism Integration Tests (Block 4)', () => {
           tenantId,
           userId: professionalId,
           role: 'PROFESSIONAL',
+          // Município Premium: o ciclo PTS/PIA (ativação do plano) está desbloqueado.
+          planTier: 'PREMIUM',
           activeUnitId: unitId,
         };
 

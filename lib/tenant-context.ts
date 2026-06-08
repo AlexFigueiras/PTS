@@ -1,4 +1,4 @@
-import type { UserRole } from '@/lib/db/schema';
+import type { UserRole, PlanTier } from '@/lib/db/schema';
 
 /**
  * Tenant context — passado explicitamente para repositories e services.
@@ -14,6 +14,12 @@ export type TenantContext = {
   role: UserRole;
   /** Unidade de atuação ativa no multi-vínculo. Null se o usuário não tem unidade. */
   activeUnitId: string | null;
+  /**
+   * Tier de produto do município. Habilita (PREMIUM) ou tranca (BASICO) o ciclo PTS/PIA.
+   * Ausente em contextos de worker/teste → tratado como BASICO (fail-closed) pelos helpers
+   * `hasTier`/`requireTier` de `lib/auth/authorization.ts`.
+   */
+  planTier?: PlanTier;
   /** Transação ativa (drizzle transaction client) para RLS sob strict transaction pooler */
   tx?: any;
 };
