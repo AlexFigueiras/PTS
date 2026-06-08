@@ -35,6 +35,7 @@ export const profiles = pgTable('profiles', {
   status: profileStatusEnum('status').notNull().default('ACTIVE'),
   cpf: text('cpf'),
   professionalRegistry: text('professional_registry'), // Registro/Conselho (ex.: CRP 06/12345)
+  municipalRegistry: text('municipal_registry'), // Matrícula funcional única do servidor no município — chave de vínculo com sistemas externos de origem
   jobTitle: text('job_title'), // Cargo (ex.: Psicólogo, Assistente Social)
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

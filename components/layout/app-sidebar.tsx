@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Users,
   Inbox,
-  Map
+  Map,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/patients', label: 'Cidadãos', icon: UsersRound },
   { href: '/triagem', label: 'Triagem', icon: Inbox },
+  { href: '/inbox', label: 'Sugestões', icon: Sparkles },
   { href: '/groups', label: 'Grupos', icon: Users },
   { href: '/mapa', label: 'Mapa', icon: Map },
   { href: '/settings', label: 'Configurações', icon: Settings },

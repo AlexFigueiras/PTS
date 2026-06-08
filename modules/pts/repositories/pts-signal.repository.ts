@@ -1,7 +1,7 @@
 import { and, eq, inArray, desc } from 'drizzle-orm';
 import { BaseTenantRepository } from '@/repositories/base.repository';
 import type { TenantContext } from '@/lib/tenant-context';
-import { ptsSignals, ptsPlans, type PtsSignal } from '@/lib/db/schema';
+import { ptsSignals, ptsPlans, ptsCases, type PtsSignal } from '@/lib/db/schema';
 import type { SignalStatus, SignalPriority, SignalSubtype } from '@pts/domain';
 
 /**
@@ -93,6 +93,35 @@ export class PtsSignalRepository extends BaseTenantRepository {
           eq(ptsSignals.destinationUnitId, unitId),
           eq(ptsSignals.tenantId, this.tenantId),
           inArray(ptsSignals.status, INBOX_PENDING_STATUSES),
+        ),
+      )
+      .orderBy(desc(ptsSignals.createdAt));
+  }
+
+  /**
+   * Sinalizações em estado `sugerida` cuja autoria é do profissional — a caixa
+   * de sugestões da IA. O autor (profissional que originou o relato, vinculado
+   * por matrícula) confirma ou descarta cada sugestão (gate `actorIsAuthor` da FSM).
+   */
+  async findSuggestedForAuthor(authorUserId: string) {
+    return this.db
+      .select({
+        id: ptsSignals.id,
+        caseId: ptsSignals.caseId,
+        patientId: ptsCases.patientId,
+        status: ptsSignals.status,
+        priority: ptsSignals.priority,
+        needTypeId: ptsSignals.needTypeId,
+        abstractReason: ptsSignals.abstractReason,
+        createdAt: ptsSignals.createdAt,
+      })
+      .from(ptsSignals)
+      .innerJoin(ptsCases, eq(ptsCases.id, ptsSignals.caseId))
+      .where(
+        and(
+          eq(ptsSignals.tenantId, this.tenantId),
+          eq(ptsSignals.authorId, authorUserId),
+          eq(ptsSignals.status, 'sugerida'),
         ),
       )
       .orderBy(desc(ptsSignals.createdAt));

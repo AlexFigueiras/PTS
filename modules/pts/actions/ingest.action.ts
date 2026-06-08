@@ -111,8 +111,16 @@ export async function runIngestAction(patientId: string, caseId: string): Promis
         await dimRepo.upsertDimension({ caseId, dimension: dim as Dimension, payload, sensitivity, sourceRef, versionHash });
       }
 
-      const latestSourceRecordId = healthRows[0]?.id ?? socialRows[0]?.id;
-      const fanOutResult = await fanOutSignals(ctx, tx, { caseId, sourceRecordId: latestSourceRecordId, nlpEntities, derivedDimensions });
+      const latestSourceRow = healthRows[0] ?? socialRows[0];
+      const latestSourceRecordId = latestSourceRow?.id;
+      const fanOutResult = await fanOutSignals(ctx, tx, {
+        caseId,
+        sourceRecordId: latestSourceRecordId,
+        authorMunicipalRegistry: latestSourceRow?.authorMunicipalRegistry ?? null,
+        originUnitId: latestSourceRow?.originUnitId ?? null,
+        nlpEntities,
+        derivedDimensions,
+      });
       const triggerResult = await runTriggerDetectors(ctx, tx, patientId, caseId);
 
       return { dimensions: DIMENSIONS.length, signalsCreated: fanOutResult.created, triggered: triggerResult.triggered };

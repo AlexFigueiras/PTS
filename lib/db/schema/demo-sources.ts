@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 import { patients } from './patients';
+import { serviceUnits } from './service-units';
 import { ptsCases } from './pts-relational';
 import type { Dimension } from '@pts/domain';
 
@@ -21,6 +22,8 @@ export const sourceHealthRecords = pgTable(
       .references(() => patients.id, { onDelete: 'cascade' }),
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
     unitLabel: text('unit_label').notNull(),
+    originUnitId: uuid('origin_unit_id').references(() => serviceUnits.id, { onDelete: 'set null' }),
+    authorMunicipalRegistry: text('author_municipal_registry'),
     rawText: text('raw_text').notNull(),
     structured: jsonb('structured'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -44,6 +47,8 @@ export const sourceSocialRecords = pgTable(
       .references(() => patients.id, { onDelete: 'cascade' }),
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
     unitLabel: text('unit_label').notNull(),
+    originUnitId: uuid('origin_unit_id').references(() => serviceUnits.id, { onDelete: 'set null' }),
+    authorMunicipalRegistry: text('author_municipal_registry'),
     rawText: text('raw_text').notNull(),
     structured: jsonb('structured'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

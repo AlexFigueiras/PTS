@@ -11,7 +11,7 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { getComponentsForNeed, type NeedTypeId, type SignalPriority, type SignalStatus, type Dimension } from '@pts/domain';
-import { serviceUnits, ptsSignals, ptsCases } from '@/lib/db/schema';
+import { serviceUnits, ptsSignals, ptsCases, profiles, tenantMembers } from '@/lib/db/schema';
 import { PtsSignalRepository } from '@/modules/pts/repositories/pts-signal.repository';
 import type { TenantContext } from '@/lib/tenant-context';
 import type { NlpEntity } from '@/lib/nlp/nlp-engine';
@@ -20,6 +20,10 @@ import type { DerivationResult } from './dimension-derivation.service';
 export type FanOutInput = {
   caseId: string;
   sourceRecordId?: string;
+  /** Matrícula funcional do profissional que escreveu o relato na origem (atribuição de autoria). */
+  authorMunicipalRegistry?: string | null;
+  /** Unidade de origem do registro-fonte; usada quando não há unidade ativa (ingestão automatizada). */
+  originUnitId?: string | null;
   nlpEntities: NlpEntity[];
   derivedDimensions: DerivationResult;
 };
@@ -83,9 +87,30 @@ export async function fanOutSignals(
 ): Promise<FanOutResult> {
   const result: FanOutResult = { created: 0, skipped: 0, signalIds: [] };
 
-  if (!ctx.activeUnitId) {
-    // Sem unidade ativa — não há origem para a sinalização
+  // Unidade de origem: prioriza a unidade do registro-fonte (ingestão automatizada),
+  // cai para a unidade ativa do operador. Sem nenhuma das duas, não há origem.
+  const sourceUnitId = input.originUnitId ?? ctx.activeUnitId;
+  if (!sourceUnitId) {
     return result;
+  }
+
+  // Autor da sinalização: o profissional que escreveu o relato na origem (resolvido pela
+  // matrícula funcional), para que a sugestão caia no perfil dele e ele possa aceitar/rejeitar
+  // (gate `actorIsAuthor` da FSM). Cai para o operador da ingestão quando não há matrícula vinculável.
+  let authorId = ctx.userId;
+  if (input.authorMunicipalRegistry) {
+    const [match] = await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .innerJoin(tenantMembers, eq(tenantMembers.userId, profiles.id))
+      .where(
+        and(
+          eq(profiles.municipalRegistry, input.authorMunicipalRegistry),
+          eq(tenantMembers.tenantId, ctx.tenantId),
+        ),
+      )
+      .limit(1);
+    if (match?.id) authorId = match.id as string;
   }
 
   // Verifica se o caso está em estado de recusa (T2)
@@ -186,8 +211,8 @@ export async function fanOutSignals(
 
     const signal = await repo.create({
       caseId: input.caseId,
-      authorId: ctx.userId,
-      sourceUnitId: ctx.activeUnitId!,
+      authorId,
+      sourceUnitId,
       needTypeId,
       destinationComponent,
       destinationUnitId,
