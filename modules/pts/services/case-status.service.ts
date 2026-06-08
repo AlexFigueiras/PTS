@@ -29,53 +29,54 @@ const transitionCaseStatusAudited = withAudit<TransitionCaseStatusInput, PtsCase
       throw new ForbiddenError('Acesso negado: o profissional técnico precisa ter uma unidade ativa selecionada.');
     }
 
-    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
-      const caseRepo = new PtsCaseRepository(ctx, tx);
-      const planRepo = new PtsPlanRepository(ctx, tx);
+    const caseRepo = new PtsCaseRepository(ctx);
+    const planRepo = new PtsPlanRepository(ctx);
 
-      const ptsCase = await caseRepo.findById(input.caseId);
-      if (!ptsCase) {
-        throw new Error('Caso intersetorial não encontrado ou fora do escopo deste município.');
+    const ptsCase = await caseRepo.findById(input.caseId);
+    if (!ptsCase) {
+      throw new Error('Caso intersetorial não encontrado ou fora do escopo deste município.');
+    }
+
+    // Resolve minimum owner
+    const plans = await planRepo.findByCaseId(input.caseId);
+    const hasMinimumOwner = plans.some((p) => p.ownerId !== null);
+
+    // FSM Transition Validation
+    assertCaseTransition(ptsCase.status as CaseStatus, input.nextStatus, { hasMinimumOwner });
+
+    // Gate de ativação do Plano
+    if (input.nextStatus === 'pts_ativo' || input.nextStatus === 'pia_ativo') {
+      const plan = plans.find((p) => p.type === 'PTS') ?? plans[0];
+      if (!plan) {
+        throw new Error('Plano terapêutico associado ao caso não encontrado.');
       }
 
-      // Resolve minimum owner
-      const plans = await planRepo.findByCaseId(input.caseId);
-      const hasMinimumOwner = plans.some((p) => p.ownerId !== null);
-
-      // FSM Transition Validation
-      assertCaseTransition(ptsCase.status as CaseStatus, input.nextStatus, { hasMinimumOwner });
-
-      // Gate de ativação do Plano
-      if (input.nextStatus === 'pts_ativo' || input.nextStatus === 'pia_ativo') {
-        const plan = plans.find((p) => p.type === 'PTS') ?? plans[0];
-        if (!plan) {
-          throw new Error('Plano terapêutico associado ao caso não encontrado.');
-        }
-
-        if (!plan.participacaoUsuario) {
-          throw new Error('PTS não existe sem o usuário. Registre a participação antes de ativar.');
-        }
-
-        if (
-          plan.participacaoUsuario === 'dispensado_por_incapacidade' &&
-          (!plan.participacaoJustificativa || plan.participacaoJustificativa.trim() === '')
-        ) {
-          throw new Error('PTS não existe sem o usuário. Registre a participação antes de ativar.');
-        }
+      if (!plan.participacaoUsuario) {
+        throw new Error('PTS não existe sem o usuário. Registre a participação antes de ativar.');
       }
 
-      const updated = await caseRepo.updateStatus(input.caseId, input.nextStatus);
-      if (!updated) {
-        throw new Error('Falha ao atualizar o status do caso.');
+      if (
+        plan.participacaoUsuario === 'dispensado_por_incapacidade' &&
+        (!plan.participacaoJustificativa || plan.participacaoJustificativa.trim() === '')
+      ) {
+        throw new Error('PTS não existe sem o usuário. Registre a participação antes de ativar.');
       }
+    }
 
-      return updated;
-    });
+    const updated = await caseRepo.updateStatus(input.caseId, input.nextStatus);
+    if (!updated) {
+      throw new Error('Falha ao atualizar o status do caso.');
+    }
+
+    return updated;
   }
 );
 
 export class CaseStatusService extends BaseService {
   async transitionCaseStatus(input: TransitionCaseStatusInput): Promise<PtsCase> {
-    return transitionCaseStatusAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return transitionCaseStatusAudited(txCtx, input);
+    });
   }
 }

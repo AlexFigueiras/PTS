@@ -51,29 +51,27 @@ const createActionAudited = withAudit<CreateActionInput, PtsAction>(
       throw new ForbiddenError('Acesso negado: o profissional técnico precisa ter uma unidade ativa selecionada.');
     }
 
-    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
-      const repo = new PtsActionRepository(ctx, tx);
-      const isRefused = input.aceiteUsuario === 'recusa' || input.aceiteUsuario === 'repactuar';
-      const status = isRefused ? 'bloqueada' : 'pactuada';
-      const notes = isRefused ? 'Repactuação pendente' : null;
+    const repo = new PtsActionRepository(ctx);
+    const isRefused = input.aceiteUsuario === 'recusa' || input.aceiteUsuario === 'repactuar';
+    const status = isRefused ? 'bloqueada' : 'pactuada';
+    const notes = isRefused ? 'Repactuação pendente' : null;
 
-      return await repo.createAction({
-        planId: input.planId,
-        responsibleUnitId: input.responsibleUnitId,
-        assignedProfessionalId: input.assignedProfessionalId || null,
-        deadline: input.deadline,
-        status,
-        description: input.description,
-        dataInicio: input.dataInicio,
-        prazofim: input.prazofim,
-        frequenciaTipo: input.frequenciaTipo,
-        frequenciaDetalhe: input.frequenciaDetalhe,
-        proximoRetorno: input.proximoRetorno,
-        dataProximaReavaliacao: input.dataProximaReavaliacao,
-        horizonteTipo: input.horizonteTipo,
-        aceiteUsuario: input.aceiteUsuario,
-        evolutionNotes: notes,
-      });
+    return await repo.createAction({
+      planId: input.planId,
+      responsibleUnitId: input.responsibleUnitId,
+      assignedProfessionalId: input.assignedProfessionalId || null,
+      deadline: input.deadline,
+      status,
+      description: input.description,
+      dataInicio: input.dataInicio,
+      prazofim: input.prazofim,
+      frequenciaTipo: input.frequenciaTipo,
+      frequenciaDetalhe: input.frequenciaDetalhe,
+      proximoRetorno: input.proximoRetorno,
+      dataProximaReavaliacao: input.dataProximaReavaliacao,
+      horizonteTipo: input.horizonteTipo,
+      aceiteUsuario: input.aceiteUsuario,
+      evolutionNotes: notes,
     });
   }
 );
@@ -94,37 +92,41 @@ const transitionActionAudited = withAudit<TransitionActionInput, PtsAction>(
       throw new ForbiddenError('Acesso negado: o profissional técnico precisa ter uma unidade ativa selecionada.');
     }
 
-    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
-      const repo = new PtsActionRepository(ctx, tx);
-      const action = await repo.findById(input.actionId);
-      if (!action) {
-        throw new Error('Ação pactuada não encontrada ou fora do escopo deste município.');
-      }
+    const repo = new PtsActionRepository(ctx);
+    const action = await repo.findById(input.actionId);
+    if (!action) {
+      throw new Error('Ação pactuada não encontrada ou fora do escopo deste município.');
+    }
 
-      if (
-        (action.aceiteUsuario === 'recusa' || action.aceiteUsuario === 'repactuar') &&
-        (input.nextStatus === 'pactuada' || input.nextStatus === 'em_andamento')
-      ) {
-        throw new Error('Ação bloqueada: o aceite do usuário é recusa ou pendente de repactuação.');
-      }
+    if (
+      (action.aceiteUsuario === 'recusa' || action.aceiteUsuario === 'repactuar') &&
+      (input.nextStatus === 'pactuada' || input.nextStatus === 'em_andamento')
+    ) {
+      throw new Error('Ação bloqueada: o aceite do usuário é recusa ou pendente de repactuação.');
+    }
 
-      assertActionTransition(action.status, input.nextStatus);
+    assertActionTransition(action.status, input.nextStatus);
 
-      const updated = await repo.updateActionStatus(input.actionId, input.nextStatus, input.evolutionNotes);
-      if (!updated) {
-        throw new Error('Falha ao atualizar o status da ação.');
-      }
-      return updated;
-    });
+    const updated = await repo.updateActionStatus(input.actionId, input.nextStatus, input.evolutionNotes);
+    if (!updated) {
+      throw new Error('Falha ao atualizar o status da ação.');
+    }
+    return updated;
   }
 );
 
 export class RecordActionService extends BaseService {
   async createAction(input: CreateActionInput): Promise<PtsAction> {
-    return createActionAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return createActionAudited(txCtx, input);
+    });
   }
 
   async transitionAction(input: TransitionActionInput): Promise<PtsAction> {
-    return transitionActionAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return transitionActionAudited(txCtx, input);
+    });
   }
 }

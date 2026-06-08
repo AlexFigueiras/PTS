@@ -35,22 +35,23 @@ const createEncontroAudited = withAudit<CreateEncontroInput, Encontro>(
       throw new Error('Reunião de PTS exige a presença do usuário.');
     }
 
-    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
-      const repo = new PtsEncontroRepository(ctx, tx);
-      return await repo.createEncontro({
-        planoId: input.planoId,
-        tipo: input.tipo,
-        data: typeof input.data === 'string' ? new Date(input.data) : input.data,
-        participantes: input.participantes,
-        usuarioPresente: input.usuarioPresente,
-        createdBy: ctx.userId,
-      });
+    const repo = new PtsEncontroRepository(ctx);
+    return await repo.createEncontro({
+      planoId: input.planoId,
+      tipo: input.tipo,
+      data: typeof input.data === 'string' ? new Date(input.data) : input.data,
+      participantes: input.participantes,
+      usuarioPresente: input.usuarioPresente,
+      createdBy: ctx.userId,
     });
   }
 );
 
 export class EncontroService extends BaseService {
   async createEncontro(input: CreateEncontroInput): Promise<Encontro> {
-    return createEncontroAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return createEncontroAudited(txCtx, input);
+    });
   }
 }

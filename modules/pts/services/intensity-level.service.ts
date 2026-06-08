@@ -49,41 +49,39 @@ const transitionAudited = withAudit<TransitionInput, PtsPlan>(
   async (ctx: TenantContext, input: TransitionInput): Promise<PtsPlan> => {
     requireAnyRole(ctx, ['MANAGER', 'PROFESSIONAL']);
 
-    return await withTransactionContext(ctx.userId, ctx.tenantId, async (tx) => {
-      const planRepo = new PtsPlanRepository(ctx, tx);
-      const caseRepo = new PtsCaseRepository(ctx, tx);
+    const planRepo = new PtsPlanRepository(ctx);
+    const caseRepo = new PtsCaseRepository(ctx);
 
-      const plan = await planRepo.findById(input.planId);
-      if (!plan) {
-        throw new Error('Plano não encontrado ou fora do escopo deste município.');
-      }
+    const plan = await planRepo.findById(input.planId);
+    if (!plan) {
+      throw new Error('Plano não encontrado ou fora do escopo deste município.');
+    }
 
-      // Only the RT (plan owner) can confirm a nivel transition
-      if (plan.ownerId && plan.ownerId !== ctx.userId) {
-        throw new ForbiddenError(
-          'Somente o Técnico de Referência (RT) do plano pode confirmar a transição de nível.',
-        );
-      }
+    // Only the RT (plan owner) can confirm a nivel transition
+    if (plan.ownerId && plan.ownerId !== ctx.userId) {
+      throw new ForbiddenError(
+        'Somente o Técnico de Referência (RT) do plano pode confirmar a transição de nível.',
+      );
+    }
 
-      const allowed = NIVEL_TRANSITIONS[plan.nivelIntensidade];
-      if (!allowed.includes(input.toNivel)) {
-        throw new Error(
-          `Transição inválida: ${NIVEL_INTENSIDADE_LABELS[plan.nivelIntensidade]} → ${NIVEL_INTENSIDADE_LABELS[input.toNivel]}. ` +
-          `Transições permitidas: ${allowed.map((n) => NIVEL_INTENSIDADE_LABELS[n]).join(', ') || 'nenhuma (estado terminal)'}.`,
-        );
-      }
+    const allowed = NIVEL_TRANSITIONS[plan.nivelIntensidade];
+    if (!allowed.includes(input.toNivel)) {
+      throw new Error(
+        `Transição inválida: ${NIVEL_INTENSIDADE_LABELS[plan.nivelIntensidade]} → ${NIVEL_INTENSIDADE_LABELS[input.toNivel]}. ` +
+        `Transições permitidas: ${allowed.map((n) => NIVEL_INTENSIDADE_LABELS[n]).join(', ') || 'nenhuma (estado terminal)'}.`,
+      );
+    }
 
-      const updated = await planRepo.updateNivelIntensidade(input.planId, input.toNivel);
-      if (!updated) throw new Error('Falha ao atualizar nível de intensidade.');
+    const updated = await planRepo.updateNivelIntensidade(input.planId, input.toNivel);
+    if (!updated) throw new Error('Falha ao atualizar nível de intensidade.');
 
-      // If reaching alta_continuidade, archive the case (terminal state)
-      if (input.toNivel === 'alta_continuidade') {
-        await caseRepo.archiveCase(plan.caseId);
-        log.info({ planId: input.planId, caseId: plan.caseId }, 'Caso arquivado por alta por continuidade');
-      }
+    // If reaching alta_continuidade, archive the case (terminal state)
+    if (input.toNivel === 'alta_continuidade') {
+      await caseRepo.archiveCase(plan.caseId);
+      log.info({ planId: input.planId, caseId: plan.caseId }, 'Caso arquivado por alta por continuidade');
+    }
 
-      return updated;
-    });
+    return updated;
   },
 );
 
@@ -150,7 +148,10 @@ async function suggestTransitionIfEligible(
 
 export class IntensityLevelService extends BaseService {
   async transitionNivel(input: TransitionInput): Promise<PtsPlan> {
-    return transitionAudited(this.ctx, input);
+    return await withTransactionContext(this.ctx.userId, this.ctx.tenantId, async (tx) => {
+      const txCtx = { ...this.ctx, tx };
+      return transitionAudited(txCtx, input);
+    });
   }
 
   async suggestTransitionIfEligible(planId: string): Promise<boolean> {
