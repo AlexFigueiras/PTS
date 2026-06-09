@@ -12,6 +12,7 @@ import { parseJobErrorLog, ErrorParser } from '../utils/error-parser';
 import { NotificationService } from './notification.service';
 import { ExpurgoJobService } from './expurgo-job.service';
 import { runNonComplianceCheck } from '@/modules/pts/services/non-compliance-alert.service';
+import { runIngestScan } from '@/modules/pts/services/ingest-scan.service';
 
 export class JobProcessorService {
   /**
@@ -165,6 +166,11 @@ export class JobProcessorService {
 
       case 'non_compliance_check': {
         await runNonComplianceCheck(ctx.tenantId);
+        break;
+      }
+
+      case 'ingest_scan': {
+        await runIngestScan(ctx.tenantId);
         break;
       }
 

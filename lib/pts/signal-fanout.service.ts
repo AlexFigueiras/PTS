@@ -97,7 +97,7 @@ export async function fanOutSignals(
   // Autor da sinalização: o profissional que escreveu o relato na origem (resolvido pela
   // matrícula funcional), para que a sugestão caia no perfil dele e ele possa aceitar/rejeitar
   // (gate `actorIsAuthor` da FSM). Cai para o operador da ingestão quando não há matrícula vinculável.
-  let authorId = ctx.userId;
+  let authorId: string | null = ctx.userId || null;
   if (input.authorMunicipalRegistry) {
     const [match] = await tx
       .select({ id: profiles.id })

@@ -12,7 +12,7 @@ const INBOX_PENDING_STATUSES: SignalStatus[] = ['encaminhada', 'recebida', 'em_t
 
 export type CreateSignalData = {
   caseId: string;
-  authorId: string;
+  authorId: string | null;
   sourceUnitId: string;
   needTypeId: string;
   destinationComponent: string;
