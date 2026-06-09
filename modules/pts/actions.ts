@@ -14,6 +14,7 @@ import { SignalService } from './services/signal.service';
 import { IntensityLevelService } from './services/intensity-level.service';
 import { CaseStatusService } from './services/case-status.service';
 import { EncontroService } from './services/encontro.service';
+import { ReassignRtService } from './services/reassign-rt.service';
 import { PtsRepository } from './pts.repository';
 import { PtsPlanRepository } from './repositories/pts-plan.repository';
 import { PtsEncontroRepository } from './repositories/pts-encontro.repository';
@@ -759,6 +760,7 @@ const createEncontroInputSchema = z
     data: z.string().min(1, 'A data é obrigatória.'),
     participantes: z.array(z.string().uuid()).min(1, 'Selecione ao menos um participante.'),
     usuarioPresente: z.boolean(),
+    ata: z.string().max(5000).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.tipo === 'reuniao_pts' && !data.usuarioPresente) {
@@ -776,6 +778,7 @@ export async function createEncontroAction(input: {
   data: string;
   participantes: string[];
   usuarioPresente: boolean;
+  ata?: string | null;
 }) {
   const ctx = await getActiveTenantContext();
   if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
@@ -797,6 +800,7 @@ export async function createEncontroAction(input: {
       data: parsed.data.data,
       participantes: parsed.data.participantes,
       usuarioPresente: parsed.data.usuarioPresente,
+      ata: parsed.data.ata,
     });
 
     revalidateTenantResource(ctx.tenantId, 'patients');
@@ -806,6 +810,39 @@ export async function createEncontroAction(input: {
   } catch (err: any) {
     getLogger().error({ err, planoId: input.planoId, tenantId: ctx.tenantId }, 'createEncontroAction failed');
     return { error: err?.message || 'Erro ao registrar encontro.', success: null };
+  }
+}
+
+const reassignRtInputSchema = z.object({
+  planId: z.string().uuid('ID do plano inválido.'),
+  newOwnerId: z.string().uuid('ID do profissional inválido.'),
+});
+
+/**
+ * Reatribui o Técnico de Referência (owner) de um plano.
+ * Somente MANAGER, em município Premium; o novo RT deve ser membro do tenant.
+ */
+export async function reassignReferenceTechnicianAction(input: { planId: string; newOwnerId: string }) {
+  const ctx = await getActiveTenantContext();
+  if (!ctx) return { error: 'Sessão expirada. Faça login novamente.', success: null };
+
+  const parsed = reassignRtInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.', success: null };
+  }
+
+  try {
+    const service = new ReassignRtService(ctx);
+    const result = await service.reassign(parsed.data);
+
+    revalidateTenantResource(ctx.tenantId, 'patients');
+    revalidatePath('/dashboard');
+
+    return { error: null, success: result };
+  } catch (err: any) {
+    getLogger().error({ err, planId: parsed.data.planId, tenantId: ctx.tenantId }, 'reassignReferenceTechnicianAction failed');
+    if (err instanceof ForbiddenError) return { error: err.message, success: null };
+    return { error: err?.message || 'Erro ao reatribuir o Técnico de Referência.', success: null };
   }
 }
 

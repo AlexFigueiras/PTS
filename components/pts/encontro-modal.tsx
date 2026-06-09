@@ -22,6 +22,7 @@ export function EncontroModal({ planId, professionals, isOpen, onClose, onCreate
   const [tipo, setTipo] = useState<'articulacao_rede' | 'reuniao_pts'>('articulacao_rede');
   const [data, setData] = useState('');
   const [usuarioPresente, setUsuarioPresente] = useState(false);
+  const [ata, setAta] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function EncontroModal({ planId, professionals, isOpen, onClose, onCreate
         data,
         participantes: selectedParticipants,
         usuarioPresente: isUsuarioPresente,
+        ata: ata.trim() || null,
       });
 
       if (result.error) {
@@ -61,6 +63,7 @@ export function EncontroModal({ planId, professionals, isOpen, onClose, onCreate
         setTipo('articulacao_rede');
         setData('');
         setUsuarioPresente(false);
+        setAta('');
         setSelectedParticipants([]);
         onCreated();
         onClose();
@@ -212,6 +215,20 @@ export function EncontroModal({ planId, professionals, isOpen, onClose, onCreate
                 })
               )}
             </div>
+          </div>
+
+          {/* Ata: pauta e decisões da reunião */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Ata — Pauta e Decisões
+            </label>
+            <textarea
+              value={ata}
+              onChange={(e) => setAta(e.target.value)}
+              rows={3}
+              placeholder="O que foi discutido e pactuado nesta reunião..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
           </div>
 
           {error && (

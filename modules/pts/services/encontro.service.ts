@@ -12,6 +12,7 @@ export type CreateEncontroInput = {
   data: Date | string;
   participantes: string[];
   usuarioPresente: boolean;
+  ata?: string | null;
 };
 
 const createEncontroAudited = withAudit<CreateEncontroInput, Encontro>(
@@ -42,6 +43,7 @@ const createEncontroAudited = withAudit<CreateEncontroInput, Encontro>(
       data: typeof input.data === 'string' ? new Date(input.data) : input.data,
       participantes: input.participantes,
       usuarioPresente: input.usuarioPresente,
+      ata: input.ata ?? null,
       createdBy: ctx.userId,
     });
   }

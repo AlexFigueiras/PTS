@@ -293,6 +293,7 @@ export const encontros = pgTable(
     data: timestamp('data', { withTimezone: true }).notNull(),
     participantes: uuid('participantes').array().notNull(),
     usuarioPresente: boolean('usuario_presente').notNull().default(false),
+    ata: text('ata'),
     createdBy: uuid('created_by').references(() => profiles.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

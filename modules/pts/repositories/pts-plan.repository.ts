@@ -80,4 +80,14 @@ export class PtsPlanRepository extends BaseTenantRepository {
       .returning();
     return row;
   }
+
+  /** Reatribui o Técnico de Referência (owner) do plano. */
+  async updateOwner(planId: string, newOwnerId: string): Promise<PtsPlan | undefined> {
+    const [row] = await this.db
+      .update(ptsPlans)
+      .set({ ownerId: newOwnerId, updatedAt: new Date() })
+      .where(and(eq(ptsPlans.id, planId), eq(ptsPlans.tenantId, this.tenantId)))
+      .returning();
+    return row;
+  }
 }

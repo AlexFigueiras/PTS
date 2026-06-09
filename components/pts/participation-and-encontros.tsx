@@ -29,6 +29,7 @@ type EncontroRow = {
   data: Date | string;
   participantes: string[];
   usuarioPresente: boolean;
+  ata?: string | null;
   createdAt: Date | string;
 };
 
@@ -344,6 +345,17 @@ export function ParticipationAndEncontros({
                       {resolveParticipantNames(enc.participantes)}
                     </p>
                   </div>
+
+                  {enc.ata && (
+                    <div className="border-t border-slate-100 pt-2.5 space-y-1">
+                      <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">
+                        Ata
+                      </span>
+                      <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                        {enc.ata}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

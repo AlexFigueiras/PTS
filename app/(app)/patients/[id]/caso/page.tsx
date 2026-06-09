@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { eq, and } from 'drizzle-orm';
 import { ArrowLeft, AlertTriangle, Activity, ClipboardList, Radio, BarChart2, FileText } from 'lucide-react';
 import { getActiveTenantContext } from '@/lib/auth/get-tenant-context';
-import { hasTier } from '@/lib/auth/authorization';
+import { hasTier, hasRole } from '@/lib/auth/authorization';
 import { withTransactionContext } from '@/lib/db/client';
 import { ptsResponses, serviceUnits, tenantMembers, profiles } from '@/lib/db/schema';
 import { GetPatientService } from '@/modules/patients';
@@ -19,6 +19,7 @@ import { SignalList } from '@/components/pts/signal-list';
 import { ManualDimensionForm } from '@/components/pts/demo/manual-dimension-form';
 import { IntensityPanel } from '@/components/pts/intensity-panel';
 import { ParticipationAndEncontros } from '@/components/pts/participation-and-encontros';
+import { ReassignRtControl } from '@/components/pts/reassign-rt-control';
 import { PtsDimensionRepository } from '@/modules/pts/repositories/pts-dimension.repository';
 import { cn } from '@/lib/utils';
 import {
@@ -278,6 +279,12 @@ export default async function CasoIntersetorialPage({ params }: Props) {
               >
                 <ClipboardList size={14} /> Ver PTS Baseline
               </Link>
+              <Link
+                href={`/patients/${patientId}/pts/evolution`}
+                className="flex shrink-0 items-center gap-3 rounded-2xl border border-border bg-background px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground transition-all hover:border-primary/40 hover:text-primary active:scale-95"
+              >
+                <Activity size={14} /> Evolução (Radar)
+              </Link>
             </div>
           </div>
         </div>
@@ -325,6 +332,15 @@ export default async function CasoIntersetorialPage({ params }: Props) {
             currentParticipation={activePlan.participacaoUsuario}
             currentJustificativa={activePlan.participacaoJustificativa}
             encontros={encontros}
+            professionals={professionals}
+          />
+        )}
+
+        {/* Reatribuição de Técnico de Referência (Ajuste D) — Premium, gestores */}
+        {isPremium && activePlan && hasRole(ctx.role, 'MANAGER') && (
+          <ReassignRtControl
+            planId={activePlan.id}
+            currentOwnerId={activePlan.ownerId}
             professionals={professionals}
           />
         )}

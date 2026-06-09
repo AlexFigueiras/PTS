@@ -13,6 +13,7 @@ import { NotificationService } from './notification.service';
 import { ExpurgoJobService } from './expurgo-job.service';
 import { runNonComplianceCheck } from '@/modules/pts/services/non-compliance-alert.service';
 import { runIngestScan } from '@/modules/pts/services/ingest-scan.service';
+import { runReavaliacaoReminders } from '@/modules/pts/services/reavaliacao-reminder.service';
 
 export class JobProcessorService {
   /**
@@ -171,6 +172,11 @@ export class JobProcessorService {
 
       case 'ingest_scan': {
         await runIngestScan(ctx.tenantId);
+        break;
+      }
+
+      case 'reavaliacao_check': {
+        await runReavaliacaoReminders(ctx.tenantId);
         break;
       }
 
