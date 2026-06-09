@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/process",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/jobs/check-noncompliance",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/jobs/scan-ingestion",
+      "schedule": "0 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/jobs/check-reavaliacoes",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}
